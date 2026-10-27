@@ -227,23 +227,23 @@ let
       receivers = k: filter (s: byTo ? "${k}@${s.id}") scopes;
       reduced = listToAttrs (map (k: { name = k; value = listToAttrs (map (r: { name = r.id; value = (reduceAt k r).value; }) (receivers k)); }) sinkNames);
       reduceErrors = concatMap (k: concatMap (r: (reduceAt k r).errors) (receivers k)) sinkNames;
+      graph = { scopes = map (s: { inherit (s) id kind name; }) scopes; edges = map (e: { sink = e.key; from = e.from.id; to = e.to.id; }) routed; };
       lib = static // {
-        inherit holds;
+        inherit holds graph;   # the graph query, readable inside the fleet (docs)
         all = ps: s: all (p: holds p s) ps;
         not = p: s: !holds p s;
         within = p: s: any (holds p) (above s);
         has = p: s: any (holds p) (byParent.${s.id} or [ ]);
-        same = x: y: x.kind == y.kind && x.name == y.name;
+        same = x: y: isAttrs x && isAttrs y && x ? kind && y ? kind && x.kind == y.kind && x.name == y.name;   # total: a non-instance is never the same
         nearest = k: nearest k.__kind;
         scopesOf = x: filter (s: s.kind == x.kind && s.name == x.name) scopes;
         cascade = path: foldl' (a: x: if a != null then a else (get path x).ok or null) null;   # first answer along a list of scopes
       };
     in
     {
-      inherit scopes active reduced;
+      inherit scopes active reduced graph;
       errors = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
-      graph = { scopes = map (s: { inherit (s) id kind name; }) scopes; edges = map (e: { sink = e.key; from = e.from.id; to = e.to.id; }) routed; };
       flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
     };
 in

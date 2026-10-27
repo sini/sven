@@ -1,0 +1,16 @@
+{
+  "web-1": {
+    "environment": "prod",
+    "channel": "stable",
+    "system": "x86_64-linux",
+    "addr": "10.0.1.10",
+    "settings": { "kernel": { "channel": "latest" } }
+  },
+  "web-2": {
+    "environment": "prod",
+    "channel": "stable",
+    "system": "x86_64-linux",
+    "addr": "10.0.1.11",
+    "buildHost": "10.0.1.1"
+  }
+}
