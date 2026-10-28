@@ -1,16 +1,16 @@
 # `nix develop` in docs/: a numtide/devshell. Its commands are a sink: each aspect gives the commands of its part.
-# Every command runs from the repo root ($PRJ_ROOT is docs/, where the shell starts).
+# Every command runs from the repo root, whatever the directory: `nix develop ./docs` from the root, or `nix develop` in docs/.
 { sven, lib, inputs, ... }:
 let
   pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-  cmd = category: name: help: command: { inherit category name help; command = "set -eu; cd \"$PRJ_ROOT/..\"; ${command}"; };
+  cmd = category: name: help: command: { inherit category name help; command = "set -eu; cd \"$(git rev-parse --show-toplevel)\"; ${command}"; }; # from any directory of the repo
   empty = what: expr: ''out=$(${expr}); echo "${what} = $out"; test "$out" = "[ ]"'';
 in
 {
   sven.kinds.site.sinks.commands.out = { commands, ... }: {
     devShells.x86_64-linux.default = inputs.devshell.legacyPackages.x86_64-linux.mkShell {
       name = "sven-docs";
-      packages = [ pkgs.nodejs pkgs.pnpm pkgs.jq ];
+      packages = [ pkgs.nodejs pkgs.pnpm pkgs.jq pkgs.git ];
       commands = lib.concatLists commands; # each aspect gives a list
     };
   };
