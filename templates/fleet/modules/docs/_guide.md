@@ -229,15 +229,29 @@ impact = lib.genAttrs (lib.attrNames hosts) (G.reachers dependsOn); # lb down: s
 { head = "primary:lb"; neg = [ "primary:web-1" ]; }                # and the other way round: two stable models
 ```
 
-**`sven.lib.krn`** is µKanren: logic variables, unification over attrsets, lists and scalars, and goals that run in both directions. It synthesizes values that meet constraints. [query/krn.nix](modules/query/krn.nix) gives each app on lb a port from its range with no two the same. The same relation, run backward, answers which apps can take port 8081. A join over host records by unification places each host's database:
+**`sven.lib.krn`** is µKanren with constraints: logic variables, unification over attrsets, lists and scalars (with an occurs check), and goals that run in both directions. It synthesizes values that meet constraints.
+
+| Goal | Meaning |
+|---|---|
+| `eq u v`, `fresh ({ a, b }: …)`, `freshNamed names (vs: …)`, `disj`, `conde`, `project` | µKanren: unify, new variables, any of, clauses, read a value |
+| `neq u v` | `u` and `v` never unify. The store keeps the constraint, so its place in the goal list does not matter. |
+| `dom x [ … ]`, `infd xs lo hi` | finite domains |
+| `lefd`, `ltfd`, `plusfd x y z`, `neqfd`, `distinctfd xs` | propagation over domains, to a fixpoint after every change |
+| `label xs` | enumerate the values left, smallest domain first |
+| `nil`, `cons h t`, `appendo`, `membero`, `fromList`, `toList` | relational lists as cons cells, as in Scheme: a list of unknown length grows, and `appendo` runs in every direction |
+| `facto rows pattern` | a table of facts |
+| `run n`, `runAll`, `runC n` | answers; `runC` adds the constraints left on fresh variables (`{ value; neq; dom; }`) |
+
+[query/krn.nix](modules/query/krn.nix) uses them on fleet data. Each app on lb gets a port in its range: all different, and prometheus before grafana. The same relation, run backward, answers which apps can take port 8081. Each guest on stage gets memory in its range, and the guests' sum plus the host's reserve fits its RAM. A join over host records places each host's database:
 
 ```nix
-portsRel = apps: range: q: freshNamed apps (vs: map (a: membero vs.${a} range) apps ++ distinct (lib.attrValues vs) ++ [ (eq q vs) ]);
-run 1 (portsRel [ "grafana" "loki" "prometheus" ] [ 8080 8081 8082 8083 ])  # [ { grafana = 8080; loki = 8081; prometheus = 8082; } ]
+portsRel = h: q: freshNamed h.apps (vs: [ (infd (lib.attrValues vs) 8080 8083) (distinctfd (lib.attrValues vs)) (ltfd vs.prometheus vs.grafana) (eq q vs) (label (lib.attrValues vs)) ]);
+# [ { grafana = 8081; loki = 8082; prometheus = 8080; } ]
+memRel: (plusfd 0 ci s0) (plusfd s0 build s1) (lefd s1 (ram - reserve))   # running sums of the guests
 runAll (q: fresh ({ env, d, own }: [ (facto hosts { name = "web-1"; inherit env; db = own; }) (facto hosts { name = d; inherit env; db = true; }) (eq q d) ]))
 ```
 
-krn limits: lists have a fixed length (no cons cells), so `appendo` needs the whole list or both parts. `neq` decides only on ground terms (there is no constraint store), so place it after the goals that choose the values. A search with no answer gives `[ ]`: give an error record then, as `port-synthesis` does.
+A search with no answer gives `[ ]`. Give an error record then, as `port-synthesis` and `memory-synthesis` do. krn has no constraints over terms other than `neq` (no `absento`), and `appendo` with two unknown lists enumerates without end: use `run n`.
 
 ## Patterns in this fleet
 
@@ -282,7 +296,7 @@ krn limits: lists have a fixed length (no cons cells), so `appendo` needs the wh
 | machines from directories, a service from outside `modules/` | clan | [clan/vars.nix](modules/clan/vars.nix), [services/borg.nix](services/borg.nix) |
 | deploy waves, impact of losing a host, a dependency cycle as an error (`sven.lib.graphs`) | den-hoag | [hoag/relations.nix](modules/hoag/relations.nix) |
 | a serving policy with maintenance, drain by dependency, a primary chosen by stable models (`sven.lib.datalog`) | Gen | [query/datalog.nix](modules/query/datalog.nix) |
-| port allocation, database placement, a query run backward (`sven.lib.krn`) | µKanren | [query/krn.nix](modules/query/krn.nix) |
+| port allocation, guest memory, database placement, a query run backward (`sven.lib.krn` with finite domains) | µKanren, CLP(FD) | [query/krn.nix](modules/query/krn.nix) |
 | one machine, two builds | swarsel | [swarsel/variants.nix](modules/swarsel/variants.nix) |
 | one machine writes config into another, and fleet globals | swarsel | [swarsel/distributed.nix](modules/swarsel/distributed.nix) |
 | aspects exported as `nixosModules` | swarsel, Den | [swarsel/exports.nix](modules/swarsel/exports.nix) |
