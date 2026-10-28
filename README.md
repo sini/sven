@@ -2,7 +2,7 @@
 
 A cycle.js inspired pure-Nix language for advanced fleet configurations where everything is a query.
 
-![sven](./sven.png)
+![sven](./docs/public/sven.png)
 
 sven is a small _~500loc_, dependency free _-Nix builtins only-_ query language over nix data, _inspired by [reactive-streams](https://cycle.js.org)_ for configuring fleets of machines: NixOS, nix-darwin, home-manager, terraform, clusters and anything else you can model as plain nix values. You write plain Nix data and behavior. sven answers queries on it: the systems to build, the errors, the graph of who gives what to whom, and whether your rules hold.
 
