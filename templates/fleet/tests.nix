@@ -265,7 +265,8 @@ let
         guest = n: r: { sven, ... }: { sven.guest.${n} = { environment = sven.environment.staging; channel = sven.channel.stable; system = sven.system.x86_64-linux; addr = "10.0.2.3${toString (lib.length r)}"; on = sven.host.stage; ramRange = r; }; }; in
       mem r == [ (builtins.toJSON { ci = 8; }) ]
       && mem (with' (guest "build" [ 4 8 ])) == [ (builtins.toJSON { build = 8; ci = 2; }) ]
-      && hasMsg (with' (guest "big" [ 9 12 ])) ".*the guests of stage do not fit in 16 GiB with 6 reserved.*";
+      && hasMsg (with' (guest "big" [ 9 12 ])) ".*the guests of stage do not fit in 16 GiB with 6 reserved.*"
+      && (let x = with' ({ ... }: { sven.host.stage.ramFuel = 3; }); in hasMsg x ".*the search for stage ran out of fuel.*" && mem x == [ ]);
     krn-placement = noApps out.dbPlacement == { lb = [ "lb" ]; stage = [ "stage" ]; web-1 = [ "lb" ]; web-2 = [ "lb" ]; }
       && lib.sort (a: b: a < b) out.takes8081 == [ "grafana" "loki" "prometheus" ];
     agent-check = r.check.ok && r.check.invariants == [ "attic" "base" "ssh" ] && r.check.violations == [ ];

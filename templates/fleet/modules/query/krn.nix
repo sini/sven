@@ -25,7 +25,7 @@ let
   # the allocation that gives the guests the most memory (the first, in label order, among the largest)
   # the allocation that gives the guests the most memory, by krn maximize within a fuel budget: a search cut by fuel is an
   # error record, never a silent "best"
-  memSearch = h: K.maximize 100000 (m: lib.foldl' (a: x: a + x) 0 (lib.attrValues m)) (memRel h);
+  memSearch = h: K.maximize h.ramFuel (m: lib.foldl' (a: x: a + x) 0 (lib.attrValues m)) (memRel h);
   bestMem = h: let s = memSearch h; in if s.complete then s.best else null;
   hostRows = lib.mapAttrsToList (n: h: { name = n; env = h.environment.name; db = h.dbRole; }) (lib.filterAttrs (_: h: h ? addr) sven.host);
 in
@@ -38,6 +38,7 @@ in
     ram = sven.lib.opt lib.types.int 0;
     ramReserve = sven.lib.opt lib.types.int 0;
     ramRange = sven.lib.opt (sven.helpers.listOf lib.types.int) [ ];
+    ramFuel = sven.lib.opt lib.types.int 100000;   # krn search steps for the memory allocation
   };
   sven.host.lb = { apps = [ "grafana" "loki" "prometheus" ]; portRange = [ 8080 8083 ]; portBefore.prometheus = "grafana"; dbRole = true; };
   sven.host.stage = { dbRole = true; ram = 16; ramReserve = 6; };
