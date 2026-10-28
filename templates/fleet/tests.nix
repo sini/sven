@@ -93,6 +93,16 @@ let
     # ── sini ──
     k3s-cluster-only = lib.sort (a: b: a < b) (on "k3s") == [ web1 web2 ];
     k3s-discovery = out.k8sManifests.axon.applications.k3s.nodes == [ "10.0.1.10" "10.0.1.11" ] && out.k8sManifests.axon.target.branch == "main";
+    k3s-bootstrap = nixosAt web1 [ "services" "k3s" "clusterInit" ] == [ true ] && nixosAt web1 [ "services" "k3s" "serverAddr" ] == [ ]
+      && nixosAt web2 [ "services" "k3s" "serverAddr" ] == [ "https://10.0.1.10:6443" ];
+    acl-sso-only = red "idm-users" P == [ "dana" ] && !lib.any (s: s.kind == "user" && s.name == "dana") r.scopes;
+    acl-host-grants = scope "${web2}/user:bob" == null
+      && lib.any (s: s.id == "${web2}/user:bob") (with' ({ sven, ... }: { sven.host.web-2.grants = [ sven.group.deploy ]; })).scopes;
+    acl-host-gates = scope "${lb}/user:alice" != null
+      && !lib.any (s: s.id == "${lb}/user:alice") (with' ({ sven, ... }: { sven.host.lb.gates = [ sven.group.deploy ]; })).scopes;
+    inference-allow = nixosAt lb [ "environment" "etc" "inference/allow" "text" ] == [ "10.0.1.10\n10.0.2.10\n" ];
+    inference-no-address = hasMsg (with' ({ sven, ... }: { sven.host.web-2.settings.inference.clients = [ "ghost" ]; })) ".*client ghost has no address.*";
+    guard-named-host = out.k8sManifests.axon.applications.guard.hub == "alice@lb";
     ingest-across-envs = nixosAt web1 [ "environment" "etc" "alloy/endpoints" "text" ] == [ "https://ingest.example.org\n" ] && nixosAt stage [ "environment" "etc" "alloy/endpoints" "text" ] == [ "" ];
     domains-records = map (e: e.value.name) (red "dns-records" "fleet:main") == [ "example.org" ] && lib.length (red "certificate-domains" "fleet:main") == 3;
     terranix-conditional = out ? terranixConfigurations.dns-prod && !(out.terranixConfigurations ? dns-staging);

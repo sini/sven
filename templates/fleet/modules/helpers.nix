@@ -17,7 +17,11 @@ in
       startSet = map (g: { key = g.name; inherit g; }) gs;
       operator = x: map (p: { key = p.name; g = p; }) (lib.filter (p: lib.any (same x.g) p.members) (lib.attrValues sven.group));
     });
-    usersOn = s: lib.filterAttrs (_: u: lib.any (g: lib.any (same g) s.environment.grants) (sven.helpers.closure u.groups)) sven.user;
+    # ACL: a posix group of the user meets the environment's or the machine's grants, and the machine's gates when it has any
+    meets = xs: ys: lib.any (x: lib.any (same x) ys) xs;
+    posixOf = u: lib.filter (g: g.label == "posix") (sven.helpers.closure u.groups);
+    usersOn = s: lib.filterAttrs (_: u: let gs = sven.helpers.posixOf u; in
+      sven.helpers.meets gs (s.environment.grants ++ s.grants) && (s.gates == [ ] || sven.helpers.meets gs s.gates)) sven.user;
     flatten = a: ms: lib.mkMerge (map (m: if lib.isFunction m then m a else m) ms); # config-only submodules (users.users.<n>)
     noGui = system: h: cfg: bad:
       let hit = lib.intersectLists bad (map lib.getName cfg.config.environment.systemPackages); in

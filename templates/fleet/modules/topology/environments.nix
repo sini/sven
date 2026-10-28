@@ -19,6 +19,6 @@ in
       out = { terraform, ... }: { terraformConfigurations.dns = inputs.terranix.lib.terranixConfiguration { system = "x86_64-linux"; modules = terraform; }; };
     };
   };
-  sven.environment.prod = { grants = [ sven.group.admin ]; edge = true; settings.kernel.channel = "lts"; };
+  sven.environment.prod = { grants = [ sven.group.admin sven.group.sso ]; edge = true; settings.kernel.channel = "lts"; };
   sven.environment.staging = { grants = [ sven.group.admin sven.group.deploy ]; base = sven.environment.prod; };
 }

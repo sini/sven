@@ -21,7 +21,9 @@ in
   sven.aspects.k3s = {
     at = s: clusterOf s != null;
     k3s-nodes = { host, ... }: host.addr;
-    nixos = { k3s-nodes, host, ... }: { services.k3s.enable = true; services.k3s.serverAddr = "https://${(lib.head (members (clusterOf host) k3s-nodes)).value}:6443"; };
+    # The first node starts the cluster, the others join it. `at` puts the host among its cluster's nodes, so the list is never empty.
+    nixos = { k3s-nodes, host, ... }: let first = lib.head (members (clusterOf host) k3s-nodes); in
+      { services.k3s.enable = true; } // (if same first.from host then { services.k3s.clusterInit = true; } else { services.k3s.serverAddr = "https://${first.value}:6443"; });
   };
   sven.aspects.k3s-registries = {
     at = sven.kinds.cluster;
