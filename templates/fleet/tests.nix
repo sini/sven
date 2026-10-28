@@ -156,8 +156,8 @@ let
     sini-nix-builders = first (nixosAt lb [ "nix" "buildMachines" ]) == [ { hostName = "10.0.1.10"; system = "x86_64-linux"; } ] && first (nixosAt web1 [ "nix" "buildMachines" ]) == [ ];
     adda-caddy = names (nixosAt lb [ "services" "caddy" "virtualHosts" ]) == [ "grafana.example.org" "status.example.org" ];
     adda-templates = out.templates.default.description == "A sven fleet";
-    vix-vim-features = red "vim" "${"fleet:main/system:x86_64-linux"}/vim:dev" == [ "vim.o.number = true" "require('gitsigns').setup()" "vim.lsp.enable('nixd')" "vim.cmd.colorscheme('tokyonight')" ]
-      && red "vim" "fleet:main/system:x86_64-linux/vim:min" == [ "vim.o.number = true" ] && out.packages.x86_64-linux ? vim-dev;
+    vix-vim-features = red "vimrc" "${"fleet:main/system:x86_64-linux"}/vim:dev" == [ "vim.o.number = true" "require('gitsigns').setup()" "vim.lsp.enable('nixd')" "vim.cmd.colorscheme('tokyonight')" ]
+      && red "vimrc" "fleet:main/system:x86_64-linux/vim:min" == [ "vim.o.number = true" ] && out.packages.x86_64-linux ? vim-dev && lib.hasInfix "vim.lsp.enable" out.packages.x86_64-linux.vim-dev.text;   # the package text: the arg reads the sink, not the kind
     vix-secrets = map (s: s.name) (red "secrets" "${stage}/user:bob") == [ "gh-token" "gpg-key" ] && map (s: s.name) (red "secrets" "${lb}/user:alice") == [ "gh-token" ];
 
     # ── checks derived from the infra ──
@@ -178,7 +178,7 @@ let
     den-instance-side-include = r.active.desktop.${stage} && r.active.motd."fleet:main/export:base";
     den-permutation-stable = let
         rev = sven.eval { imports = lib.reverseList (import ./_modules-list.nix); _module.args = { inherit inputs lib; }; };
-        j = q: builtins.toJSON (map (k: q.reduced.${k}) [ "persist" "backends" "records" "tags" "vim" "secrets" "ci" ]);
+        j = q: builtins.toJSON (map (k: q.reduced.${k}) [ "persist" "backends" "records" "tags" "vimrc" "secrets" "ci" ]);
       in j rev == j r && map (s: s.id) rev.scopes == map (s: s.id) r.scopes;
     den-sibling-laziness = let p = with' ({ sven, ... }: { sven.aspects.poison = { at = sven.host.web-2; nixos = throw "poisoned web-2"; }; }); in
       lib.length p.reduced.nixos.${lb} > 0 && !(builtins.tryEval (builtins.deepSeq p.reduced.nixos.${web2} true)).success;
@@ -340,6 +340,8 @@ let
     lbCfg = out.nixosConfigurations.lb.config;
     checks = {
       lb-toplevel = lib.hasSuffix ".drv" lbCfg.system.build.toplevel.drvPath;
+      # every CI target evaluates to a derivation (assertions included): the darwin system too
+      studio-toplevel = lib.hasSuffix ".drv" out.darwinConfigurations.studio.config.system.build.toplevel.drvPath;
       # trimmed base module lists: the same toplevel as the full list; a list without nginx fails for a host that sets it
       modlist-same-drv = let d = c: c.config.system.build.toplevel.drvPath; in
         lib.attrNames out.nixosConfigurationsFull == [ "app-2" "web-1" ]

@@ -1,0 +1,132 @@
+# Every sven test, on each push and pull request:
+#   engine       the engine and library oracles, and the memo cost oracles
+#   fleet        the fleet checks (tests.nix failed) and the real NixOS, darwin and home-manager evaluations (e2e)
+#   fleet-cost   the trimmed-module-list cost oracle (drvPath identity, thunk bound)
+#   mcp          the MCP server and its flake app
+#   flake-check  `nix flake check` of the fleet: generated files, flake-file, infra facts, VM test (needs KVM)
+#   eval         every CI target of templates/fleet/ci.json evaluates to a derivation
+name: test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FLEET: path:${{ github.workspace }}?dir=templates/fleet
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: engine and library oracles
+        run: |
+          out=$(nix-instantiate --eval --strict tests -A failed)
+          echo "failed = $out"
+          test "$out" = "[ ]"
+      - name: cost oracles (memos)
+        run: bash tests/cost.sh
+
+  fleet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: fleet checks
+        working-directory: templates/fleet
+        run: |
+          out=$(nix eval --impure --file tests.nix failed)
+          echo "failed = $out"
+          test "$out" = "[ ]"
+      - name: real evaluations (e2e)
+        working-directory: templates/fleet
+        run: |
+          out=$(nix eval --impure --file tests.nix e2e.failed)
+          echo "e2e.failed = $out"
+          test "$out" = "[ ]"
+
+  fleet-cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: trimmed module lists cost oracle
+        working-directory: templates/fleet
+        run: bash cost.sh
+
+  mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: MCP server and flake app
+        working-directory: templates/fleet
+        run: bash mcp/test.sh
+
+  flake-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: enable KVM (the VM test)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: system-features = nixos-test benchmark big-parallel kvm
+      - name: nix flake check
+        run: nix flake check -L "$FLEET"
+
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: echo "matrix=$(jq -c . templates/fleet/ci.json)" >> "$GITHUB_OUTPUT"
+
+  eval:
+    needs: targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    name: eval ${{ matrix.target.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: evaluate ${{ matrix.target.attr }}
+        env:
+          ATTR: ${{ matrix.target.attr }}
+        run: |
+          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
+          echo "$drv"
+          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac

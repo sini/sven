@@ -6,9 +6,14 @@ set -u
 cd "$(dirname "${BASH_SOURCE[0]}")"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 fails=0
+# in CI (no systemd user session) the cap is `timeout` alone; locally it adds a 12 GiB scope
 run() { # name args -> stats json + output
-  timeout -k 5 600 systemd-run --user --scope -q -p MemoryMax=12G -E NIX_SHOW_STATS=1 -E NIX_SHOW_STATS_PATH="$tmp/$1.json" \
-    nix-instantiate --eval --strict "${@:2}" >"$tmp/$1.out" 2>"$tmp/$1.err"
+  if [ -n "${CI:-}" ]; then
+    NIX_SHOW_STATS=1 NIX_SHOW_STATS_PATH="$tmp/$1.json" timeout -k 5 600 nix-instantiate --eval --strict "${@:2}" >"$tmp/$1.out" 2>"$tmp/$1.err"
+  else
+    timeout -k 5 600 systemd-run --user --scope -q -p MemoryMax=12G -E NIX_SHOW_STATS=1 -E NIX_SHOW_STATS_PATH="$tmp/$1.json" \
+      nix-instantiate --eval --strict "${@:2}" >"$tmp/$1.out" 2>"$tmp/$1.err"
+  fi
 }
 run full --arg trimmed false bench-modlist.nix && run trim --arg trimmed true bench-modlist.nix || { echo "FAIL modlist (eval)"; exit 1; }
 for m in cpuTime nrThunks nrFunctionCalls; do printf '%s full=%s trimmed=%s\n' "$m" "$(jq ".$m" "$tmp/full.json")" "$(jq ".$m" "$tmp/trim.json")"; done
