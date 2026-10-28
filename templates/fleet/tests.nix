@@ -256,8 +256,13 @@ let
       && etc (with' ({ ... }: { sven.host.web-1.maintenance = true; })) "lb/serving" == [ "web-2" ]   # stage depends on web-1: drained too
       && lib.hasInfix "web:web-1" (lib.head (etc r "lb/why-web-1"));
     krn-ports = let p = builtins.fromJSON (lib.head (lib.filter (v: v != null) (map (m: m.environment.etc."apps/ports".text or null) (list (red "nixos" lb))))); in
-      p == { grafana = 8080; loki = 8081; prometheus = 8082; } && lib.length (lib.unique (lib.attrValues p)) == 3
-      && hasMsg (with' ({ ... }: { sven.host.stage = { apps = [ "a" "b" ]; portRange = [ 9000 ]; }; })) ".*no allocation for stage: 2 apps, ports 9000.*";
+      p == { grafana = 8081; loki = 8082; prometheus = 8080; } && p.prometheus < p.grafana && lib.length (lib.unique (lib.attrValues p)) == 3
+      && hasMsg (with' ({ ... }: { sven.host.web-2 = { apps = [ "a" "b" ]; portRange = [ 9000 9000 ]; }; })) ".*no allocation for web-2: 2 apps, ports 9000 9000.*";
+    krn-memory = let mem = x: lib.filter (v: v != null) (map (m: m.environment.etc."guests/memory".text or null) (list (x.reduced.nixos.${stage} or null)));
+        guest = n: r: { sven, ... }: { sven.guest.${n} = { environment = sven.environment.staging; channel = sven.channel.stable; system = sven.system.x86_64-linux; addr = "10.0.2.3${toString (lib.length r)}"; on = sven.host.stage; ramRange = r; }; }; in
+      mem r == [ (builtins.toJSON { ci = 8; }) ]
+      && mem (with' (guest "build" [ 4 8 ])) == [ (builtins.toJSON { build = 8; ci = 2; }) ]
+      && hasMsg (with' (guest "big" [ 9 12 ])) ".*the guests of stage do not fit in 16 GiB with 6 reserved.*";
     krn-placement = out.dbPlacement == { lb = [ "lb" ]; stage = [ "stage" ]; web-1 = [ "lb" ]; web-2 = [ "lb" ]; }
       && lib.sort (a: b: a < b) out.takes8081 == [ "grafana" "loki" "prometheus" ];
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
