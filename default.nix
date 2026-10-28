@@ -328,6 +328,7 @@ let
            proof = a: D.proof (rules ++ D.facts facts) m a; invariants = attrNames invs; };
       lib = static // {
         inherit holds graph declaredIn;   # the graph query, readable inside the fleet (docs)
+        inherit stage change program grants diffData without; inherit (grants) grant narrow allowed;   # agent tools, inside the fleet too
         all = ps: { __all = ps; __functor = self: holds self; };
         not = p: { __not = p; __functor = self: holds self; };
         within = p: { __within = p; __functor = self: holds self; };
@@ -453,8 +454,6 @@ let
       };
     in
     self;
-in
-let
   # grants that only narrow: a grant names scope id prefixes and sinks (null: every sink). Two grants meet: a scope
   # stays when one prefix holds the other (the longer is kept), sinks intersect. There is no way to widen.
   hasPrefix = p: s: b.substring 0 (b.stringLength p) s == p;

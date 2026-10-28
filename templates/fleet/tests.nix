@@ -306,6 +306,11 @@ let
     safety-trust-order = let s = sven.stage { base = fleet [ ]; change = { sven, ... }: { sven.host.app-4.dependsOn = [ sven.host.stage ]; }; }; in
       !s.ok && s.violations == [ "bad:trust-down:fleet:main/environment:lab/host:app-4:stage" ]
       && (sven.stage { base = fleet [ ]; change = { sven, ... }: { sven.host.app-4.dependsOn = [ sven.host.lb ]; }; }).violations == [ ];
+    synth-free-port = let a = r.ask "freePort" { host = "lb"; }; in a.port == 8083 && lib.sort (x: y: x < y) a.used == [ 8080 8081 8082 ]
+      && (r.ask "freePort" { host = "web-1"; }).port == 8080;
+    synth-place-db = r.ask "placeDb" { host = "web-1"; } == [ "lb" ] && r.ask "placeDb" { host = "stage"; } == [ "stage" ];
+    synth-safe-hosts = r.ask "safeHostsFor" { aspect = "attic"; env = "staging"; }
+      == { safe = [ "stage" ]; refused.studio = [ "bad:attic-on-mac:fleet:main/environment:staging/mac:studio" ]; };
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };
