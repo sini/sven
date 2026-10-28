@@ -297,6 +297,27 @@ sven.lib.stage { base = fleet; change = { sven.aspects.attic.at = [ { kind = "ma
 
 **Knowledge packs.** `sven.lib.rdf.share r` gives the eval result as sorted N-Triples with a sha256 and a count: scopes, kinds, parents, active aspects, every routed element as a node with its origin, and errors. The same fleet gives the same hash in every file order, so two revisions compare by hash first. [agent/rdf.nix](modules/agent/rdf.nix) packs the routing graph as `out.rdfPack`.
 
+**Stored queries.** `sven.queries.<name> = { host, r }: …` names a question. `r` is the eval result; the other formal args are its parameters, required unless they have a default. `r.queries` lists them with `required` and `optional`, and `r.ask name args` answers, or gives an error record for an unknown query, a missing parameter or an unknown one ([agent/queries.nix](modules/agent/queries.nix)).
+
+**What else breaks, and what if it were gone.** `r.impact id { hops; sinks; max; }` follows routed elements from a scope, by depth, with `truncated`. `sven.lib.without { files; path; args; }` evaluates the fleet without the files that declare `path`: a whole file goes, there is no hook to remove part of one.
+
+**History and valid time.** `sven.lib.asOf { url; rev; module; }` evaluates the fleet at a git revision; `sven.lib.history { url; revs; module; }` lists each revision with the field changes from the one before (`diffData` over `r.data`). Valid time is data: an instance with `validFrom` or `validTo` holds at a date the caller passes, `sven.lib.validAt "2026-11-15"`. Pure evaluation has no clock.
+
+**Labels.** `sven.labels."agent/" = { trust = 1; }` labels the content of files whose path contains `agent/`. An aspect declared in several files takes the lowest trust of them (the meet). `r.labels` gives each aspect's label and `r.floor 3` every routed element of an aspect below trust 3, with the file.
+
+**A knowledge pack per revision.** An agent that keeps a store such as quipu knots `sven.lib.rdf.share r` into a named graph under one snapshot key, with `replace_snapshot`. Each revision replaces the last; the old one stays readable by transaction:
+
+```
+SELECT ?name WHERE { ?s rdf:type <https://sven.dev/fleet/kind/host> ; <https://sven.dev/fleet/sven/name> ?name }
+# at the first revision's tx: db, web.   Now: web.
+```
+
+**Bounded search.** A krn query an agent writes must stop. `sven.lib.krn.runFuel n fuel f` and `runAllFuel fuel f` count each search step and return `{ answers; complete; }`: `complete = false` means "bounded", never "no answer". `maximize fuel measure f` gives `{ best; value; complete; count; }`; a best found under `complete = false` is not proven optimal. [query/krn.nix](modules/query/krn.nix) gives guest memory by `maximize` with `ramFuel` steps; a search that runs out of fuel is an error record.
+
+**Shapes.** `sven.lib.rdf.shacl r` gives SHACL shapes from the schema: one node shape per kind with scopes, `sven:name` required, `sven:parent` of the spawning kind, each field at most once, and `sh:class` for ref fields. The pack types every instance, so a ref meets its class. quipu's validator accepts the pack of a fixture fleet and reports one `sh:class` violation for a ref to a missing instance.
+
+**An MCP server.** `templates/fleet/mcp/sven-mcp.sh` answers agents over stdio (JSON-RPC, MCP). Its tools: `sven_schema`, `sven_check`, `sven_context`, `sven_explain`, `sven_errors`, `sven_declared_in`, `sven_export` (the knowledge pack; the agent decides whether to store it) and `sven_stage` (a change as JSON, in quarantine). Each answer is `{ complete; result }` or `{ complete = false; error }`; a timeout is never an empty answer. Arguments reach Nix through a file and `builtins.fromJSON`, never through string interpolation. `mcp/test.sh` drives it.
+
 **Grants only narrow.** `sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where an agent may give elements. `narrow g h` keeps what both allow. No function makes a grant wider. A staged change that gives an element outside its grant is refused.
 
 ## Patterns in this fleet
@@ -413,6 +434,21 @@ Three families of Den bugs cannot happen in sven:
 | vars generators, `share`, dependencies, `neededFor`, `deploy = false`, recipients | the `generators` sink and `out.varsPlan` | [clan/vars.nix](modules/clan/vars.nix) |
 | autoincludes from `machines/<name>/` | a host per directory, its `configuration.nix` imported | [clan/vars.nix](modules/clan/vars.nix) |
 
+## Shared pkgs: one nixpkgs per channel and system
+
+sven's own part of a host is small: on lb it is 1.4% of the evaluation. Most of the time goes to nixpkgs `pkgs` (56%) and the NixOS module system (36%) ([vic/evalmodules-research.md](https://github.com/vic/sven/blob/main/vic/evalmodules-research.md)). By default each host imports nixpkgs again. A host with `sharedPkgs = true` reuses the `pkgs` of the first sharing host on its channel and system, through nixpkgs' `readOnlyPkgs` ([platforms/nixos.nix](modules/platforms/nixos.nix)).
+
+The `lab` environment compares the two: `app-1`, `app-2` and `app-3` share, `app-4` builds its own ([hosts/apps.nix](modules/hosts/apps.nix)). `bench-shared.nix` evaluates app-1..3 both ways:
+
+| app-1..3 toplevel | CPU | Thunks | Function calls |
+|---|---|---|---|
+| each its own pkgs | 19.0 s | 21.7 M | 17.0 M |
+| shared pkgs | 12.7 s | 16.8 M | 12.9 M |
+
+The `drvPath`s are the same both ways. The e2e check `shared-pkgs-same-drv` proves it on every run: each follower's toplevel equals its build with its own `pkgs` (`nixosConfigurationsOwnPkgs`).
+
+Two rules. A sharing host cannot set `nixpkgs.config` or `nixpkgs.overlays` of its own: its group shares them, so every host in the group must give the same. And documentation must be off on sharing hosts, because the manual and man pages differ when `pkgs` is shared.
+
 ## Generated files and checks
 
 `flake.nix`, `README.md` and `ci.json` are generated. Do not edit them. Edit `modules/`, then run:
@@ -451,7 +487,7 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 ```
 
 ## This fleet, live
-Generated from the fleet's queries: 74 scopes, 28 kinds, 181 aspects, 788 routed elements.
+Generated from the fleet's queries: 87 scopes, 28 kinds, 183 aspects, 962 routed elements.
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
 | `backup` |  |  | `nixos` | 3 |
@@ -460,18 +496,18 @@ Generated from the fleet's queries: 74 scopes, 28 kinds, 181 aspects, 788 routed
 | `database` |  | `connect`, `secret` |  | 3 |
 | `db` | `zone` |  |  | 0 |
 | `domain` | `mail`, `under` | `domain` |  | 3 |
-| `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `idm-users`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
+| `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `idm-users`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 3 |
 | `export` |  |  | `os` | 1 |
 | `fleet` | `recipients`, `secretStore` | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `exports`, `flake-file`, `gateway-upstreams`, `generators`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `public-reads`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `warnings`, `xmsg-nodes` | 1 |
 | `group` | `label`, `members` |  |  | 0 |
-| `guest` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `on`, `passthrough`, `portBefore`, `portRange`, `ram`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
+| `guest` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `on`, `passthrough`, `portBefore`, `portRange`, `ram`, `ramFuel`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `sharedPkgs`, `system`, `system-owner`, `tokens`, `unpersist`, `validTo`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |
 | `home` | `channel`, `on`, `system`, `user` | `user` | `homeManager`, `os` | 2 |
-| `host` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portBefore`, `portRange`, `ram`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `member`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
+| `host` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portBefore`, `portRange`, `ram`, `ramFuel`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `sharedPkgs`, `system`, `system-owner`, `tokens`, `unpersist`, `validTo`, `via` | `backup`, `guest`, `home`, `host`, `member`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 9 |
 | `instance` | `module`, `roles` |  |  | 0 |
-| `mac` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portBefore`, `portRange`, `ram`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `member`, `user` | `darwin`, `os` | 1 |
-| `machine` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portBefore`, `portRange`, `ram`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
-| `member` |  |  |  | 18 |
+| `mac` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portBefore`, `portRange`, `ram`, `ramFuel`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `sharedPkgs`, `system`, `system-owner`, `tokens`, `unpersist`, `validTo`, `via` | `member`, `user` | `darwin`, `os` | 1 |
+| `machine` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portBefore`, `portRange`, `ram`, `ramFuel`, `ramRange`, `ramReserve`, `secretStore`, `settings`, `sharedPkgs`, `system`, `system-owner`, `tokens`, `unpersist`, `validTo`, `via` |  |  | 0 |
+| `member` |  |  |  | 26 |
 | `pet` | `of` | `toy` |  | 2 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |
 | `region` | `zone` |  |  | 0 |
@@ -502,6 +538,20 @@ flowchart LR
   n2911e9c415["example.org"]
   n366cbd5f9b["api.example.org"]
   nab02c799e7["v1.api.example.org"]
+  subgraph nf631382c77 ["environment lab"]
+    n6f22ef9133["app-1"]
+    n0300c386fd["app-2"]
+    n5358012523["app-3"]
+    nb446a1a284["app-4"]
+  end
+  n9598894353{{"backup.client"}}
+  n0ad406712f{{"sshd.server"}}
+  nef3d0fda6b{{"backup.client"}}
+  n710be7f945{{"sshd.server"}}
+  n56efb277d7{{"backup.client"}}
+  n022b5bf7e6{{"sshd.server"}}
+  n78160d601b{{"backup.client"}}
+  n547a45d6ea{{"sshd.server"}}
   subgraph n4a308930d1 ["environment prod"]
     n4fab18710d["axon"]
     nc1312ce7ae["lb"]
@@ -577,6 +627,15 @@ flowchart LR
   n6c4c773b6d --> n2911e9c415
   n2911e9c415 --> n366cbd5f9b
   n366cbd5f9b --> nab02c799e7
+  n6c4c773b6d --> nf631382c77
+  n6f22ef9133 --> n9598894353
+  n6f22ef9133 --> n0ad406712f
+  n0300c386fd --> nef3d0fda6b
+  n0300c386fd --> n710be7f945
+  n5358012523 --> n56efb277d7
+  n5358012523 --> n022b5bf7e6
+  nb446a1a284 --> n78160d601b
+  nb446a1a284 --> n547a45d6ea
   n6c4c773b6d --> n4a308930d1
   nc1312ce7ae --> nf9f17122b2
   nc1312ce7ae --> n701b3a108b
@@ -818,7 +877,7 @@ flowchart LR
   n2b6100fe44 -->|"prod"| n4218c12206
   ncc06734691 -->|"prod"| n4218c12206
   n635f763452 -->|"prod"| n4218c12206
-  na38fcc0344 -->|"alice-laptop, alice@stage, base, ci, lb, lb-minimal, +4"| n4218c12206
+  na38fcc0344 -->|"alice-laptop, alice@stage, app-1, app-2, app-3, app-4, +8"| n4218c12206
   n51433b8bd8 -->|"main"| n4218c12206
   nd71746440e -->|"main"| n4218c12206
   n632ce41da4 -->|"main"| n4218c12206
@@ -841,7 +900,7 @@ flowchart LR
   n2e96af1184 -.->|"host"| neb8b81b71c
   na788f0f454 -.->|"host"| n2aba2b8d3f
   na788f0f454 -.->|"host"| nd71746440e
-  na788f0f454 -->|"ci, debug, lb, lb-minimal, nightly, stage, +2"| n4218c12206
+  na788f0f454 -->|"app-1, app-2, app-3, app-4, ci, debug, +6"| n4218c12206
   na38fcc0344 -.->|"host"| na788f0f454
   n9608c364fa -.->|"host"| na788f0f454
   n2306021a40 -.->|"host"| na38fcc0344
@@ -987,12 +1046,24 @@ flowchart LR
   n11f8045e3c{{"svc-a (users)"}}
   n4748d5f1db{{"svc-b (users)"}}
   n29bce928a3{{"wifi (wifi)"}}
+  n6f22ef9133["app-1"]
+  n0300c386fd["app-2"]
+  n5358012523["app-3"]
+  nb446a1a284["app-4"]
   nc1312ce7ae["lb"]
   n701b3a108b["lb-minimal"]
   n348d430633["web-1"]
   n83e8ed4efa["web-2"]
   n6d0ac6bdcf["stage"]
   n2ed910d1a2("studio")
+  n8124926b70 -->|"client"| n6f22ef9133
+  n3f242defca -->|"server"| n6f22ef9133
+  n8124926b70 -->|"client"| n0300c386fd
+  n3f242defca -->|"server"| n0300c386fd
+  n8124926b70 -->|"client"| n5358012523
+  n3f242defca -->|"server"| n5358012523
+  n8124926b70 -->|"client"| nb446a1a284
+  n3f242defca -->|"server"| nb446a1a284
   n8124926b70 -->|"client"| n701b3a108b
   n3f242defca -->|"server"| n701b3a108b
   n8124926b70 -->|"client"| nc1312ce7ae
@@ -1017,12 +1088,20 @@ flowchart LR
 
 ```mermaid
 flowchart LR
+  n74bd4a0a3c["borg-backup@app-1 · app-1"]
+  n77b243f0ea["borg-backup@app-2 · app-2"]
+  ne06c6af0c5["borg-backup@app-3 · app-3"]
+  ncf2b33ee93["borg-backup@app-4 · app-4"]
   nc6bd2b6cfb["borg-backup@lb · lb"]
   n1c995d288a["borg-backup@lb-minimal · lb-minimal"]
   nb7d1d194e5["borg-backup@stage · stage"]
   nb998136565["borg-backup@web-1 · web-1"]
   nd0e0d1b2da["borg-backup@web-2 · web-2"]
   ne351d50168["from-exports@web-1 · web-1"]
+  n100bbb9e62["openssh@app-1 · app-1"]
+  nc571bbff1f["openssh@app-2 · app-2"]
+  n4d8486d320["openssh@app-3 · app-3"]
+  n3468fb4feb["openssh@app-4 · app-4"]
   n7e7d3468bc["openssh@lb · lb"]
   na4fea78605["openssh@lb-minimal · lb-minimal"]
   n5fc666537c["openssh@stage · stage"]
@@ -1030,6 +1109,10 @@ flowchart LR
   n914f0bf04d["openssh@web-1 · web-1"]
   nb4ef6d445f["openssh@web-2 · web-2"]
   n232f52aea6{{"wifi.home · stage"}}
+  n100bbb9e62 --> n74bd4a0a3c
+  nc571bbff1f --> n77b243f0ea
+  n4d8486d320 --> ne06c6af0c5
+  n3468fb4feb --> ncf2b33ee93
   n7e7d3468bc --> nc6bd2b6cfb
   na4fea78605 --> n1c995d288a
   n5fc666537c --> nb7d1d194e5
@@ -1055,15 +1138,20 @@ flowchart LR
 ### Summary
 | Environment | Machines | Users | Clusters |
 |---|---|---|---|
+| `lab` | app-1, app-2, app-3, app-4 | 0 |  |
 | `prod` | lb, lb-minimal, web-1, web-2 | 1 | axon |
 | `staging` | ci, stage, studio | 2 |  |
 
 | Machine | Kind | Aspects giving elements | Some aspects |
 |---|---|---|---|
+| `app-1` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
+| `app-2` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
+| `app-3` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
+| `app-4` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
 | `lb` | host | 48 | alloy, attic, base, caddy, ci-host, clan-sshd, +42 |
 | `lb-minimal` | host | 29 | alloy, base, clan-sshd, deploy-record, dev, env-tuning, +23 |
 | `web-1` | host | 46 | alloy, api-route, base, ci-host, clan-sshd, db-claim, +40 |
-| `web-2` | host | 43 | alloy, autoinclude, base, ci-host, clan-sshd, db-claim, +37 |
+| `web-2` | host | 44 | alloy, autoinclude, base, ci-host, clan-sshd, db-claim, +38 |
 | `stage` | host | 52 | alloy, base, ci-host, clan-sshd, db-claim, db-client, +46 |
 | `ci` | guest | 12 | alloy, base, dev, docker, global-pkgs, globals-addr, +6 |
 | `studio` | mac | 11 | base, ci-mac, clan-sshd, dev, dock, global-pkgs, +5 |
@@ -1077,13 +1165,13 @@ flowchart LR
 | `both` | user | user | 2 |
 | `certificate-domains` | domain | fleet | 3 |
 | `checks` | system | system | 1 |
-| `ci` | home, host, mac, system | fleet | 10 |
-| `class-members` | host | fleet | 5 |
-| `colmena` | host | fleet | 5 |
+| `ci` | home, host, mac, system | fleet | 14 |
+| `class-members` | host | fleet | 9 |
+| `colmena` | host | fleet | 9 |
 | `connect-claims` | fleet | fleet | 1 |
 | `darwin` | mac | mac | 3 |
 | `db-claims` | host | fleet | 3 |
-| `deploy` | host | host | 5 |
+| `deploy` | host | host | 9 |
 | `dev` | host | host | 1 |
 | `devshell` | system | system | 6 |
 | `dns-records` | domain | fleet | 1 |
@@ -1091,44 +1179,44 @@ flowchart LR
 | `droid` | phone | phone | 1 |
 | `exports` | member | fleet | 2 |
 | `files` | system | system | 2 |
-| `flake-file` | fleet, guest, host | fleet | 10 |
+| `flake-file` | fleet, guest, host | fleet | 14 |
 | `fw` | host | host | 2 |
 | `fw-tcp` | host | host | 1 |
 | `gateway-upstreams` | host | fleet | 1 |
-| `generators` | guest, host, mac, member | fleet | 19 |
+| `generators` | guest, host, mac, member | fleet | 31 |
 | `git` | user | user | 26 |
 | `git-hooks` | system | system | 3 |
-| `globals` | guest, host, mac | fleet | 6 |
+| `globals` | guest, host, mac | fleet | 10 |
 | `hmvals` | user | user | 10 |
 | `homeDarwin` | user | user | 2 |
 | `homeLinux` | user | user | 9 |
 | `homeManager` | user | home, phone, user | 125 |
-| `host-addrs` | host | fleet | 5 |
-| `idm-users` | environment | environment | 2 |
+| `host-addrs` | host | fleet | 9 |
+| `idm-users` | environment | environment | 3 |
 | `inference-clients` | host | fleet | 1 |
-| `infra` | host | fleet | 7 |
-| `isNixos` | host | host | 5 |
+| `infra` | host | fleet | 11 |
+| `isNixos` | host | host | 9 |
 | `k3s-nodes` | host | environment | 2 |
 | `k8s-manifests` | cluster | cluster | 4 |
 | `maid` | user | user | 4 |
-| `mesh-peers` | host | environment | 4 |
+| `mesh-peers` | host | environment | 8 |
 | `meta` | hive | hive | 2 |
 | `monitor` | host | host | 1 |
 | `monitoring-ingest` | cluster | fleet | 1 |
-| `nixos` | backup, guest, host, member, user, variant | backup, guest, host, variant | 150 |
+| `nixos` | backup, guest, host, member, user, variant | backup, guest, host, variant | 227 |
 | `no-gui` | system | system | 1 |
 | `nodes` | host | fleet | 1 |
-| `os` | export, guest, host, mac, member, user | export, guest, home, host, mac | 93 |
-| `out` | cluster, environment, export, fleet, hive, home, +5 | fleet | 51 |
+| `os` | export, guest, host, mac, member, user | export, guest, home, host, mac | 113 |
+| `out` | cluster, environment, export, fleet, hive, home, +5 | fleet | 55 |
 | `overlays` | fleet | fleet | 1 |
 | `packages` | system | system | 7 |
 | `pairs` | host, toy | host | 6 |
 | `peer-dev` | user | fleet | 9 |
 | `persist` | guest, host, user | guest, host | 14 |
-| `platform` | host | host | 5 |
+| `platform` | host | host | 9 |
 | `port-forwards` | host | environment | 1 |
-| `public-reads` | host, mac | fleet | 6 |
-| `records` | guest, host, mac | fleet | 7 |
+| `public-reads` | host, mac | fleet | 10 |
+| `records` | guest, host, mac | fleet | 11 |
 | `replicate-home` | user | fleet | 9 |
 | `route-claims` | host | fleet | 1 |
 | `scrape` | replica | fleet | 1 |
@@ -1143,12 +1231,12 @@ flowchart LR
 | `terranix` | environment | environment | 1 |
 | `token-claims` | host | fleet | 2 |
 | `treefmt` | system | system | 3 |
-| `tuning` | host | host | 10 |
+| `tuning` | host | host | 14 |
 | `unfree` | host | host | 1 |
 | `unifi` | environment | environment | 1 |
 | `unit-checks` | fleet | fleet | 1 |
 | `user-packages` | user | fleet | 9 |
-| `vars` | fleet, host | fleet | 6 |
+| `vars` | fleet, host | fleet | 10 |
 | `vim` | vim | vim | 5 |
 | `warnings` | fleet | fleet | 1 |
 | `xmsg-nodes` | user | fleet | 13 |
@@ -1158,6 +1246,10 @@ flowchart LR
 |---|---|---|
 | `alice-laptop` | `x86_64-linux` | `homeConfigurations."alice-laptop".activationPackage` |
 | `alice@stage` | `x86_64-linux` | `homeConfigurations."alice@stage".activationPackage` |
+| `app-1` | `x86_64-linux` | `nixosConfigurations.app-1.config.system.build.toplevel` |
+| `app-2` | `x86_64-linux` | `nixosConfigurations.app-2.config.system.build.toplevel` |
+| `app-3` | `x86_64-linux` | `nixosConfigurations.app-3.config.system.build.toplevel` |
+| `app-4` | `x86_64-linux` | `nixosConfigurations.app-4.config.system.build.toplevel` |
 | `devshell-aarch64-darwin` | `aarch64-darwin` | `devShells.aarch64-darwin.default` |
 | `devshell-aarch64-linux` | `aarch64-linux` | `devShells.aarch64-linux.default` |
 | `devshell-x86_64-linux` | `x86_64-linux` | `devShells.x86_64-linux.default` |
