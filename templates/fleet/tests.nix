@@ -311,6 +311,8 @@ let
     synth-place-db = r.ask "placeDb" { host = "web-1"; } == [ "lb" ] && r.ask "placeDb" { host = "stage"; } == [ "stage" ];
     synth-safe-hosts = r.ask "safeHostsFor" { aspect = "attic"; env = "staging"; }
       == { safe = [ "stage" ]; refused.studio = [ "bad:attic-on-mac:fleet:main/environment:staging/mac:studio" ]; };
+    clan-install-order = let w = r.ask "installOrder" { instance = "backup"; }; in
+      lib.head w == [ "lb" ] && lib.length w == 2 && lib.elem "web-1" (lib.elemAt w 1) && !(lib.elem "lb" (lib.elemAt w 1));
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };
