@@ -520,3 +520,5 @@ From the sven repository root, the engine and library oracles, and the cost orac
 nix-instantiate --eval --strict tests -A failed   # [ ]: engine, datalog, rdf, krn and shacl suites
 bash tests/cost.sh                                # PASS aspect-ref-memo, PASS reduction-memo
 ```
+
+GitHub Actions run all of these on each push and pull request ([.github/workflows/test.yml](https://github.com/vic/sven/blob/main/.github/workflows/test.yml)): the engine and cost oracles, the fleet checks and e2e evaluations, the fleet cost oracle, the MCP tests, `nix flake check` (with KVM for the VM test) and one job per `ci.json` target that must evaluate to a derivation.

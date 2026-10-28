@@ -35,3 +35,5 @@ The reference fleet shows every capability of [Den](https://github.com/denful/de
 ## Start
 
 Read the [fleet guide](templates/fleet/README.md): start with [Start](templates/fleet/README.md#start). Then see [the fleet, live](templates/fleet/README.md#this-fleet-live), which has diagrams generated from its own queries, and the [capability index](templates/fleet/README.md#capability-index-generated), which lists everything sven can do.
+
+Every test runs in GitHub Actions on each push: [.github/workflows/test.yml](.github/workflows/test.yml).
