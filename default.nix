@@ -137,7 +137,8 @@ let
         else concatMap (f: instErrors k n (path ++ [ f ])) (names (attrsIn (answers ([ k n ] ++ path) ++ ts)));
       instNames = k: attrNames (top.${k} or { });
       instances = mapAttrs (k: _: listToAttrs (map (n: { name = n; value = view k n [ ] // { kind = k; name = n; }; }) (instNames k))) kinds;
-      sven = instances // { inherit kinds aspects lib; helpers = top.helpers or { }; };
+      sven = instances // { inherit kinds aspects lib; helpers = top.helpers or { };
+        queries = top.queries or { }; invariants = top.invariants or { }; labelTable = top.labels or { }; };   # declarations an agent or the docs read
 
       # ── the scope tree: nested cycles. key = what the parent spawned; identity = keys from the root ──
       mkScope = parent: kind: name: inst:
@@ -327,7 +328,7 @@ let
       in { inherit violations incomplete; ok = violations == [ ] && incomplete == [ ]; why = a: D.why (rules ++ D.facts facts) m a; whyNot = a: D.whyNot (rules ++ D.facts facts) m a;
            proof = a: D.proof (rules ++ D.facts facts) m a; invariants = attrNames invs; };
       lib = static // {
-        inherit holds graph declaredIn;   # the graph query, readable inside the fleet (docs)
+        inherit holds graph declaredIn labels floor schema;   # queries readable inside the fleet (docs); `check` and `context` read errors, so not here
         inherit stage change program grants diffData without; inherit (grants) grant narrow allowed;   # agent tools, inside the fleet too
         all = ps: { __all = ps; __functor = self: holds self; };
         not = p: { __not = p; __functor = self: holds self; };
