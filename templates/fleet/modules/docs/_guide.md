@@ -314,6 +314,17 @@ SELECT ?name WHERE { ?s rdf:type <https://sven.dev/fleet/kind/host> ; <https://s
 
 **An MCP server.** `templates/fleet/mcp/sven-mcp.sh` answers agents over stdio (JSON-RPC, MCP). Its tools: `sven_schema`, `sven_check`, `sven_context`, `sven_explain`, `sven_errors`, `sven_declared_in`, `sven_export` (the knowledge pack; the agent decides whether to store it) and `sven_stage` (a change as JSON, in quarantine). Each answer is `{ complete; result }` or `{ complete = false; error }`; a timeout is never an empty answer. Arguments reach Nix through a file and `builtins.fromJSON`, never through string interpolation. `mcp/test.sh` drives it. `nix run .#sven-mcp` from the fleet directory runs it as a flake app ([agent/mcp.nix](modules/agent/mcp.nix)): it serves the fleet in the working directory, and its flake ref comes from the git top (`SVEN_FLAKE` overrides it).
 
+**Safe between machines, before deploy.** Facts include field values: `val:FIELD:ID:VALUE` and `ref:FIELD:ID:KIND:NAME`. Invariants over them hold across machines ([agent/invariants.nix](modules/agent/invariants.nix)): a host's database is in its own environment (`db-same-env`), no two machines share an address (`unique-addr`), and a host never depends on a host in a less trusted environment (`trust-order`). A staged change that breaks one is refused with the atom, and `check.whyNot` / `check.proof` explain an answer.
+
+**Change programs.** `sven.lib.program` writes a change as data ops: `set`, `ref`, `place` and `new`. `validate r prog` checks it against the schema (with `near`), `toModule` makes the module, `dryRun { base; prog; }` validates and stages it, and `render` gives JSON. An agent writes a program, not Nix code.
+
+**Synthesis, checked.** Stored queries in [agent/synthesis.nix](modules/agent/synthesis.nix) answer with values that already meet the rules. `freePort { host }` lets krn pick a port no app on the host uses. `placeDb { host }` joins host records to find the database hosts of its environment. `safeHostsFor { aspect; env }` stages the aspect on each machine of the environment and returns where it is safe, and why the others are refused:
+
+```nix
+r.ask "safeHostsFor" { aspect = "attic"; env = "staging"; }
+# { safe = [ "stage" ]; refused.studio = [ "bad:attic-on-mac:fleet:main/environment:staging/mac:studio" ]; }
+```
+
 **Grants only narrow.** `sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where an agent may give elements. `narrow g h` keeps what both allow. No function makes a grant wider. A staged change that gives an element outside its grant is refused.
 
 ## Patterns in this fleet
