@@ -232,10 +232,10 @@ let
       && (r.check.proof "kind:host:top:t/host:a").atom == "kind:host:top:t/host:a" && (ports { }).check.whyNot "bad:no-firewall:top:t/host:b" == [ ];
     program-validate = let r = ports { }; v = sven.program.validate r; in
       v [ { op = "set"; path = [ "host" "c" "port" ]; value = 443; } { op = "place"; aspect = "firewall"; kind = "host"; name = "c"; } ] == [ ]
-      && (b.head (v [ { op = "set"; path = [ "hots" "c" "port" ]; value = 1; } ])).near == [ "host" ]
-      && (b.head (v [ { op = "set"; path = [ "host" "c" "prot" ]; value = 1; } ])).near == [ "port" ]
-      && (b.head (v [ { op = "place"; aspect = "firewal"; kind = "host"; name = "c"; } ])).near == [ "firewall" ]
-      && (b.head (v [ { op = "plac"; } ])).near == [ "place" ] && b.length (v [ { } ]) == 1;
+      && map (e: e.near or null) (v [ { op = "set"; path = [ "hots" "c" "port" ]; value = 1; } ]) == [ [ "host" ] ]
+      && map (e: e.near or null) (v [ { op = "set"; path = [ "host" "c" "prot" ]; value = 1; } ]) == [ [ "port" ] ]
+      && map (e: e.near or null) (v [ { op = "place"; aspect = "firewal"; kind = "host"; name = "c"; } ]) == [ [ "firewall" ] ]
+      && map (e: e.near or null) (v [ { op = "plac"; } ]) == [ [ "place" ] ] && b.length (v [ { } ]) == 1;
     program-dryrun = let base = { imports = [ portsBase ]; }; d = p: sven.program.dryRun { inherit base; prog = p; };
         ok = d [ { op = "new"; kind = "host"; name = "c"; fields.port = 443; } { op = "place"; aspect = "firewall"; kind = "host"; name = "c"; } ];
         bad = d [ { op = "new"; kind = "host"; name = "c"; fields.port = 443; } ]; in
