@@ -7,5 +7,6 @@
     system = sven.system.x86_64-linux;
     addr = "10.0.9.${lib.removePrefix "app-" n}";
     sharedPkgs = n != "app-4";
+    trimmedModules = n == "app-2";
   });
 }

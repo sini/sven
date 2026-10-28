@@ -5,6 +5,7 @@
     "system": "x86_64-linux",
     "addr": "10.0.1.10",
     "sharedPkgs": true,
+    "trimmedModules": true,
     "settings": { "kernel": { "channel": "latest" } }
   },
   "web-2": {

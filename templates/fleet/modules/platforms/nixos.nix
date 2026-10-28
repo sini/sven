@@ -3,6 +3,7 @@
 let
   inherit (sven.lib) same;
   inherit (sven.lib.reduce) one;
+  modlists = (import ./_modlists.nix).checked;
 in
 {
   # a host on shared pkgs keeps docs off: the manual, man pages and option help differ when pkgs is shared
@@ -21,7 +22,13 @@ in
         out = { host, nixos, deploy, out, ... }:
           let
             np = host.channel.nixpkgs;
-            build = ms: np.lib.nixosSystem { system = host.system.name; modules = ms; };
+            # trimmedModules: the host evaluates a smaller base module list (_modlists.nix), in module-list.nix order
+            trimmed = host.trimmedModules && modlists ? ${host.name};
+            # filter module-list.nix itself: path values stay paths, inline (non-path) entries stay, order stays
+            keep = lib.genAttrs (map (p: builtins.unsafeDiscardStringContext "${np}/nixos/modules/${p}") modlists.${host.name}) (_: true);   # keys only: attr names hold no context
+            base = lib.filter (p: !(builtins.isPath p) || keep ? ${builtins.unsafeDiscardStringContext (toString p)}) (import "${np}/nixos/modules/module-list.nix");
+            build' = full: ms: np.lib.nixosSystem ({ system = host.system.name; modules = ms; } // lib.optionalAttrs (trimmed && !full) { baseModules = base; });
+            build = build' false;
             group = lib.sort (a: b: a < b) (lib.attrNames (lib.filterAttrs (_: h: h ? addr && h.sharedPkgs && same h.channel host.channel && same h.system host.system) sven.host));
             leader = lib.head group;
             follower = host.sharedPkgs && leader != host.name;
@@ -36,6 +43,7 @@ in
           {
             nixosConfigurations.${host.name} = sys;
             nixosConfigurationsOwnPkgs = lib.optionalAttrs follower { ${host.name} = build nixos; };
+            nixosConfigurationsFull = lib.optionalAttrs trimmed { ${host.name} = build' true (nixos ++ lib.optionals follower readOnly); };   # the oracle: same drvPath as the trimmed build
             sharedPkgs = lib.optionalAttrs host.sharedPkgs { ${host.name} = { inherit leader; follower = follower; }; };
             deploy.nodes.${host.name} = { hostname = deploy.address; sshUser = deploy.user; };
             ageManifest.${host.name} = lib.attrNames sys.config.age.secrets;
