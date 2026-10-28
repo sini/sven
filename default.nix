@@ -254,7 +254,7 @@ let
         else if q ? holds then { ok = holds q.holds s; }
         else err s.id "unknown tree request";
       sourcesAt = s: requests: { scope = s; tree.select = c: concatMap (q: let r = answer s q; in if q.category or null == c && r ? ok then [ r.ok ] else [ ]) requests; }
-        // listToAttrs (map (n: { name = n; value = let r = receiverIn n (nearestFirst s); in if r == null then [ ] else [ (reduceAt n r).value ]; }) sinkNames);
+        // listToAttrs (map (n: { name = n; value = let r = receiverIn n (nearestFirst s); in if r == null then [ ] else [ (memo.${n}.${r.id} or (reduceAt n r)).value ]; }) sinkNames);   # a receiver with no element yet reduces to its empty value
       requestErrors = concatMap (s: concatMap (n: map (_: err s.id "aspect ${n}: unknown tree request")
         (filter (q: !(q ? nearest || q ? parent || q ? children || q ? scopesOf || q ? holds)) (toList ((outAt n s).tree or [ ])))) (attrNames cycleOuts)) unsorted;
 
@@ -297,8 +297,10 @@ let
 
       # ── run: sinks feed drivers, drivers feed sources, Nix laziness closes the loop. Every output is a query ──
       receivers = k: filter (s: byTo ? "${k}@${s.id}") scopes;
-      reduced = listToAttrs (map (k: { name = k; value = listToAttrs (map (r: { name = r.id; value = (reduceAt k r).value; }) (receivers k)); }) sinkNames);
-      reduceErrors = concatMap (k: concatMap (r: (reduceAt k r).errors) (receivers k)) sinkNames;
+      # one reduction per (sink, receiver), shared by the `reduced` query, the errors and every arg that reads the sink
+      memo = listToAttrs (map (k: { name = k; value = listToAttrs (map (r: { name = r.id; value = reduceAt k r; }) (receivers k)); }) sinkNames);
+      reduced = mapAttrs (_: mapAttrs (_: x: x.value)) memo;
+      reduceErrors = concatMap (k: concatMap (r: memo.${k}.${r.id}.errors) (receivers k)) sinkNames;
       graph = { scopes = map (s: { inherit (s) id kind name; }) scopes; edges = map (e: { sink = e.key; from = e.from.id; to = e.to.id; inherit (e) origin; }) routed; };   # origin: "aspect x" or "sink y": who gave it
       # ── facts and invariants: the fleet as ground atoms; `sven.invariants.<name>` gives Datalog rules over them.
       # A true `bad:` atom is a violation; an undefined one (a cycle through `not`) is an incomplete answer, never a pass.
