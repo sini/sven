@@ -111,7 +111,7 @@ let
         let
           key = "${kind}:${name}";
           path = (if parent == null then [ ] else parent.path) ++ [ key ];
-          s = inst // { inherit kind name key parent path; id = concatStringsSep "/" path; up = (if parent == null then [ ] else parent.up) ++ [ s ]; rup = [ s ] ++ (if parent == null then [ ] else parent.rup); };   # rup: nearest first, built once
+          s = inst // { inherit kind name key parent path; __here = here s; id = concatStringsSep "/" path; up = (if parent == null then [ ] else parent.up) ++ [ s ]; rup = [ s ] ++ (if parent == null then [ ] else parent.rup); };   # rup: nearest first, built once
         in s;
       spawnsOf = k: kinds.${k}.spawns or { };
       spawned = concatMap (k: attrNames (spawnsOf k)) kindNames;
@@ -129,14 +129,38 @@ let
       treeErrors = map (i: i.e) (filter (i: i ? e) tree);
       byParent = groupBy (s: if s.parent == null then "" else s.parent.id) unsorted;
 
-      # ── filter: every predicate is a function; refs and lists become functions ──
-      holds = p: s:
-        if isList p then any (q: holds q s) p
+      # ── filter: every predicate is a function; refs, lists and the combinators are data the engine reads ──
+      # Three values: true, false, null (undefined). An aspect ref is memoised per scope (`__here`), so nested refs cost
+      # once. An aspect on a cycle of refs is evaluated with a stack: back on the stack through a `not`, the answer is
+      # undefined (Gelder, Ross, Schlipf: well-founded semantics, a = not b, b = not a); with no `not`, false (unfounded).
+      refsOf = p: if isList p then concatMap refsOf p else if !isAttrs p then [ ]
+        else if p ? __all then concatMap refsOf p.__all else if p ? __not then refsOf p.__not
+        else if p ? __within then refsOf p.__within else if p ? __has then refsOf p.__has
+        else if p ? __aspect then [ p.__aspect ] else [ ];
+      cyclic = mapAttrs (n: a: any (x: x.key == n) (genericClosure {
+        startSet = map (r: { key = r; }) (refsOf (a.at or [ ]));
+        operator = x: map (r: { key = r; }) (refsOf (aspects.${x.key}.at or [ ]));
+      })) aspects;
+      or3 = vs: if any (v: v == true) vs then true else if any (v: v == null) vs then null else false;
+      and3 = vs: if any (v: v == false) vs then false else if any (v: v == null) vs then null else true;
+      eval3 = stack: p: s:
+        if isList p then or3 (map (q: eval3 stack q s) p)
+        else if isAttrs p && p ? __all then and3 (map (q: eval3 stack q s) p.__all)
+        else if isAttrs p && p ? __not then (let v = eval3 (map (x: x // { neg = true; }) stack) p.__not s; in if v == null then null else !v)
+        else if isAttrs p && p ? __within then or3 (map (eval3 stack p.__within) (above s))
+        else if isAttrs p && p ? __has then or3 (map (eval3 stack p.__has) (byParent.${s.id} or [ ]))
         else if isFunction p || p ? __functor then p s
         else if p ? __kind then s.kind == p.__kind
-        else if p ? __aspect then holds (aspects.${p.__aspect}.at or [ ]) s   # per scope: structure may depend on presence (Den #525) without the whole tree
+        else if p ? __aspect then
+          let q = p.__aspect; key = "${q}@${s.id}"; hit = first (x: x.key == key) stack; in
+          if hit != null then (if hit.neg then null else false)
+          else if stack == [ ] || !cyclic.${q} then s.__here.${q}             # per scope: structure may depend on presence (Den #525) without the whole tree
+          else eval3 (stack ++ [ { inherit key; neg = false; } ]) (aspects.${q}.at or [ ]) s
         else p ? kind && p ? name && s.kind == p.kind && s.name == p.name;
-      active = mapAttrs (_: a: listToAttrs (map (s: { name = s.id; value = holds (a.at or [ ]) s; }) unsorted)) aspects;
+      here = s: mapAttrs (q: a: eval3 [ { key = "${q}@${s.id}"; neg = false; } ] (a.at or [ ]) s) aspects;
+      holds = p: s: eval3 [ ] p s == true;
+      active = mapAttrs (n: _: listToAttrs (map (s: { name = s.id; value = s.__here.${n} == true; }) unsorted)) aspects;
+      undefined = concatMap (s: map (n: { aspect = n; scope = s.id; }) (filter (n: s.__here.${n} == null) aspectNames)) unsorted;
       atErrors = concatMap (n: map (p: err "aspect ${n}" "`at` holds a ${b.typeOf p}, not a predicate")   # a typo must not read as false
         (filter (p: !(isFunction p || isList p || isAttrs p && (p ? __functor || p ? __kind || p ? __aspect || p ? kind && p ? name))) (toList (aspects.${n}.at or [ ])))) aspectNames;
 
@@ -240,10 +264,10 @@ let
       graph = { scopes = map (s: { inherit (s) id kind name; }) scopes; edges = map (e: { sink = e.key; from = e.from.id; to = e.to.id; inherit (e) origin; }) routed; };   # origin: "aspect x" or "sink y": who gave it
       lib = static // {
         inherit holds graph;   # the graph query, readable inside the fleet (docs)
-        all = ps: s: all (p: holds p s) ps;
-        not = p: s: !holds p s;
-        within = p: s: any (holds p) (above s);
-        has = p: s: any (holds p) (byParent.${s.id} or [ ]);
+        all = ps: { __all = ps; __functor = self: holds self; };
+        not = p: { __not = p; __functor = self: holds self; };
+        within = p: { __within = p; __functor = self: holds self; };
+        has = p: { __has = p; __functor = self: holds self; };
         same = x: y: isAttrs x && isAttrs y && x ? kind && y ? kind && x.kind == y.kind && x.name == y.name;   # total: a non-instance is never the same
         nearest = k: nearest k.__kind;
         scopesOf = x: filter (s: s.kind == x.kind && s.name == x.name) scopes;
@@ -251,7 +275,7 @@ let
       };
     in
     {
-      inherit scopes active reduced graph;
+      inherit scopes active reduced graph undefined;
       errors = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
       flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;

@@ -108,7 +108,42 @@ let
     sven.aspects.shared = { at = [ sven.kinds.host sven.kinds.user ]; nixos = "marker"; };
     sven.aspects.typo.at = "host";
   });
+  # aspect refs on cycles: three values (well-founded semantics)
+  logic = cyclic: sven.eval ({ sven, ... }: {
+    sven.kinds.top.spawns.host = _: sven.host;
+    sven.kinds.host.spawns.user = _: { u = { }; };
+    sven.kinds.user = { };
+    sven.top.t = { };
+    sven.host.h = { };
+    sven.aspects = let inherit (sven.lib) all not within has; in {
+      a.at = all [ sven.kinds.host (not sven.aspects.b) ];
+      b.at = if cyclic then all [ sven.kinds.host (not sven.aspects.a) ] else sven.kinds.host;
+      c.at = all [ sven.kinds.host (not sven.aspects.a) ];       # reads an undefined: undefined too
+      p.at = sven.aspects.q;  q.at = sven.aspects.p;             # a positive cycle: unfounded, false
+      w.at = all [ sven.kinds.user (within sven.aspects.b) ];    # within crosses scopes: no cycle
+      v.at = all [ sven.kinds.host (has sven.aspects.w) ];
+    };
+  });
+  diamond = k: sven.eval ({ sven, ... }: {
+    sven.kinds.top.spawns.host = _: sven.host;
+    sven.kinds.host = { };
+    sven.top.t = { };
+    sven.host.h = { };
+    sven.aspects = { x0.at = sven.kinds.host; } // b.listToAttrs (b.concatMap (i: let p = "x${toString (i - 1)}"; in [
+      { name = "l${toString i}"; value.at = sven.aspects.${p}; }
+      { name = "r${toString i}"; value.at = sven.aspects.${p}; }
+      { name = "x${toString i}"; value.at = sven.lib.all [ sven.aspects."l${toString i}" sven.aspects."r${toString i}" ]; } ]) (b.genList (i: i + 1) k));
+  });
+
   checks = {
+    not-cycle-undefined = let r = logic true; h = "top:t/host:h"; in
+      map (x: "${x.aspect}@${x.scope}") r.undefined == [ "a@${h}" "b@${h}" "c@${h}" "v@${h}" "w@${h}/user:u" ]   # within and has carry it across scopes
+      && !r.active.a.${h} && !r.active.b.${h} && !r.active.c.${h} && msgs r == [ ];
+    not-cycle-control = let r = logic false; h = "top:t/host:h"; in
+      r.undefined == [ ] && !r.active.a.${h} && r.active.b.${h} && r.active.c.${h};
+    positive-cycle-false = let r = logic true; in !r.active.p."top:t/host:h" && !b.any (x: x.aspect == "p" || x.aspect == "q") r.undefined;
+    within-has-no-cycle = let r = logic false; in r.active.w."top:t/host:h/user:u" && r.active.v."top:t/host:h";
+    diamond-memo = (diamond 60).active.x60."top:t/host:h";
     good-no-errors = msgs good == [ ];
     good-persist = good.reduced.persist."fleet:main/host:lb" == [ "/var/lib/motd" ];
     good-flake = good.flake.nixosConfigurations.lb == [ { environment.etc.motd.text = "/var/lib/motd"; } ];
@@ -147,6 +182,6 @@ let
   };
 in
 {
-  inherit checks;
+  inherit checks logic;
   failed = b.filter (n: !checks.${n}) (b.attrNames checks);
 }
