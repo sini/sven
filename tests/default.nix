@@ -164,7 +164,12 @@ let
       && (ports ({ sven, ... }: { sven.aspects.fw-b = { at = sven.host.b; fw = "on"; }; sven.aspects.firewall.at = sven.host.b; })).check.ok;
     invariants-incomplete = let r = ports { sven.invariants.loop = [ { head = "bad:loop"; neg = [ "ok:loop" ]; } { head = "ok:loop"; neg = [ "bad:loop" ]; } ]; }; in
       r.check.incomplete == [ "bad:loop" ] && !b.elem "bad:loop" r.check.violations && !r.check.ok;
-    invariants-why = (b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
+    schema-exact = let s = (ports ({ sven, ... }: { sven.kinds.host.sinks.tags.reduce = sven.lib.reduce.set; })).schema; in
+      s.kinds.host == { fields.port.type = "Port"; spawns = [ ]; instances = 2; scopes = 2;
+        sinks = { fw = { reduce = "list"; of = null; feeds = [ ]; out = false; conditional = false; }; tags = { reduce = "set"; of = null; feeds = [ ]; out = false; conditional = false; }; }; }
+      && s.kinds.top.spawns == [ "host" ] && s.aspects.firewall == { keys = [ "fw" ]; cycle = false; files = [ "root" ]; activeAt = 1; }
+      && s.invariants == [ "fw" ] && b.isString (b.toJSON s);
+    invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
       && (G.topo ring).ok == false && (G.topo ring).stuck == [ "a" "b" "c" "d" ];
@@ -245,6 +250,6 @@ let
   };
 in
 {
-  inherit checks logic;
+  inherit checks logic ports;
   failed = b.filter (n: !checks.${n}) (b.attrNames checks);
 }

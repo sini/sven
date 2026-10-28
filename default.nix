@@ -46,8 +46,10 @@ let
     merge = es: foldl' (acc: e: let m = mergeAt [ ] acc.value e.value; in { value = m.value; errors = acc.errors ++ m.errors; }) { value = { }; errors = [ ]; } es;
     entries = es: { value = es; errors = [ ]; };
   };
+  # each built-in reduce is callable and carries its name, so `schema` can say which strategy a sink uses
+  reduceNamed = mapAttrs (n: f: { __functor = _: f; name = n; }) reduce;
   static = {
-    inherit reduce;
+    reduce = reduceNamed;
     is = check: { inherit check; };                                   # any check is a type: `sven.lib.is builtins.isString`
     opt = t: d: t // { default = d; };
     derive = t: f: t // { defaultFrom = f; };                         # a default computed from the instance itself (Den schema defaults)
@@ -318,11 +320,39 @@ let
         scopesOf = x: filter (s: s.kind == x.kind && s.name == x.name) scopes;
         cascade = path: foldl' (a: x: if a != null then a else (get path x).ok or null) null;   # first answer along a list of scopes
       };
+      # ── schema: what a fleet declares, as JSON-safe data (no functions): for agents and docs ──
+      fieldsOf = t: if isType t then { type = typeName t; } // (if t ? __kind then { ref = t.__kind; } else { })
+          // (if t ? default && (b.isString t.default || b.isInt t.default || b.isBool t.default || t.default == null || isList t.default) then { default = t.default; } else { })
+          // (if t ? defaultFrom then { derived = true; } else { })
+        else if isAttrs t then mapAttrs (_: fieldsOf) t else { type = b.typeOf t; };
+      sinkOf' = v: let d = if isAttrs v then v else { }; in {
+        reduce = if d ? reduce then d.reduce.name or "custom" else "list";
+        of = if d ? of then typeName d.of else null;
+        feeds = filter (k: !elem k [ "reduce" "of" "at" "out" ]) (attrNames d);
+        out = d ? out; conditional = d ? at;
+      };
+      schema = {
+        kinds = mapAttrs (k: d: {
+          fields = fieldsOf (d.fields or { });
+          spawns = attrNames (d.spawns or { });
+          sinks = mapAttrs (_: sinkOf') (d.sinks or { });
+          instances = length (instNames k);
+          scopes = length (filter (s: s.kind == k) scopes);
+        }) (top.kinds or { });
+        aspects = mapAttrs (n: a: {
+          keys = filter (k: !elem k [ "at" "order" "__aspect" ]) (attrNames a);
+          cycle = a ? cycle;
+          files = declaredIn [ "aspects" n ];
+          activeAt = length (filter (s: active.${n}.${s.id}) unsorted);
+        }) aspects;
+        invariants = attrNames (top.invariants or { });
+        queries = [ "errors" "graph" "scopes" "active" "reduced" "undefined" "declaredIn" "facts" "check" "schema" "flake" ];
+      };
       errorsAll = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
     in
     {
-      inherit scopes active reduced graph undefined declaredIn check facts;
+      inherit scopes active reduced graph undefined declaredIn check facts schema;
       errors = errorsAll;
       flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
     };
