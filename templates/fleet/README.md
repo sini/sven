@@ -316,7 +316,7 @@ SELECT ?name WHERE { ?s rdf:type <https://sven.dev/fleet/kind/host> ; <https://s
 
 **Shapes.** `sven.lib.rdf.shacl r` gives SHACL shapes from the schema: one node shape per kind with scopes, `sven:name` required, `sven:parent` of the spawning kind, each field at most once, and `sh:class` for ref fields. The pack types every instance, so a ref meets its class. quipu's validator accepts the pack of a fixture fleet and reports one `sh:class` violation for a ref to a missing instance.
 
-**An MCP server.** `templates/fleet/mcp/sven-mcp.sh` answers agents over stdio (JSON-RPC, MCP). Its tools: `sven_schema`, `sven_check`, `sven_context`, `sven_explain`, `sven_errors`, `sven_declared_in`, `sven_export` (the knowledge pack; the agent decides whether to store it) and `sven_stage` (a change as JSON, in quarantine). Each answer is `{ complete; result }` or `{ complete = false; error }`; a timeout is never an empty answer. Arguments reach Nix through a file and `builtins.fromJSON`, never through string interpolation. `mcp/test.sh` drives it.
+**An MCP server.** `templates/fleet/mcp/sven-mcp.sh` answers agents over stdio (JSON-RPC, MCP). Its tools: `sven_schema`, `sven_check`, `sven_context`, `sven_explain`, `sven_errors`, `sven_declared_in`, `sven_export` (the knowledge pack; the agent decides whether to store it) and `sven_stage` (a change as JSON, in quarantine). Each answer is `{ complete; result }` or `{ complete = false; error }`; a timeout is never an empty answer. Arguments reach Nix through a file and `builtins.fromJSON`, never through string interpolation. `mcp/test.sh` drives it. `nix run .#sven-mcp` from the fleet directory runs it as a flake app ([agent/mcp.nix](modules/agent/mcp.nix)): it serves the fleet in the working directory, and its flake ref comes from the git top (`SVEN_FLAKE` overrides it).
 
 **Grants only narrow.** `sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where an agent may give elements. `narrow g h` keeps what both allow. No function makes a grant wider. A staged change that gives an element outside its grant is refused.
 
@@ -484,10 +484,18 @@ From this directory:
 ```sh
 nix eval --impure --file tests.nix failed       # [ ]: a check for each pattern above
 nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and home-manager evaluations
+bash mcp/test.sh                                # PASS for each MCP case, the flake app included
+```
+
+From the sven repository root, the engine and library oracles, and the cost oracles. A memo is invisible to an eval, so `tests/cost.sh` bounds Nix's own counters (`NIX_SHOW_STATS`): 30 levels of aspect-ref diamonds and a 150-host fan-in must each stay under 200,000 function calls. Without the memos they take 26 million calls (at 16 levels) and 954,000.
+
+```sh
+nix-instantiate --eval --strict tests -A failed   # [ ]: engine, datalog, rdf, krn and shacl suites
+bash tests/cost.sh                                # PASS aspect-ref-memo, PASS reduction-memo
 ```
 
 ## This fleet, live
-Generated from the fleet's queries: 87 scopes, 28 kinds, 183 aspects, 962 routed elements.
+Generated from the fleet's queries: 87 scopes, 28 kinds, 184 aspects, 963 routed elements.
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
 | `backup` |  |  | `nixos` | 3 |
@@ -1207,7 +1215,7 @@ flowchart LR
 | `no-gui` | system | system | 1 |
 | `nodes` | host | fleet | 1 |
 | `os` | export, guest, host, mac, member, user | export, guest, home, host, mac | 113 |
-| `out` | cluster, environment, export, fleet, hive, home, +5 | fleet | 55 |
+| `out` | cluster, environment, export, fleet, hive, home, +5 | fleet | 56 |
 | `overlays` | fleet | fleet | 1 |
 | `packages` | system | system | 7 |
 | `pairs` | host, toy | host | 6 |
