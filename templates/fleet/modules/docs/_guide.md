@@ -123,6 +123,8 @@ This rule decides how you write a value for a fleet-wide sink. A static value fr
 
 Structure can depend on presence: a `spawns` function can ask `sven.lib.holds sven.aspects.role-server s` at the parent ([den/presence-structure.nix](modules/den/presence-structure.nix)).
 
+Each scope computes each aspect ref once, so aspects that read aspects cost linear time, however deep they nest. Refs can form cycles. A cycle through `not` has no answer: the aspects on it are undefined, as in the well-founded semantics of logic programs. They are not active, and the `undefined` query lists them. A cycle with no `not` (`p` where `q`, `q` where `p`) has no founded support, so it is false.
+
 ## Sinks: where elements go
 
 A sink on a kind collects elements and reduces them:
@@ -201,10 +203,41 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | `graph` | `{ scopes; edges; }`: every scope and every routed element |
 | `scopes` | the scopes in order |
 | `active` | aspect, then scope id, then `true` or `false` |
+| `undefined` | `[ { aspect; scope; } ]`: aspects that `at` cannot decide, because of a cycle through `not` (`a` where not `b`, `b` where not `a`). They are not active. |
 | `reduced` | sink, then receiver id, then the value |
 | `flake` | the answer of `sven.flake` |
 
 `sven.lib.graph` is readable inside the fleet. Each edge has `sink`, `from`, `to` and `origin` (the aspect that gave the element), so "which aspects reach this host" is a query, not a registry. The diagrams and tables at the end of this README come from `graph`, the kind declarations and sink values ([docs/readme.nix](modules/docs/readme.nix)): the fleet map, the kind tree, sink forwarding, pools, clan instances, vars generators and the deploy order.
+
+## Graphs, Datalog and krn
+
+Fleet data is plain Nix, so a question about it is a function. sven ships three libraries for the hard ones. Each is builtins only, total, and gives the same answer whatever the file order.
+
+**`sven.lib.graphs`** works on `succ`, an attrset from a node to its successors: `reach`, `reachers`, `transpose`, `topo` (a cycle is data: `{ ok = false; stuck; }`), `layers`, `sccs`, `cycles`, `shortest`, `paths`. [hoag/relations.nix](modules/hoag/relations.nix) builds the deploy waves, the dependents and the impact of losing a host, and gives an error for a dependency cycle:
+
+```nix
+dependsOn = lib.mapAttrs (_: h: map (d: d.name) h.dependsOn) hosts;
+deployWaves = G.layers dependsOn;                                 # [ [ "lb" ] [ "web-1" "web-2" ] [ "stage" ] ]
+impact = lib.genAttrs (lib.attrNames hosts) (G.reachers dependsOn); # lb down: stage, web-1, web-2 break
+```
+
+**`sven.lib.datalog`** solves ground rules with negation, `{ head; pos; neg; }`. You ground the rules with Nix (one per host). `wfs` gives the well-founded model (true, false, undefined; no strata). `stable` gives the stable models: a choice. `why` gives the rules that prove an atom. [query/datalog.nix](modules/query/datalog.nix) is a serving policy: a host serves when it runs nginx and is not drained. A host is drained when it is in maintenance or the host it depends on is down. The database primary is a choice between two hosts. An atom the policy leaves undefined is an error.
+
+```nix
+{ head = "serves:${n}"; pos = [ "web:${n}" ]; neg = [ "drained:${n}" ]; }
+{ head = "drained:${n}"; neg = [ "up:${d.name}" ]; }              # for each host n depends on
+{ head = "primary:lb"; neg = [ "primary:web-1" ]; }                # and the other way round: two stable models
+```
+
+**`sven.lib.krn`** is µKanren: logic variables, unification over attrsets, lists and scalars, and goals that run in both directions. It synthesizes values that meet constraints. [query/krn.nix](modules/query/krn.nix) gives each app on lb a port from its range with no two the same. The same relation, run backward, answers which apps can take port 8081. A join over host records by unification places each host's database:
+
+```nix
+portsRel = apps: range: q: freshNamed apps (vs: map (a: membero vs.${a} range) apps ++ distinct (lib.attrValues vs) ++ [ (eq q vs) ]);
+run 1 (portsRel [ "grafana" "loki" "prometheus" ] [ 8080 8081 8082 8083 ])  # [ { grafana = 8080; loki = 8081; prometheus = 8082; } ]
+runAll (q: fresh ({ env, d, own }: [ (facto hosts { name = "web-1"; inherit env; db = own; }) (facto hosts { name = d; inherit env; db = true; }) (eq q d) ]))
+```
+
+krn limits: lists have a fixed length (no cons cells), so `appendo` needs the whole list or both parts. `neq` decides only on ground terms (there is no constraint store), so place it after the goals that choose the values. A search with no answer gives `[ ]`: give an error record then, as `port-synthesis` does.
 
 ## Patterns in this fleet
 
@@ -247,6 +280,9 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | exports: scoped by the engine, allow-listed per service, read across services, overridden by the owner | clan | [clan/inventory.nix](modules/clan/inventory.nix), [services/borg.nix](services/borg.nix) |
 | vars: generator graph, shared or per machine, a deploy plan as data, secret-read guard | clan | [clan/vars.nix](modules/clan/vars.nix) |
 | machines from directories, a service from outside `modules/` | clan | [clan/vars.nix](modules/clan/vars.nix), [services/borg.nix](services/borg.nix) |
+| deploy waves, impact of losing a host, a dependency cycle as an error (`sven.lib.graphs`) | den-hoag | [hoag/relations.nix](modules/hoag/relations.nix) |
+| a serving policy with maintenance, drain by dependency, a primary chosen by stable models (`sven.lib.datalog`) | Gen | [query/datalog.nix](modules/query/datalog.nix) |
+| port allocation, database placement, a query run backward (`sven.lib.krn`) | µKanren | [query/krn.nix](modules/query/krn.nix) |
 | one machine, two builds | swarsel | [swarsel/variants.nix](modules/swarsel/variants.nix) |
 | one machine writes config into another, and fleet globals | swarsel | [swarsel/distributed.nix](modules/swarsel/distributed.nix) |
 | aspects exported as `nixosModules` | swarsel, Den | [swarsel/exports.nix](modules/swarsel/exports.nix) |
@@ -292,7 +328,7 @@ The den-hoag CI (175 test files and 57 Den behavior tests) gives 119 capabilitie
 
 sini's fleet ([sini/nix-config](https://github.com/sini/nix-config)) gives 98 patterns ([vic/sini-patterns.md](https://github.com/vic/sven/blob/main/vic/sini-patterns.md)). Every one has a check, except packaging.
 
-sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
+sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint for data; `sven.lib.datalog` gives the well-founded model when your rules need one. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
 
 Three families of Den bugs cannot happen in sven:
 
