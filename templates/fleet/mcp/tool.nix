@@ -1,9 +1,9 @@
 # One sven-mcp tool call. Inputs come from the environment, never from string interpolation:
-# SVEN_ROOT (sven tree), SVEN_FLEET (fleet dir), SVEN_TOOL, SVEN_ARGS (path of the arguments JSON).
+# SVEN_FLAKE (the fleet flake ref), SVEN_FLEET (fleet dir), SVEN_TOOL, SVEN_ARGS (path of the arguments JSON).
 let
   env = builtins.getEnv;
   fleet = /. + env "SVEN_FLEET";
-  inputs = (builtins.getFlake "path:${env "SVEN_ROOT"}?dir=templates/fleet").inputs;
+  inputs = (builtins.getFlake (env "SVEN_FLAKE")).inputs;
   sven = import inputs.sven;
   base = {
     imports = [ (inputs.import-tree (fleet + "/modules")) ];

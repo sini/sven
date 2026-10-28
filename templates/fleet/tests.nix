@@ -285,7 +285,8 @@ let
       lib.hasPrefix "<" p.ntriples && p.count > 1000 && p.sha256 != q.sha256 && out.rdfPack.count > 0 && b.isString out.rdfPack.sha256;
     agent-queries = r.queries.hostsIn == { required = [ "env" ]; optional = [ ]; } && r.ask "hostsIn" { env = "prod"; } == [ "lb" "lb-minimal" "web-1" "web-2" ]
       && lib.elem "attic" (r.ask "aspectsOn" { host = "lb"; }) && (r.ask "hostsIn" { }).code == "missing-param" && r.ask "errorsBy" { } == [ ];
-    agent-labels = r.labels.rdf-pack.trust == 1 && r.labels.attic.trust == 3 && lib.all (x: x.aspect == "rdf-pack" || x.aspect == "serving-explain" || x.aspect == "retire-notice") (r.floor 3)
+    agent-mcp-app = out.apps.x86_64-linux.sven-mcp.type == "app" && lib.hasSuffix "/bin/sven-mcp" out.apps.x86_64-linux.sven-mcp.program;
+    agent-labels = r.labels.rdf-pack.trust == 1 && r.labels.attic.trust == 3 && lib.all (x: lib.elem x.aspect [ "rdf-pack" "serving-explain" "retire-notice" "mcp-app" ]) (r.floor 3)
       && r.floor 1 == [ ];
     agent-valid-time = r.active.retire-notice.${web2} && !r.active.retire-notice.${web1};
     agent-impact = let i = r.impact lb { hops = 1; }; in lib.any (x: x.scope == P && x.depth == 1) i.reached && (r.impact lb { sinks = [ "nixos" ]; }).reached == [ ];

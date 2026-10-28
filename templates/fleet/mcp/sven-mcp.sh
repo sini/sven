@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # sven-mcp: MCP server (JSON-RPC 2.0, one message per line on stdio) over a sven fleet.
-# Env: SVEN_FLEET (dir with query.nix; default ../), SVEN_TIMEOUT (seconds per nix call; default 120).
+# Env: SVEN_FLEET (the fleet dir; default ../), SVEN_FLAKE (its flake ref; default path:<git top>?dir=<fleet dir in the repo>),
+#      SVEN_TIMEOUT (seconds per nix call; default 120).
 set -u
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 SVEN_FLEET=$(cd "${SVEN_FLEET:-$HERE/..}" && pwd -P)
 SVEN_TIMEOUT=${SVEN_TIMEOUT:-120}
-SVEN_ROOT=$(cd "$SVEN_FLEET/../.." && pwd -P)
-export SVEN_FLEET SVEN_ROOT
+top=$(git -C "$SVEN_FLEET" rev-parse --show-toplevel 2>/dev/null || echo "$SVEN_FLEET")
+rel=${SVEN_FLEET#"$top"}; rel=${rel#/}
+SVEN_FLAKE=${SVEN_FLAKE:-path:$top${rel:+?dir=$rel}}   # a fleet inside a repo keeps its relative inputs
+export SVEN_FLEET SVEN_FLAKE
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
