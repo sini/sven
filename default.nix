@@ -62,6 +62,8 @@ let
       else if b.isAttrs v then (if (v.type or null) == "derivation" then "<derivation ${v.name or "?"}>" else if v ? __functor then "<function>" else b.mapAttrs (_: static.jsonSafe) v)
       else v;
     agent = r: r.agent;
+    # valid time: an instance with validFrom / validTo (ISO dates) holds at a date the caller passes; no clock in pure eval
+    validAt = date: s: (s.validFrom or "0000-00-00") <= date && date <= (s.validTo or "9999-12-31");
     krn = import ./lib/krn.nix;           # µKanren: logic variables, unification, run, fresh, conde, appendo, facto
   };
 
@@ -462,7 +464,18 @@ let
       };
       render = if isData change then b.toJSON change else null;   # read back with builtins.fromJSON
     };
+  # field changes between two `data` answers: [ { path; old; new; } ], sorted by path
+  diffData = d0: d1: let
+    keys = a: c: names (attrNames a ++ attrNames c);
+    go = p: x: y: if isAttrs x && isAttrs y then concatMap (k: go (p ++ [ k ]) (x.${k} or null) (y.${k} or null)) (keys x y)
+      else if x == y then [ ] else [ { path = p; old = x; new = y; } ];
+  in go [ ] d0 d1;
+  # the fleet at a git revision (transaction time): `module` is the fleet module path inside the repository
+  asOf = { url, rev, module }: eval (import ((b.fetchGit { inherit url rev; }) + "/${module}"));
+  history = { url, revs, module }: let rs = map (rev: { inherit rev; r = asOf { inherit url rev module; }; }) revs; in
+    b.genList (i: let x = b.elemAt rs i; in { inherit (x) rev; errors = length x.r.errors; scopes = length x.r.scopes;
+      changes = if i == 0 then [ ] else diffData (b.elemAt rs (i - 1)).r.data x.r.data; }) (length rs);
   # a change as data: set one declaration path (`change.set [ "host" "web-1" "port" ] 8080`)
   change = { set = path: value: { sven = b.foldl' (acc: k: { ${k} = acc; }) value (reverse path); }; };
 in
-{ lib = static // { inherit eval stage change grants; inherit (grants) grant narrow allowed; mkFlake = m: (eval m).flake; }; }
+{ lib = static // { inherit eval stage change grants diffData asOf history; inherit (grants) grant narrow allowed; mkFlake = m: (eval m).flake; }; }

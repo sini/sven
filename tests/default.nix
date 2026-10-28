@@ -208,6 +208,12 @@ let
       && r.ask "portOf" { host = "b"; } == 80 && r.ask "count" { } == 2 && r.ask "count" { kind = "top"; } == 1
       && (r.ask "portOf" { }).code == "missing-param" && (r.ask "portOf" { host = "a"; hots = 1; }).code == "unknown-param"
       && (r.ask "portof" { }).near == [ "portOf" ];
+    history = let h = sven.history { url = "file://${toString ./..}"; revs = [ "33010b09579939ebe344cc23ab2f1b5650e295d1" "5fa598ac90c560306d9ddcc80d8647798578e7e0" ]; module = "tests/fixtures/history.nix"; }; in
+      (b.elemAt h 1).changes == [ { path = [ "host" "a" "port" ]; old = 22; new = 2222; } ] && (b.elemAt h 0).changes == [ ]
+      && (sven.asOf { url = "file://${toString ./..}"; rev = "33010b09579939ebe344cc23ab2f1b5650e295d1"; module = "tests/fixtures/history.nix"; }).data.host.a.port == 22;
+    valid-at = let r = sven.eval ({ sven, ... }: { imports = [ ./fixtures/history.nix ];
+        sven.aspects.backup.at = sven.lib.all [ sven.kinds.host (sven.lib.validAt "2026-11-15") ]; sven.aspects.late.at = sven.lib.all [ sven.kinds.host (sven.lib.validAt "2027-01-01") ]; }); in
+      r.active.backup."top:t/host:a" && r.active.backup."top:t/host:b" && !r.active.late."top:t/host:a" && r.active.late."top:t/host:b";
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
