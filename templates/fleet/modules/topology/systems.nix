@@ -24,13 +24,17 @@ in
       out =
         { system, checks, ... }:
         {
-          checks.${system.name} = lib.mapAttrs (
-            name: m:
-            (pkgs system).testers.runNixOSTest {
-              imports = [ m ];
-              inherit name;
-            }
-          ) checks;
+          vmTests.${system.name} =
+            lib.mapAttrs
+              # VM tests need KVM: not flake checks. Run: nix build .#vmTests.x86_64-linux.web
+              (
+                name: m:
+                (pkgs system).testers.runNixOSTest {
+                  imports = [ m ];
+                  inherit name;
+                }
+              )
+              checks;
         };
     };
     no-gui = {

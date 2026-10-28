@@ -13,6 +13,8 @@
     "steps":
       -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":
@@ -39,6 +41,8 @@
     "steps":
       -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":
@@ -60,6 +64,8 @@
     "steps":
       -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":
@@ -88,6 +94,8 @@
     "steps":
       -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":
@@ -108,6 +116,8 @@
     "steps":
       -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":
@@ -207,17 +217,12 @@
     "runs-on": "ubuntu-latest"
     "steps":
       -
-        "name": "enable KVM (the VM test)"
-        "run": |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":
-          "extra_nix_config": "system-features = nixos-test benchmark big-parallel kvm"
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
         "name": "nix flake check"
@@ -230,6 +235,8 @@
     "steps":
       -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":
@@ -262,6 +269,8 @@
     "steps":
       -
         "uses": "actions/checkout@v4"
+        "with":
+          "fetch-depth": 0
       -
         "uses": "cachix/install-nix-action@v31"
         "with":

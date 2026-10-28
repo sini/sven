@@ -9,7 +9,10 @@
 }:
 let
   setup = [
-    { uses = "actions/checkout@v4"; }
+    {
+      uses = "actions/checkout@v4";
+      "with".fetch-depth = 0;
+    } # full history: the engine's asOf/history tests fetch old revisions
     {
       uses = "cachix/install-nix-action@v31";
       "with".github_access_token = "\${{ secrets.GITHUB_TOKEN }}";
@@ -166,14 +169,7 @@ in
       flake-check = job {
         needs = [ "fleet" ];
         timeout = 120;
-        pre = [
-          (run "enable KVM (the VM test)" null ''
-            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-            sudo udevadm control --reload-rules
-            sudo udevadm trigger --name-match=kvm
-          '')
-        ];
-        nix.extra_nix_config = "system-features = nixos-test benchmark big-parallel kvm";
+        # no KVM: VM tests are `vmTests`, not checks (hosted runners cannot run guests reliably)
         steps = [ (run "nix flake check" null "nix flake check -L \"$FLEET\"") ];
       };
     }

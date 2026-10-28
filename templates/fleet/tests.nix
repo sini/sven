@@ -291,9 +291,10 @@ let
         "infra-web-2"
         "lb-no-gui"
         "pre-commit"
-        "web"
       ]
-      && !(out.checks.aarch64-linux ? web)
+      && !(out.checks.x86_64-linux ? web)
+      && out.vmTests.x86_64-linux ? web
+      && !(out.vmTests ? aarch64-linux)
       && out.checks.aarch64-linux ? pre-commit;
     buildhost =
       (red "deploy" web2).buildHost == "10.0.1.1"

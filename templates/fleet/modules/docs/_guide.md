@@ -497,7 +497,7 @@ Each aspect declares the flake inputs it uses on the `flake-file` sink. The gene
 | `infra-<host>` | each fact that aspects state from fleet data holds in the built system: the hostname, nginx and port 80 where nginx is active, every persisted directory |
 | `lb-no-gui` | lb's built system has no GUI package |
 | `guard-pod` | an aspect applied alone to stand-in args (a cluster with the flag on) gives the expected manifest, whatever the fleet sets |
-| `web` | a VM test: a client reaches nginx |
+| `vmTests.x86_64-linux.web` (not a check) | a VM test: a client reaches nginx. It needs KVM, so CI does not run it; build it by hand |
 | `pre-commit` | the hooks that aspects give |
 
 The infra checks come from the fleet, not from a hand-written list. Add an aspect that states a fact, and every host where it is active gets the check.
