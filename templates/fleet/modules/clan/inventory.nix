@@ -34,11 +34,22 @@ in
       extraModules = i.roles.${r}.extraModules or [ ];
     })) (lib.attrNames i.roles)) all));
 
-  # one fleet sink for exports; a reader filters by service, instance, role and machine (clan selectExports)
-  sven.kinds.fleet.sinks.exports.reduce = es: {
-    value = map (e: { inherit (e.from) service instance role; machine = e.from.parent.name; inherit (e) value; }) es;
-    errors = [ ];
-  };
+  # one fleet sink for exports; a reader filters by service, instance, role and machine (clan selectExports).
+  # A member writes only under its own scope. An element from the fleet scope is the owner's override of one entry.
+  # A service lists the export keys it may give (clan manifest.exports.out).
+  sven.kinds.fleet.sinks.exports.reduce = es:
+    let
+      isMember = e: e.from.kind == "member";
+      overrides = map (e: e.value) (lib.filter (e: !isMember e) es);
+      keyOf = x: "${x.service}:${x.instance}:${x.role}:${x.machine}";
+      own = map (e: { inherit (e.from) service instance role; machine = e.from.parent.name; inherit (e) value; }) (lib.filter isMember es);
+      over = x: lib.findFirst (o: keyOf o == keyOf x) null overrides;
+      allowed = x: sven.helpers.clan.services.${x.service}.exports or [ ];
+    in {
+      value = map (x: if over x != null then x // { inherit (over x) value; } else x) own;
+      errors = lib.concatMap (x: map (k: { error = "clan: ${keyOf x}: service ${x.service} does not export ${k}"; from = "fleet:main"; })
+        (lib.subtractLists (allowed x) (lib.attrNames x.value))) own;
+    };
   sven.aspects.clan-extra-modules = { at = sven.lib.all [ sven.kinds.member (s: s.extraModules != [ ]) ]; os = { member, ... }: { imports = member.extraModules; }; };
 
   # clan's instance contract: known service and roles, at least one role, machine and instance counts, typed settings

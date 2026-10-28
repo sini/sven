@@ -223,6 +223,24 @@ let
     clan-exports-per-instance = let x = with' ({ ... }: { sven.instance.offsite = { module = "borg"; roles = { client.machines.web-1 = { }; server.machines.web-2 = { }; }; }; });
         job = n: map (v: v.services.borgbackup.jobs.${n}.repo or null) (list (x.reduced.nixos.${web1} or null)); in
       lib.elem "borg@10.0.1.11:/srv/web-1" (job "offsite") && lib.elem "borg@10.0.1.1:/srv/web-1" (job "backup");
+    clan-role-union = let x = with' ({ ... }: { sven.instance.mix = { module = "banner"; roles.default = { tags = [ "darwin" ]; machines.web-1 = { }; }; }; }); in
+      lib.sort (a: b: a < b) (map (s: s.parent.name) (lib.filter (s: s.kind == "member" && s.instance or null == "mix") x.scopes)) == [ "studio" "web-1" ];
+    clan-export-allowlist = hasMsg (with' ({ sven, ... }: { sven.aspects.leak = { at = sven.lib.all [ sven.kinds.member (s: s.service == "borg" && s.role == "server") ]; exports = { scope, ... }: { token = "x"; }; }; }))
+      ".*borg:backup:server:lb: service borg does not export token.*";
+    clan-export-override = let x = with' ({ sven, ... }: { sven.aspects.owner-pin = { at = sven.kinds.fleet; exports = { service = "borg"; instance = "backup"; role = "server"; machine = "lb"; value.repo = "borg@vault"; }; }; }); in
+      lib.elem "borg@vault:/srv/web-1" (map (v: v.services.borgbackup.jobs.backup.repo or null) (list (x.reduced.nixos.${web1} or null)));
+    clan-vars-plan = let p = out.varsPlan.web-1; in
+      lib.elem { generator = "borg-backup"; file = "passphrase"; path = "/run/secrets-for-users/vars/borg-backup/passphrase"; neededForUsers = true; } p.files
+      && lib.elem { generator = "openssh"; file = "ssh.id_ed25519"; path = "/run/secrets/vars/openssh/ssh.id_ed25519"; neededForUsers = false; } p.files
+      && lib.findFirst (n: n == "openssh" || n == "borg-backup") null (map (g: g.name) p.order) == "openssh"
+      && lib.any (f: f.generator == "wifi.home") out.varsPlan.stage.files && !(lib.any (f: f.generator == "wifi.home") out.varsPlan.lb.files);
+    clan-export-generators = (red "generators" "fleet:main")."from-exports@web-1".files == { "borg.known_hosts".secret = false; } && !((red "generators" "fleet:main") ? "from-exports@web-2");
+    clan-secret-read = hasMsg (with' ({ sven, ... }: { sven.aspects.peek = { at = sven.host.web-1; public-reads = { machine = "web-1"; generator = "openssh"; file = "ssh.id_ed25519"; }; }; }))
+      ".*web-1 reads openssh/ssh.id_ed25519, a secret file.*";
+    clan-store-consistency = hasMsg (with' ({ ... }: { sven.host.web-2.secretStore = "age"; })) ".*web-2 uses secret store age, the fleet uses sops.*";
+    clan-darwin-restart = hasMsg (with' ({ ... }: { sven.instance.backup-mac = { module = "borg"; roles = { client.machines.studio = { }; server.machines.lb = { }; }; }; }))
+      ".*borg-backup-mac: restartUnits is NixOS only.*";
+    clan-dir-hosts = lib.elem "from-dir" (scope web2).labels && !(lib.any (s: s.name == "notes.txt") r.scopes);
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };
@@ -232,7 +250,7 @@ let
       lib.all (hasMsg e) [ ".*instance bad-role uses unknown service bad-role.*" ".*instance empty has no roles.*" ".*backup2 role server: 2 machines, at most 1.*"
         ".*nouser.default: setting user is not a string.*" ".*badtype.default: setting user is not a string.*" ];
     clan-vars = lib.sort (a: b: a < b) (lib.attrNames (red "generators" "fleet:main")) == [ "borg-backup@lb" "borg-backup@lb-minimal" "borg-backup@stage" "borg-backup@web-1" "borg-backup@web-2"
-        "openssh@lb" "openssh@lb-minimal" "openssh@stage" "openssh@studio" "openssh@web-1" "openssh@web-2" "wifi.home" ]
+        "from-exports@web-1" "openssh@lb" "openssh@lb-minimal" "openssh@stage" "openssh@studio" "openssh@web-1" "openssh@web-2" "wifi.home" ]
       && hasMsg (with' ({ sven, ... }: { sven.aspects.dep-bad = { at = sven.host.web-1; generators = { scope, ... }: { name = "x"; dependencies = [ "missing" ]; }; }; })) ".*x@web-1 depends on missing, which web-1 has not.*";
     clan-public-value = osAt lb [ "environment" "etc" "ssh/host-key.pub" "text" ] == [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFleetTestKeyNotReal lb" ]
       && osAt web1 [ "environment" "etc" "ssh/host-key.pub" "text" ] == [ "absent" ];
