@@ -65,7 +65,10 @@ let
       loadErrors = map (n: err "module" n.error) (filter (n: n ? error) loaded);
 
       # ── declarations: queries on the files, in file order. A leaf is the first answer; `at` is all answers ──
-      answers = path: concatMap (d: let r = get path d; in if r ? ok then [ r.ok ] else [ ]) defs;
+      # one lazy index over every file (zipAttrsWith): a lookup walks its path, never all files
+      zipDefs = vs: { vals = vs; kids = b.zipAttrsWith (_: zipDefs) (filter (v: isAttrs v && !isLeaf v) vs); };
+      index = zipDefs defs;
+      answers = path: (foldl' (node: n: node.kids.${n} or { vals = [ ]; kids = { }; }) index path).vals;
       atKey = path: path != [ ] && b.elemAt path (length path - 1) == "at";
       sinkKeyOf = path: length path == 3 && head path == "aspects" && elem (b.elemAt path 2) sinkNames;   # several files may each give an element
       decl = path: let hs = answers path; in
@@ -108,7 +111,7 @@ let
         let
           key = "${kind}:${name}";
           path = (if parent == null then [ ] else parent.path) ++ [ key ];
-          s = inst // { inherit kind name key parent path; id = concatStringsSep "/" path; up = (if parent == null then [ ] else parent.up) ++ [ s ]; };
+          s = inst // { inherit kind name key parent path; id = concatStringsSep "/" path; up = (if parent == null then [ ] else parent.up) ++ [ s ]; rup = [ s ] ++ (if parent == null then [ ] else parent.rup); };   # rup: nearest first, built once
         in s;
       spawnsOf = k: kinds.${k}.spawns or { };
       spawned = concatMap (k: attrNames (spawnsOf k)) kindNames;
@@ -143,7 +146,8 @@ let
       outAt = n: s: cycleOuts.${n}.${s.id} or { };
 
       # ── order: a sink every scope has; first answer, else 0. Siblings sort by (order, key); a parent sorts first ──
-      ordersAt = s: concatMap (n: if !active.${n}.${s.id} then [ ] else toList (aspects.${n}.order or [ ]) ++ toList ((outAt n s).order or [ ])) aspectNames;
+      orderNames = filter (n: aspects.${n} ? order || aspects.${n} ? cycle) aspectNames;   # only these can answer `order`
+      ordersAt = s: concatMap (n: if !active.${n}.${s.id} then [ ] else toList (aspects.${n}.order or [ ]) ++ toList ((outAt n s).order or [ ])) orderNames;
       orderOf = s: let os = filter (o: b.isInt o || b.isFloat o) (ordersAt s); in if os == [ ] then 0 else head os;
       orderErrors = concatMap (s: if all (o: b.isInt o || b.isFloat o) (ordersAt s) then [ ] else [ (err s.id "order is not a number") ]) unsorted;
       sortKeys = listToAttrs (map (s: { name = s.id; value = (if s.parent == null then [ ] else sortKeys.${s.parent.id}) ++ [ [ (orderOf s) s.key ] ]; }) unsorted);
@@ -155,7 +159,7 @@ let
       sinkOf = s: k: (kinds.${s.kind}.sinks or { }).${k} or null;
       sinkKeys = d: filter (k: !elem k [ "at" "reduce" "of" ]) (attrNames d);
       sinkNames = uniq (concatMap (k: attrNames (k.sinks or { })) (b.attrValues kinds));
-      nearestFirst = s: reverse s.up;
+      nearestFirst = s: s.rup;
       above = s: if s.parent == null then [ ] else reverse s.parent.up;
       receiverIn = k: first (r: sinkOf r k != null && holds ((sinkOf r k).at or (_: true)) r);
       given = concatMap (s: concatMap (n: let a = aspects.${n}; o = outAt n s; in
@@ -197,7 +201,7 @@ let
         if n == "scope" then [ s ]
         else if kinds ? ${n} then (let x = nearest n s; in if x == null then [ ] else [ x ])
         else (sourcesAt s [ ]).${n} or [ ];
-      isAttrsFn = f: b.match ".*<attrspat.*" (b.toXML f) != null;
+      isAttrsFn = f: functionArgs f != { } || b.match ".*<attrspat.*" (b.toXML f) != null;   # toXML only for `{ ... }:` vs `x:`
       fill = s: v:
         if !isFunction v then { ok = v; }
         else if !isAttrsFn v then err s.id "bare function: wrap it as `{ ... }:`"
