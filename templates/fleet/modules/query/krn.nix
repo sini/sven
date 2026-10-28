@@ -23,8 +23,10 @@ let
       ++ lib.optional (n > 0) (lefd (v vs (n - 1)) (h.ram - h.ramReserve))
       ++ [ (eq q (lib.getAttrs gs vs)) (label (map (g: vs.${g}) gs)) ]);
   # the allocation that gives the guests the most memory (the first, in label order, among the largest)
-  bestMem = h: let all = runAll (memRel h); total = m: lib.foldl' (a: x: a + x) 0 (lib.attrValues m); top = lib.foldl' (a: m: lib.max a (total m)) 0 all; in
-    lib.findFirst (m: total m == top) null all;
+  # the allocation that gives the guests the most memory, by krn maximize within a fuel budget: a search cut by fuel is an
+  # error record, never a silent "best"
+  memSearch = h: K.maximize 100000 (m: lib.foldl' (a: x: a + x) 0 (lib.attrValues m)) (memRel h);
+  bestMem = h: let s = memSearch h; in if s.complete then s.best else null;
   hostRows = lib.mapAttrsToList (n: h: { name = n; env = h.environment.name; db = h.dbRole; }) (lib.filterAttrs (_: h: h ? addr) sven.host);
 in
 {
@@ -44,7 +46,9 @@ in
   sven.aspects.memory-synthesis = {
     at = sven.lib.all [ sven.kinds.host (s: guestsOf s != [ ]) ];
     nixos = { host, ... }: let m = bestMem host; in lib.optionalAttrs (m != null) { environment.etc."guests/memory".text = builtins.toJSON m; };
-    errors = { host, ... }: lib.optional (bestMem host == null) "memory: the guests of ${host.name} do not fit in ${toString host.ram} GiB with ${toString host.ramReserve} reserved";
+    errors = { host, ... }: let s = memSearch host; in
+      lib.optional (s.complete && s.best == null) "memory: the guests of ${host.name} do not fit in ${toString host.ram} GiB with ${toString host.ramReserve} reserved"
+      ++ lib.optional (!s.complete) "memory: the search for ${host.name} ran out of fuel after ${toString s.count} answers";
   };
 
   sven.aspects.port-synthesis = {

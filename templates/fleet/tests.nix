@@ -291,6 +291,10 @@ let
     agent-without = let files = lib.filter (f: lib.hasSuffix ".nix" (toString f) && !lib.hasPrefix "_" (baseNameOf f)) (lib.filesystem.listFilesRecursive ./modules);
         w = sven.without { inherit files; path = [ "aspects" "attic" ]; args = { inherit inputs lib; }; }; in
       map baseNameOf w.dropped == [ "secrets.nix" ] && !(w.r.active ? attic);
+    krn-fuel = let K = sven.krn; fives = x: K.disj [ (K.eq x 5) (fives x) ]; s = K.runAllFuel 40 (q: fives q); in !s.complete && s.answers != [ ] && lib.all (x: x == 5) s.answers;
+    agent-shacl = let t = sven.rdf.shacl r; in lib.hasInfix "sh:targetClass <https://sven.dev/fleet/kind/host>" t
+      && lib.hasInfix "<https://sven.dev/fleet/field/environment> ; sh:maxCount 1 ; sh:class <https://sven.dev/fleet/kind/environment>" t
+      && lib.hasInfix "<https://sven.dev/fleet/instance/environment/lab> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://sven.dev/fleet/kind/environment>" (sven.rdf.ntriples r);
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };
