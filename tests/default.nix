@@ -171,7 +171,9 @@ let
       && K.runAll (q: K.fresh ({ a, b, c }: [ (K.infd [ a b c ] 1 3) (K.distinctfd [ a b c ]) (K.ltfd a b) (K.eq q [ a b c ]) (K.label [ a b c ]) ]))
         == [ [ 2 3 1 ] [ 1 2 3 ] [ 1 3 2 ] ]
       && K.runC 1 (q: [ (K.infd [ q ] 2 5) (K.neqfd q 3) ]) == [ { value = "_.0"; neq = [ ]; dom = { "_.0" = [ 2 4 5 ]; }; } ]
-      && K.runAll (q: [ (K.infd [ q ] 1 3) (K.lefd 5 q) ]) == [ ];                                          # propagation alone fails it
+      && K.runAll (q: [ (K.infd [ q ] 1 3) (K.lefd 5 q) ]) == [ ]                                             # propagation alone fails it
+      && K.runAll (q: [ (K.infd [ q ] 1 3) (K.eq q 7) ]) == [ ] && K.runAll (q: [ (K.eq q 2) (K.infd [ q ] 1 3) ]) == [ 2 ]   # a bound value meets its domain
+      && map (a: a.dom) (K.runC 1 (q: K.fresh ({ x, y }: [ (K.infd [ x y ] 1 3) (K.plusfd x y q) (K.infd [ q ] 0 99) ]))) == [ { "_.0" = [ 2 3 4 5 6 ]; } ];   # the sum is bounded
     krn-neq =K.runAll (q: K.fresh ({ a, b }: [ (K.membero a [ "x" "y" ]) (K.membero b [ "x" "y" ]) (K.neq a b) (K.eq q [ a b ]) ])) == [ [ "x" "y" ] [ "y" "x" ] ];
     not-cycle-undefined = let r = logic true; h = "top:t/host:h"; in
       map (x: "${x.aspect}@${x.scope}") r.undefined == [ "a@${h}" "b@${h}" "c@${h}" "v@${h}" "w@${h}/user:u" ]   # within and has carry it across scopes
