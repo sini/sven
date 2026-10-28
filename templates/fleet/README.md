@@ -322,6 +322,8 @@ SELECT ?name WHERE { ?s rdf:type <https://sven.dev/fleet/kind/host> ; <https://s
 
 **Change programs.** `sven.lib.program` writes a change as data ops: `set`, `ref`, `place` and `new`. `validate r prog` checks it against the schema (with `near`), `toModule` makes the module, `dryRun { base; prog; }` validates and stages it, and `render` gives JSON. An agent writes a program, not Nix code.
 
+**Install order.** The stored query `installOrder { instance }` gives the waves of a clan service instance: the servers first, then the clients ([agent/queries.nix](modules/agent/queries.nix), `sven.lib.graphs.layers`). For the backup instance: `[ [ "lb" ] [ … every client … ] ]`.
+
 **Synthesis, checked.** Stored queries in [agent/synthesis.nix](modules/agent/synthesis.nix) answer with values that already meet the rules. `freePort { host }` lets krn pick a port no app on the host uses. `placeDb { host }` joins host records to find the database hosts of its environment. `safeHostsFor { aspect; env }` stages the aspect on each machine of the environment and returns where it is safe, and why the others are refused:
 
 ```nix
