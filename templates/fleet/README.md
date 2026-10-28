@@ -1280,6 +1280,123 @@ flowchart LR
 | `warnings` | fleet | fleet | 1 |
 | `xmsg-nodes` | user | fleet | 13 |
 
+## Capability index (generated)
+
+Every list below is computed from the engine and this fleet when the README is written.
+
+**Queries on an eval result** (`r = sven.lib.eval module`): `active`, `ask`, `check`, `context`, `data`, `declaredIn`, `errors`, `explain`, `facts`, `flake`, `floor`, `graph`, `impact`, `labels`, `queries`, `reduced`, `root`, `schema`, `scopes`, `undefined`.
+
+**Engine library** (`sven.lib`): `agent`, `allowed`, `asOf`, `derive`, `diffData`, `eval`, `grant`, `history`, `is`, `jsonSafe`, `maybe`, `mkFlake`, `narrow`, `opt`, `stage`, `validAt`, `without`.
+Reduce strategies: `entries`, `list`, `merge`, `one`, `set`. Change programs (`sven.lib.program`): `dryRun`, `opErrors`, `render`, `toModule`, `validate`. Grants: `allowed`, `grant`, `narrow`.
+
+| Library | Functions |
+|---|---|
+| `sven.lib.graphs` | `cycles`, `fromEdges`, `layers`, `nodesOf`, `paths`, `reach`, `reachers`, `sccs`, `shortest`, `topo`, `transpose`, `uniq'` |
+| `sven.lib.datalog` | `facts`, `judge`, `proof`, `stable`, `wfs`, `why`, `whyNot` |
+| `sven.lib.krn` | `appendo`, `conde`, `conj`, `cons`, `disj`, `distinctfd`, `dom`, `eq`, `facto`, `fail`, `fdBound`, `fresh`, `freshNamed`, `fromList`, `infd`, `label`, `lefd`, `ltfd`, `maxOf`, `maximize`, `membero`, `minOf`, `neq`, `neqfd`, `nil`, `plusfd`, `project`, `propagator`, `run`, `runAll`, `runAllFuel`, `runC`, `runFuel`, `succeed`, `toList`, `unify`, `var`, `walkStar` |
+| `sven.lib.rdf` | `ntriples`, `shacl`, `share`, `triples` |
+
+**Stored queries** (`r.ask name args`):
+
+| Query | Required | Optional | File |
+|---|---|---|---|
+| `aspectsOn` | `host` |  | queries.nix |
+| `errorsBy` |  | `code` | queries.nix |
+| `freePort` | `host` |  | synthesis.nix |
+| `hostsIn` | `env` |  | queries.nix |
+| `installOrder` | `instance` |  | queries.nix |
+| `placeDb` | `host` |  | synthesis.nix |
+| `safeHostsFor` | `aspect`, `env` |  | synthesis.nix |
+
+**Invariants** (`r.check`): `attic`, `base`, `db-same-env`, `ssh`, `trust-order`, `unique-addr`.
+
+```mermaid
+flowchart LR
+  n8dd0fe8499["attic"]
+  ncd1535385b["base"]
+  n0b92436946["db-same-env"]
+  nc8da1a487b["ssh"]
+  ne10dd2e08e["trust-order"]
+  n411692d32a["unique-addr"]
+  nd03003cddb[("invariants.nix")]
+  nd03003cddb --> n8dd0fe8499
+  nd03003cddb --> ncd1535385b
+  nd03003cddb --> n0b92436946
+  nd03003cddb --> nc8da1a487b
+  nd03003cddb --> ne10dd2e08e
+  nd03003cddb --> n411692d32a
+```
+
+**MCP tools** (14): `sven_ask`, `sven_check`, `sven_context`, `sven_declared_in`, `sven_errors`, `sven_explain`, `sven_export`, `sven_impact`, `sven_labels`, `sven_program`, `sven_queries`, `sven_schema`, `sven_stage`, `sven_why_not`.
+
+```mermaid
+flowchart LR
+  n254d290cd5[("sven-mcp (nix run .#sven-mcp)")]
+  n72ed07ef7a("sven_ask")
+  n36a3b0f723("sven_check")
+  n5b32d793d2("sven_context")
+  nfd53204477("sven_declared_in")
+  n4ff85900f3("sven_errors")
+  n37ebbed2c7("sven_explain")
+  nadee744105("sven_export")
+  n6863971d9d("sven_impact")
+  nb0733c534d("sven_labels")
+  nd3c588724a("sven_program")
+  nb8b859f378("sven_queries")
+  n75d0bcd916("sven_schema")
+  n75cc57565d("sven_stage")
+  n0c5c6359b4("sven_why_not")
+  n254d290cd5 --> n72ed07ef7a
+  n254d290cd5 --> n36a3b0f723
+  n254d290cd5 --> n5b32d793d2
+  n254d290cd5 --> nfd53204477
+  n254d290cd5 --> n4ff85900f3
+  n254d290cd5 --> n37ebbed2c7
+  n254d290cd5 --> nadee744105
+  n254d290cd5 --> n6863971d9d
+  n254d290cd5 --> nb0733c534d
+  n254d290cd5 --> nd3c588724a
+  n254d290cd5 --> nb8b859f378
+  n254d290cd5 --> n75d0bcd916
+  n254d290cd5 --> n75cc57565d
+  n254d290cd5 --> n0c5c6359b4
+```
+
+**Labels** (`sven.labels`, by file path): `agent/` trust 1, `modules/` trust 3. Aspects declared under `agent/` and the elements they give (`r.floor 3`):
+
+```mermaid
+flowchart LR
+  n052ebd9803[("agent/ trust 1")]
+  nab84cbff4d[("modules/ trust 3")]
+  n6f0da42c91["mcp-app"]
+  n41d6a0a05f["rdf-pack"]
+  neafe37b099["retire-notice"]
+  n052ebd9803 -->|"1 elements"| n6f0da42c91
+  n052ebd9803 -->|"1 elements"| n41d6a0a05f
+  n052ebd9803 -->|"1 elements"| neafe37b099
+```
+
+**Performance levers.** Shared pkgs (`sharedPkgs`): `app-1`, `app-2`, `app-3`, `lb`, `web-1`, `web-2`. Trimmed module lists (`trimmedModules`): `app-2`, `web-1`.
+
+```mermaid
+flowchart LR
+  n17840a4c3d[("pkgs stable/x86_64-linux")]
+  nd18f01cdeb["app-1"]
+  n259a0eb06e["app-2"]
+  n82d440be69["app-3"]
+  ne7f551bf1b["lb"]
+  n9901f2bd1c["web-1"]
+  nf4531efd27["web-2"]
+  n17840a4c3d -->|"leader"| nd18f01cdeb
+  n17840a4c3d -.->|"reuses"| n259a0eb06e
+  n17840a4c3d -.->|"reuses"| n82d440be69
+  n17840a4c3d -.->|"reuses"| ne7f551bf1b
+  n17840a4c3d -.->|"reuses"| n9901f2bd1c
+  n17840a4c3d -.->|"reuses"| nf4531efd27
+```
+
+**Research and pattern maps** (in `vic/` of the sven repository): `ai-infra-research.md`, `clan-patterns.txt`, `den-census.md`, `den-patterns.md`, `design.md`, `evalmodules-research.md`, `gen-query-research.txt`, `hoag-ci-patterns.txt`, `modlist-research.md`, `quipu-lessons.md`, `sini-patterns.md`.
+
 ### CI jobs (`ci.json`)
 | Job | System | Builds |
 |---|---|---|

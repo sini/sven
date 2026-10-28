@@ -156,6 +156,75 @@ let
 
     </details>
   '';
+  # ── the agent surface and every capability, generated: nothing is listed by hand, so nothing goes missing ──
+  sv = import ../../../../default.nix;   # the engine's own lib, for the index of library functions
+  fnList = xs: lib.concatMapStringsSep ", " (n: "`${n}`") (sorted xs);
+  hostsWith = f: lib.attrNames (lib.filterAttrs (_: h: h ? addr && (h.${f} or false)) sven.host);
+  groupKey = h: "${h.channel.name}/${h.system.name}";
+  sharing = lib.filterAttrs (_: h: h ? addr && (h.sharedPkgs or false)) sven.host;
+  groups = lib.groupBy (n: groupKey sharing.${n}) (sorted (lib.attrNames sharing));
+  sharedView = {
+    nodes = lib.concatLists (lib.mapAttrsToList (g: ns: [ { id = "g:${g}"; label = "pkgs ${g}"; kind = "output"; } ] ++ map (n: { id = "h:${n}"; label = n; kind = "host"; }) ns) groups);
+    edges = lib.concatLists (lib.mapAttrsToList (g: ns: lib.imap0 (i: n: { from = "g:${g}"; to = "h:${n}"; label = if i == 0 then "leader" else "reuses"; live = i == 0; }) ns) groups);
+  };
+  labelView = let ls = sven.lib.labels; in {
+    nodes = map (p: { id = "p:${p}"; label = "${p} trust ${toString sven.labelTable.${p}.trust}"; kind = "output"; }) (lib.attrNames sven.labelTable)
+      ++ map (a: { id = "a:${a}"; label = a; kind = "aspect"; group = null; }) (lib.attrNames (lib.filterAttrs (_: l: l.prefix == "agent/") ls));
+    edges = map (a: { from = "p:agent/"; to = "a:${a}"; label = "${toString (lib.length (lib.filter (x: x.aspect == a) (sven.lib.floor 3)))} elements"; })
+      (lib.attrNames (lib.filterAttrs (_: l: l.prefix == "agent/") ls));
+  };
+  invView = {
+    nodes = map (n: { id = "i:${n}"; label = n; kind = "aspect"; }) (lib.attrNames sven.invariants)
+      ++ map (f: { id = "f:${f}"; label = baseNameOf f; kind = "output"; }) (lib.unique (lib.concatMap (n: sven.lib.declaredIn [ "invariants" n ]) (lib.attrNames sven.invariants)));
+    edges = lib.concatMap (n: map (f: { from = "f:${f}"; to = "i:${n}"; }) (sven.lib.declaredIn [ "invariants" n ])) (lib.attrNames sven.invariants);
+  };
+  mcpTools = sorted (lib.filter lib.isString (lib.flatten (map (l: builtins.match ".*\"name\":\"(sven_[a-z_]+)\".*" l)
+    (lib.splitString "\n" (builtins.replaceStrings [ "{" ] [ "\n{" ] (builtins.readFile ../../mcp/sven-mcp.sh))))));
+  mcpView = { nodes = [ { id = "srv"; label = "sven-mcp (nix run .#sven-mcp)"; kind = "output"; } ] ++ map (t: { id = "t:${t}"; label = t; kind = "sink"; }) mcpTools;
+    edges = map (t: { from = "srv"; to = "t:${t}"; }) mcpTools; };
+  queryRow = n: let fa = builtins.functionArgs sven.queries.${n}; ps = lib.filter (a: a != "r") (lib.attrNames fa); in
+    "| `${n}` | ${fnList (lib.filter (a: !fa.${a}) ps)} | ${fnList (lib.filter (a: fa.${a}) ps)} | ${lib.concatStringsSep ", " (map baseNameOf (sven.lib.declaredIn [ "queries" n ]))} |";
+  capabilities = ''
+    ## Capability index (generated)
+
+    Every list below is computed from the engine and this fleet when the README is written.
+
+    **Queries on an eval result** (`r = sven.lib.eval module`): ${fnList (sven.lib.schema.queries ++ [ "context" "explain" "impact" "labels" "floor" "data" "queries" "ask" "root" ])}.
+
+    **Engine library** (`sven.lib`): ${fnList (lib.filter (n: !lib.elem n [ "graphs" "datalog" "krn" "rdf" "reduce" "program" "grants" "change" ]) (lib.attrNames sv.lib))}.
+    Reduce strategies: ${fnList (lib.attrNames sv.lib.reduce)}. Change programs (`sven.lib.program`): ${fnList (lib.attrNames sv.lib.program)}. Grants: ${fnList (lib.attrNames sv.lib.grants)}.
+
+    | Library | Functions |
+    |---|---|
+    | `sven.lib.graphs` | ${fnList (lib.attrNames sv.lib.graphs)} |
+    | `sven.lib.datalog` | ${fnList (lib.attrNames sv.lib.datalog)} |
+    | `sven.lib.krn` | ${fnList (lib.attrNames sv.lib.krn)} |
+    | `sven.lib.rdf` | ${fnList (lib.attrNames sv.lib.rdf)} |
+
+    **Stored queries** (`r.ask name args`):
+
+    | Query | Required | Optional | File |
+    |---|---|---|---|
+    ${lib.concatMapStringsSep "\n" queryRow (sorted (lib.attrNames sven.queries))}
+
+    **Invariants** (`r.check`): ${fnList (lib.attrNames sven.invariants)}.
+
+    ${mermaid invView}
+
+    **MCP tools** (${toString (lib.length mcpTools)}): ${fnList mcpTools}.
+
+    ${mermaid mcpView}
+
+    **Labels** (`sven.labels`, by file path): ${lib.concatStringsSep ", " (lib.mapAttrsToList (p: l: "`${p}` trust ${toString l.trust}") sven.labelTable)}. Aspects declared under `agent/` and the elements they give (`r.floor 3`):
+
+    ${mermaid labelView}
+
+    **Performance levers.** Shared pkgs (`sharedPkgs`): ${fnList (lib.attrNames sharing)}. Trimmed module lists (`trimmedModules`): ${fnList (hostsWith "trimmedModules")}.
+
+    ${mermaid sharedView}
+
+    **Research and pattern maps** (in `vic/` of the sven repository): ${fnList [ "den-patterns.md" "den-census.md" "sini-patterns.md" "hoag-ci-patterns.txt" "clan-patterns.txt" "gen-query-research.txt" "ai-infra-research.md" "quipu-lessons.md" "evalmodules-research.md" "modlist-research.md" "design.md" ]}.
+  '';
   jobs = ci: ''
     ### CI jobs (`ci.json`)
     | Job | System | Builds |
@@ -176,6 +245,7 @@ in
         kinds
         (diagrams generators)
         summary
+        capabilities
         (jobs ci)
       ];
     };
