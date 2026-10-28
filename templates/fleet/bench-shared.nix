@@ -1,10 +1,11 @@
-# Shared pkgs, measured: the toplevel drvPaths of app-1..3, either sharing app-1's pkgs or each with its own.
-# Run (capped) with NIX_SHOW_STATS=1 and compare nrThunks / cpuTime:  --arg shared true  vs  --arg shared false
-{ shared ? true }:
+# Shared pkgs, measured: toplevel drvPaths of `hosts`, each either on the shared pkgs (as the fleet builds them) or
+# with its own pkgs (nixosConfigurationsOwnPkgs). A leader has no own-pkgs build: it always builds the shared pkgs.
+# Run capped with NIX_SHOW_STATS=1 and compare cpuTime, nrThunks, nrFunctionCalls, values/sets/list bytes, gc.totalBytes:
+#   --arg shared true   vs   --arg shared false          (--arg hosts '[ "lb" "web-1" "web-2" ]' for prod)
+{ shared ? true, hosts ? [ "app-1" "app-2" "app-3" ] }:
 let
-  r = import ./query.nix;
-  o = r.flake;
+  o = (import ./query.nix).flake;
   d = c: c.config.system.build.toplevel.drvPath;
+  pick = n: if shared || !(o.nixosConfigurationsOwnPkgs ? ${n}) then o.nixosConfigurations.${n} else o.nixosConfigurationsOwnPkgs.${n};
 in
-[ (d o.nixosConfigurations.app-1) ]
-++ map (n: d (if shared then o.nixosConfigurations.${n} else o.nixosConfigurationsOwnPkgs.${n})) [ "app-2" "app-3" ]
+map (n: d (pick n)) hosts
