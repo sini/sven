@@ -129,7 +129,7 @@ let
         if isList p then any (q: holds q s) p
         else if isFunction p || p ? __functor then p s
         else if p ? __kind then s.kind == p.__kind
-        else if p ? __aspect then active.${p.__aspect}.${s.id} or false
+        else if p ? __aspect then holds (aspects.${p.__aspect}.at or [ ]) s   # per scope: structure may depend on presence (Den #525) without the whole tree
         else p ? kind && p ? name && s.kind == p.kind && s.name == p.name;
       active = mapAttrs (_: a: listToAttrs (map (s: { name = s.id; value = holds (a.at or [ ]) s; }) unsorted)) aspects;
 

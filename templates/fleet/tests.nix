@@ -148,6 +148,8 @@ let
     den-609-host-hm-no-leak = msgs (with' ({ sven, ... }: { sven.aspects.host-hm = { at = sven.host.lb; homeManager.programs.htop.enable = true; }; })) == []
       && !(lib.any (e: e.origin == "aspect host-hm") (with' ({ sven, ... }: { sven.aspects.host-hm = { at = sven.host.lb; homeManager.programs.htop.enable = true; }; })).graph.edges);
     den-projected-has-aspect = gave "aspect dev" "os" lb && gave "aspect dev" "homeManager" "${lb}/user:alice" && !(gave "aspect desktop" "nixos" ci);
+    den-525-structure-from-presence = map (s: s.id) (lib.filter (s: s.kind == "backup") r.scopes) == [ "${lb}/backup:nightly" "${web1}/backup:nightly" "${web2}/backup:nightly" ]
+      && nixosAt lb [ "services" "restic" "backups" "nightly" "paths" ] == [ [ "/persist" "/etc/lb" ] ];
     den-instance-side-include = r.active.desktop.${stage} && r.active.motd."fleet:main/export:base";
     den-permutation-stable = let
         rev = sven.eval { imports = lib.reverseList (import ./_modules-list.nix); _module.args = { inherit inputs lib; }; };

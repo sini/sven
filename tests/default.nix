@@ -83,6 +83,15 @@ let
       seen = map (c: c.name) (tree.select "c");
     }; };
   });
+  # structure from presence (Den #525): a child exists only where an aspect holds at its parent
+  presence = sven.eval ({ sven, ... }: {
+    sven.kinds.top.spawns.host = _: sven.host;
+    sven.kinds.host.spawns.svc = p: if sven.lib.holds sven.aspects.server p then { web = { }; } else { };
+    sven.kinds.svc = { };
+    sven.top.t = { };
+    sven.host = { a = { }; b = { }; };
+    sven.aspects.server.at = sven.host.a;
+  });
   checks = {
     good-no-errors = msgs good == [ ];
     good-persist = good.reduced.persist."fleet:main/host:lb" == [ "/var/lib/motd" ];
@@ -109,6 +118,7 @@ let
     unread-sink-no-error = msgs (sven.eval { imports = [ (fleet { addr = "a"; }) { sven.aspects.motd.nixso = { }; } ]; }) == [ ];
     args-flow-down = (hostOf argsDown).addr == "hi" && msgs argsDown == [ ];
     args-missing = has argsMissing "module root/0: arg `nope` has no answer";
+    presence-spawns = ids presence == [ "top:t" "top:t/host:a" "top:t/host:a/svc:web" "top:t/host:b" ] && msgs presence == [ ];
     graph-edges = b.elem { sink = "persist"; from = "fleet:main/host:lb"; to = "fleet:main/host:lb"; origin = "aspect motd"; } good.graph.edges;
     deep-1000 = b.length (deep 1000).scopes == 1002;
     wide-3000 = b.length (wide 3000).scopes == 3001;
