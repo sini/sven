@@ -34,5 +34,8 @@ in
   };
 
   # A cluster aspect reads a named host directly: the hub is lb's system owner.
-  sven.aspects.guard = { at = sven.cluster.axon; k8s-manifests.applications.guard.hub = "${sven.host.lb.system-owner.name}@lb"; };
+  sven.aspects.guard = {
+    at = sven.cluster.axon;
+    k8s-manifests = { cluster, ... }: lib.optionalAttrs cluster.settings.guard.enable { applications.guard.hub = "${sven.host.lb.system-owner.name}@lb"; };
+  };
 }

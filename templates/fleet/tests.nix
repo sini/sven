@@ -78,7 +78,7 @@ let
     inventory-json = (scope web1) != null && (scope web2).buildHost == "10.0.1.1";
     inventory-string-ref-refused = hasMsg (with' { sven.host.bad = { environment = "prod"; addr = "x"; }; }) ".*environment wants a environment ref.*";
     vars = out.vars.shared.ca.files == [ "ca.crt" "ca.key" ] && lib.attrNames out.vars.per-machine == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
-    checks-names = lib.attrNames out.checks.x86_64-linux == [ "files/README.md" "files/ci.json" "flake-file" "infra-lb" "infra-stage" "infra-web-1" "infra-web-2" "lb-no-gui" "pre-commit" "web" ] && !(out.checks.aarch64-linux ? web) && out.checks.aarch64-linux ? pre-commit;
+    checks-names = lib.attrNames out.checks.x86_64-linux == [ "files/README.md" "files/ci.json" "flake-file" "guard-pod" "infra-lb" "infra-stage" "infra-web-1" "infra-web-2" "lb-no-gui" "pre-commit" "web" ] && !(out.checks.aarch64-linux ? web) && out.checks.aarch64-linux ? pre-commit;
     buildhost = (red "deploy" web2).buildHost == "10.0.1.1" && (red "deploy" lb).buildHost == null && red "deploy" ci == null;
     facter-metal = on "facter" == [ lb "${lb}/host:lb-minimal" web1 web2 stage ];
     typed-scrape = red "scrape" "fleet:main" == [ { job = "r1"; target = "eu.eu:9090"; } ];
@@ -103,6 +103,12 @@ let
     inference-allow = nixosAt lb [ "environment" "etc" "inference/allow" "text" ] == [ "10.0.1.10\n10.0.2.10\n" ];
     inference-no-address = hasMsg (with' ({ sven, ... }: { sven.host.web-2.settings.inference.clients = [ "ghost" ]; })) ".*client ghost has no address.*";
     guard-named-host = out.k8sManifests.axon.applications.guard.hub == "alice@lb";
+    join-upstreams = out.k8sManifests.axon.applications.gateway.listeners == [ "web-1.example.org" ];
+    guest-intent-parent = nixosAt stage [ "environment" "etc" "vfio/ids" "text" ] == [ "10de:2203" ] && !r.active.vfio.${lb};
+    factories = map (z: "${z.account}:${z.zone}") (red "dns-zones" "fleet:main") == [ "api:api.example.org" "json64:example.org" ]
+      || map (z: "${z.account}:${z.zone}") (red "dns-zones" "fleet:main") == [ "json64:example.org" "api:api.example.org" ];
+    unit-check-stand-in = out.checks.x86_64-linux ? guard-pod && red "unit-checks" "fleet:main" == { guard-pod = true; };
+    one-edge = hasMsg (with' ({ sven, ... }: { sven.environment.staging.dns.publicIPv4 = "198.51.100.1"; })) "dns: 2 environments set dns.publicIPv4.*";
     ingest-across-envs = nixosAt web1 [ "environment" "etc" "alloy/endpoints" "text" ] == [ "https://ingest.example.org\n" ] && nixosAt stage [ "environment" "etc" "alloy/endpoints" "text" ] == [ "" ];
     domains-records = map (e: e.value.name) (red "dns-records" "fleet:main") == [ "example.org" ] && lib.length (red "certificate-domains" "fleet:main") == 3;
     terranix-conditional = out ? terranixConfigurations.dns-prod && !(out.terranixConfigurations ? dns-staging);
