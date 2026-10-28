@@ -1,0 +1,32 @@
+# One sven-mcp tool call. Inputs come from the environment, never from string interpolation:
+# SVEN_ROOT (sven tree), SVEN_FLEET (fleet dir), SVEN_TOOL, SVEN_ARGS (path of the arguments JSON).
+let
+  env = builtins.getEnv;
+  fleet = /. + env "SVEN_FLEET";
+  inputs = (builtins.getFlake "path:${env "SVEN_ROOT"}?dir=templates/fleet").inputs;
+  sven = import inputs.sven;
+  base = {
+    imports = [ (inputs.import-tree (fleet + "/modules")) ];
+    _module.args = {
+      inherit inputs;
+      inherit (inputs.nixpkgs) lib;
+    };
+  };
+  r = sven.lib.eval base;
+  safe = sven.lib.jsonSafe;
+  args = builtins.fromJSON (builtins.readFile (env "SVEN_ARGS"));
+  opt = names: builtins.intersectAttrs (builtins.listToAttrs (map (n: { name = n; value = null; }) names)) args;
+  tools = {
+    schema = r.agent.schema;
+    check = (removeAttrs r.check [ "why" ]) // {
+      why = builtins.listToAttrs (map (v: { name = v; value = r.check.why v; }) r.check.violations);
+    };
+    context = r.context args.id (opt [ "maxEdges" "maxAspects" ]);
+    explain = r.explain args.aspect args.scope (args.depth or 3);
+    errors = builtins.filter (e: !(args ? code) || (e.code or null) == args.code) r.agent.errors;
+    declared_in = r.declaredIn args.path;
+    export = sven.lib.rdf.share r;
+    stage = removeAttrs (sven.lib.stage { inherit base; change = args.change; }) [ "render" ];
+  };
+in
+safe tools.${env "SVEN_TOOL"}

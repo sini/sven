@@ -308,5 +308,5 @@ in
 {
   inherit checks logic ports portsBase;
   # the lib suites live in their own files; `failed` runs them all
-  failed = b.filter (n: !checks.${n}) (b.attrNames checks) ++ map (n: "datalog/${n}") (import ./datalog.nix).failed ++ map (n: "rdf/${n}") (import ./rdf.nix).failed;
+  failed = b.filter (n: !checks.${n}) (b.attrNames checks) ++ map (n: "datalog/${n}") (import ./datalog.nix).failed ++ map (n: "rdf/${n}") (import ./rdf.nix).failed ++ map (n: "krn/${n}") (import ./krn.nix).failed ++ map (n: "shacl/${n}") (import ./shacl.nix).failed;
 }

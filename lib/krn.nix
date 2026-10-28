@@ -76,6 +76,13 @@ let
   bind = s: g: if s == null then null else if s ? d then { d = _: bind (s.d null) g; } else mplus (g s.h) (bind s.t g);
   take = n: s: if n == 0 || s == null then [ ] else if s ? d then take n (s.d null) else [ s.h ] ++ take (n - 1) s.t;
   takeAll = s: if s == null then [ ] else if s ? d then takeAll (s.d null) else [ s.h ] ++ takeAll s.t;
+  # fuel-bounded take: forcing a suspension or yielding a cell costs 1. n < 0 means no limit.
+  # complete only when the stream ended or n answers were taken.
+  takeFuel = n: fuel: s:
+    if n == 0 || s == null then { answers = [ ]; complete = true; }
+    else if fuel <= 0 then { answers = [ ]; complete = false; }
+    else if s ? d then takeFuel n (fuel - 1) (s.d null)
+    else let r = takeFuel (n - 1) (fuel - 1) s.t; in r // { answers = [ s.h ] ++ r.answers; };
   goal = g: if b.isList g then conj g else g;
   conj = gs: st: b.foldl' (acc: g: bind acc (goal g)) (unit st) gs;
 
@@ -149,6 +156,16 @@ rec {
 
   run = n: f: map answer (take n (start f));
   runAll = f: map answer (takeAll (start f));       # finite searches only
+  # fuel-bounded search: { answers; complete; }. complete = false: fuel ran out first, answers are what was found.
+  runFuel = n: fuel: f: let r = takeFuel n fuel (start f); in r // { answers = map answer r.answers; };
+  runAllFuel = runFuel (-1);
+  # maximize fuel measure f: { best; value; complete; count; }. best = first answer with the largest measure
+  # (null if none). Under complete = false, best is "best found", not proven optimal.
+  maximize = fuel: measure: f: let
+    r = runAllFuel fuel f;
+    pick = acc: a: let m = measure a; in if acc == null || m > acc.value then { best = a; value = m; } else acc;
+    top = b.foldl' pick null r.answers;
+  in { best = if top == null then null else top.best; value = if top == null then null else top.value; inherit (r) complete; count = b.length r.answers; };
   # with the constraints left on the answer: { value; neq; dom; }
   runC = n: f: map answerC (take n (start f));
 
