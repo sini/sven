@@ -104,7 +104,13 @@ let
     inference-no-address = hasMsg (with' ({ sven, ... }: { sven.host.web-2.settings.inference.clients = [ "ghost" ]; })) ".*client ghost has no address.*";
     guard-named-host = out.k8sManifests.axon.applications.guard.hub == "alice@lb";
     join-upstreams = out.k8sManifests.axon.applications.gateway.listeners == [ "web-1.example.org" ];
-    guest-intent-parent = nixosAt stage [ "environment" "etc" "vfio/ids" "text" ] == [ "10de:2203" ] && !r.active.vfio.${lb};
+    join-env-scoped = (with' ({ sven, ... }: { sven.aspects.stage-up = { at = sven.host.stage; served-domains = [ "stage.example.org" ];
+      gateway-upstreams = { address = "10.0.2.10"; exclude = [ ]; }; }; })).flake.k8sManifests.axon.applications.gateway.listeners == [ "web-1.example.org" ];
+    guest-intent-parent = nixosAt stage [ "environment" "etc" "vfio/ids" "text" ] == [ "10de:2203" ] && !r.active.vfio.${lb}
+      && (let r2 = with' ({ sven, ... }: { sven.guest.gpu = { environment = sven.environment.prod; channel = sven.channel.stable; system = sven.system.x86_64-linux;
+        addr = "10.0.1.30"; on = sven.host.lb; passthrough = [ "1002:744c" ]; }; });
+        vf = id: lib.filter (v: v != null) (map (lib.attrByPath [ "environment" "etc" "vfio/ids" "text" ] null) (list (r2.reduced.nixos.${id} or null)));
+      in vf stage == [ "10de:2203" ] && vf lb == [ "1002:744c" ]);
     factories = map (z: "${z.account}:${z.zone}") (red "dns-zones" "fleet:main") == [ "api:api.example.org" "json64:example.org" ]
       || map (z: "${z.account}:${z.zone}") (red "dns-zones" "fleet:main") == [ "json64:example.org" "api:api.example.org" ];
     unit-check-stand-in = out.checks.x86_64-linux ? guard-pod && red "unit-checks" "fleet:main" == { guard-pod = true; };
