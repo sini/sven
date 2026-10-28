@@ -16,6 +16,7 @@ in
       {
         networking.wireguard.interfaces.mesh = {
           ips = [ "${host.addr}/32" ];
+          privateKeyFile = "/run/agenix/wg-mesh"; # a path only: the key never enters the store
           peers = map (e: { publicKey = builtins.hashString "sha256" e.from.name; allowedIPs = [ "${e.value.addr}/32" ]; endpoint = "${e.value.addr}:51820"; }) peers;
         };
         nix.buildMachines = map (e: { hostName = e.value.addr; system = "x86_64-linux"; }) (lib.filter (e: e.value.builder) peers);

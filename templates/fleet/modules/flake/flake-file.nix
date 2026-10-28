@@ -9,7 +9,7 @@ in
     reduce = sven.lib.reduce.merge;
     out = { flake-file, ... }:
       let
-        e = lib.evalModules {
+        e = inputs.nixpkgs-unstable.lib.evalModules { # flake-file needs `valueMeta` on submodule options: nixos-25.05 lib lacks it
           specialArgs = { inherit inputs; }; # flake-file reads `inputs.self` (the files it checks)
           modules = [ inputs.flake-file.flakeModules.flake { inherit flake-file; } ];
         };

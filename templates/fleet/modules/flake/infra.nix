@@ -2,7 +2,8 @@
 { sven, lib, inputs, ... }:
 let
   pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-  holdsIn = cfg: f: let got = lib.attrByPath f.path null cfg; in if f ? has then lib.isList got && lib.elem f.has got else got == f.eq;
+  # a fact: { path; eq; } or { path; has; via ? id; }. `via` maps each realized list item first (impermanence makes { directory; … })
+  holdsIn = cfg: f: let got = lib.attrByPath f.path null cfg; in if f ? has then lib.isList got && lib.elem f.has (map (f.via or (x: x)) got) else got == f.eq;
   check = h: cfg: facts:
     let bad = lib.filter (f: !holdsIn cfg f) facts; in
     pkgs.runCommand "infra-${h}" { } (if bad == [ ] then "touch $out"
@@ -20,7 +21,7 @@ in
     infra = { host, persist, ... }: {
       ${host.name} = {
         hostname = { path = [ "networking" "hostName" ]; eq = host.name; };
-      } // lib.listToAttrs (map (d: lib.nameValuePair "persist ${d}" { path = [ "environment" "persistence" "/persist" "directories" ]; has = d; }) (lib.subtractLists host.unpersist persist));
+      } // lib.listToAttrs (map (d: lib.nameValuePair "persist ${d}" { path = [ "environment" "persistence" "/persist" "directories" ]; has = d; via = x: x.directory or x; }) (lib.subtractLists host.unpersist persist));
     };
   };
   sven.aspects.infra-web = {
