@@ -269,7 +269,7 @@ let
       && (let x = with' ({ ... }: { sven.host.stage.ramFuel = 3; }); in hasMsg x ".*the search for stage ran out of fuel.*" && mem x == [ ]);
     krn-placement = noApps out.dbPlacement == { lb = [ "lb" ]; stage = [ "stage" ]; web-1 = [ "lb" ]; web-2 = [ "lb" ]; }
       && lib.sort (a: b: a < b) out.takes8081 == [ "grafana" "loki" "prometheus" ];
-    agent-check = r.check.ok && r.check.invariants == [ "attic" "base" "ssh" ] && r.check.violations == [ ];
+    agent-check = r.check.ok && r.check.invariants == [ "attic" "base" "db-same-env" "ssh" "trust-order" "unique-addr" ] && r.check.violations == [ ];
     agent-stage = let s = sven.stage { base = fleet [ ]; change = { sven.aspects.attic.at = [ { kind = "mac"; name = "studio"; } ]; }; }; in
       !s.ok && s.violations == [ "bad:attic-on-mac:${studio}" ] && s.diff.active.added == [ "attic@${studio}" ] && b.isString s.render;
     agent-grant = let g = sven.grant { scopes = [ S ]; }; st = to: sven.stage { base = fleet [ ]; change = { sven.aspects.attic.at = [ to ]; }; grant = g; invariants = false; }; in
@@ -297,6 +297,15 @@ let
     agent-shacl = let t = sven.rdf.shacl r; in lib.hasInfix "sh:targetClass <https://sven.dev/fleet/kind/host>" t
       && lib.hasInfix "<https://sven.dev/fleet/field/environment> ; sh:maxCount 1 ; sh:class <https://sven.dev/fleet/kind/environment>" t
       && lib.hasInfix "<https://sven.dev/fleet/instance/environment/lab> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://sven.dev/fleet/kind/environment>" (sven.rdf.ntriples r);
+    # an agent's change between machines is refused BEFORE deploy, with the reason
+    safety-db-cross-env = let s = sven.stage { base = fleet [ ]; change = { sven, ... }: { sven.host.app-4.dbOn = sven.host.stage; }; }; in
+      !s.ok && s.violations == [ "bad:db-cross-env:fleet:main/environment:lab/host:app-4" ]
+      && r.check.whyNot "bad:db-cross-env:fleet:main/environment:lab/host:app-4" == [ { rule = null; reason = "no rule has this head"; } ];   # not even a candidate today
+    safety-addr-clash = let s = sven.stage { base = fleet [ ]; change = { sven, ... }: { sven.host.rogue = { environment = sven.environment.lab; channel = sven.channel.stable; system = sven.system.x86_64-linux; addr = "10.0.1.1"; }; }; }; in
+      !s.ok && s.violations == [ "bad:addr-clash:10.0.1.1" ];
+    safety-trust-order = let s = sven.stage { base = fleet [ ]; change = { sven, ... }: { sven.host.app-4.dependsOn = [ sven.host.stage ]; }; }; in
+      !s.ok && s.violations == [ "bad:trust-down:fleet:main/environment:lab/host:app-4:stage" ]
+      && (sven.stage { base = fleet [ ]; change = { sven, ... }: { sven.host.app-4.dependsOn = [ sven.host.lb ]; }; }).violations == [ ];
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };

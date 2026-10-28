@@ -14,5 +14,25 @@ in
       (lib.filter (s: lib.elem s.kind [ "host" "mac" ] && !(lib.hasInfix "/host:lb/host:" s.id)) scopes);
     # a host with a binary cache secret (attic) is never a mac: secrets stay on NixOS servers
     attic = { scopes, ... }: map (s: { head = "bad:attic-on-mac:${s.id}"; pos = [ "has:attic:${s.id}" ]; }) (lib.filter (s: s.kind == "mac") scopes);
+
+    # ── between machines: what must hold across hosts, environments and services before anything deploys ──
+    # a host's database host lives in the same environment (a prod app never writes to a staging database)
+    db-same-env = { scopes, ... }: lib.concatMap (s: let x = lib.findFirst (h: h.kind == "host" && h.name == s.dbOn.name) null scopes; in
+      if x == null then [ { head = "bad:db-dangling:${s.id}"; pos = [ "kind:host:${s.id}" ]; } ]
+      else [ { head = "bad:db-cross-env:${s.id}"; pos = [ "ref:dbOn:${s.id}:host:${x.name}" ]; neg = [ "ref:environment:${x.id}:environment:${s.environment.name}" ]; } ])
+      (lib.filter (s: s.kind == "host" && (s.dbOn or null) != null && !(lib.hasInfix "/host:lb/host:" s.id)) scopes);
+    # no two machines share an address (a variant such as lb-minimal is the same machine, so it is not counted)
+    unique-addr = { scopes, ... }: let
+      ms = lib.filter (s: machines s && (s.addr or null) != null && s.parent.kind or null != "host") scopes;
+      byAddr = lib.groupBy (s: s.addr) ms;
+    in lib.concatLists (lib.mapAttrsToList (a: ss: lib.optional (lib.length ss > 1) {
+      head = "bad:addr-clash:${a}"; pos = map (s: "val:addr:${s.id}:${a}") ss; }) byAddr);
+    # trust only flows down: a host never depends on a host in a less trusted environment (prod 3, lab 2, staging 1)
+    trust-order = { scopes, ... }: let
+      rank = { prod = 3; lab = 2; staging = 1; };
+      hostScope = n: lib.findFirst (h: h.kind == "host" && h.name == n) null scopes;
+    in lib.concatMap (s: lib.concatMap (d: let x = hostScope d.name; in lib.optional (x != null && rank.${x.environment.name} < rank.${s.environment.name}) {
+      head = "bad:trust-down:${s.id}:${x.name}"; pos = [ "ref:dependsOn:${s.id}:host:${x.name}" ]; }) (s.dependsOn or [ ]))
+      (lib.filter (s: s.kind == "host") scopes);
   };
 }
