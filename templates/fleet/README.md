@@ -525,8 +525,10 @@ nix-instantiate --eval --strict tests -A failed   # [ ]: engine, datalog, rdf, k
 bash tests/cost.sh                                # PASS aspect-ref-memo, PASS reduction-memo
 ```
 
+GitHub Actions run all of these on each push and pull request ([.github/workflows/test.yml](https://github.com/vic/sven/blob/main/.github/workflows/test.yml)): the engine and cost oracles, the fleet checks and e2e evaluations, the fleet cost oracle, the MCP tests, `nix flake check` (with KVM for the VM test) and one job per `ci.json` target that must evaluate to a derivation.
+
 ## This fleet, live
-Generated from the fleet's queries: 87 scopes, 28 kinds, 184 aspects, 966 routed elements.
+Generated from the fleet's queries: 87 scopes, 28 kinds, 185 aspects, 965 routed elements.
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
 | `backup` |  |  | `nixos` | 3 |
@@ -556,7 +558,7 @@ Generated from the fleet's queries: 87 scopes, 28 kinds, 184 aspects, 966 routed
 | `toy` | `of` |  |  | 2 |
 | `user` | `classes`, `groups`, `phone`, `shell` |  | `account`, `age-secrets`, `both`, `git`, `hmvals`, `homeDarwin`, `homeLinux`, `homeManager`, `maid`, `secrets` | 13 |
 | `variant` | `of` |  | `nixos` | 1 |
-| `vim` | `features`, `theme` |  | `vim` | 2 |
+| `vim` | `features`, `theme` |  | `vimrc` | 2 |
 A kind with 0 scopes is data: nothing spawns it.
 
 ### Fleet map
@@ -906,7 +908,7 @@ flowchart LR
   nfc2a3dde19("unit-checks")
   n40ab2ba9bb("user-packages")
   n54328a6510("vars")
-  n889109ab65("vim")
+  n9d0b46520b("vimrc")
   nc1ff286d7d("warnings")
   ne2b781d168("xmsg-nodes")
   n4218c12206[("flake outputs")]
@@ -966,7 +968,7 @@ flowchart LR
   n7f7e19d1fa -.->|"user"| na38fcc0344
   n7bec19a8d7 -.->|"user"| n105bdfb4bb
   na788f0f454 -.->|"variant"| na788f0f454
-  n889109ab65 -->|"dev, min"| n4218c12206
+  n9d0b46520b -->|"dev, min"| n4218c12206
 ```
 
 **Pools**: elements routed up from one kind to another, labelled with the sinks.
@@ -1193,7 +1195,7 @@ flowchart LR
 | `web-2` | host | 45 | alloy, autoinclude, base, ci-host, clan-sshd, db-claim, +39 |
 | `stage` | host | 52 | alloy, base, ci-host, clan-sshd, db-claim, db-client, +46 |
 | `ci` | guest | 12 | alloy, base, dev, docker, global-pkgs, globals-addr, +6 |
-| `studio` | mac | 11 | base, ci-mac, clan-sshd, dev, dock, global-pkgs, +5 |
+| `studio` | mac | 12 | base, ci-mac, clan-sshd, darwin-base, dev, dock, +6 |
 
 | Sink | Given at | Received at | Elements |
 |---|---|---|---|
@@ -1208,7 +1210,7 @@ flowchart LR
 | `class-members` | host | fleet | 9 |
 | `colmena` | host | fleet | 9 |
 | `connect-claims` | fleet | fleet | 1 |
-| `darwin` | mac | mac | 3 |
+| `darwin` | mac | mac | 4 |
 | `db-claims` | host | fleet | 3 |
 | `deploy` | host | host | 9 |
 | `dev` | host | host | 1 |
@@ -1229,7 +1231,7 @@ flowchart LR
 | `hmvals` | user | user | 10 |
 | `homeDarwin` | user | user | 2 |
 | `homeLinux` | user | user | 9 |
-| `homeManager` | user | home, phone, user | 125 |
+| `homeManager` | user | home, phone, user | 123 |
 | `host-addrs` | host | fleet | 9 |
 | `idm-users` | environment | environment | 3 |
 | `inference-clients` | host | fleet | 1 |
@@ -1276,7 +1278,7 @@ flowchart LR
 | `unit-checks` | fleet | fleet | 1 |
 | `user-packages` | user | fleet | 9 |
 | `vars` | fleet, host | fleet | 10 |
-| `vim` | vim | vim | 5 |
+| `vimrc` | vim | vim | 5 |
 | `warnings` | fleet | fleet | 1 |
 | `xmsg-nodes` | user | fleet | 13 |
 
