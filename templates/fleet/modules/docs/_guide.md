@@ -424,6 +424,21 @@ Three families of Den bugs cannot happen in sven:
 | vars generators, `share`, dependencies, `neededFor`, `deploy = false`, recipients | the `generators` sink and `out.varsPlan` | [clan/vars.nix](modules/clan/vars.nix) |
 | autoincludes from `machines/<name>/` | a host per directory, its `configuration.nix` imported | [clan/vars.nix](modules/clan/vars.nix) |
 
+## Shared pkgs: one nixpkgs per channel and system
+
+sven's own part of a host is small: on lb it is 1.4% of the evaluation. Most of the time goes to nixpkgs `pkgs` (56%) and the NixOS module system (36%) ([vic/evalmodules-research.md](https://github.com/vic/sven/blob/main/vic/evalmodules-research.md)). By default each host imports nixpkgs again. A host with `sharedPkgs = true` reuses the `pkgs` of the first sharing host on its channel and system, through nixpkgs' `readOnlyPkgs` ([platforms/nixos.nix](modules/platforms/nixos.nix)).
+
+The `lab` environment compares the two: `app-1`, `app-2` and `app-3` share, `app-4` builds its own ([hosts/apps.nix](modules/hosts/apps.nix)). `bench-shared.nix` evaluates app-1..3 both ways:
+
+| app-1..3 toplevel | CPU | Thunks | Function calls |
+|---|---|---|---|
+| each its own pkgs | 19.0 s | 21.7 M | 17.0 M |
+| shared pkgs | 12.7 s | 16.8 M | 12.9 M |
+
+The `drvPath`s are the same both ways. The e2e check `shared-pkgs-same-drv` proves it on every run: each follower's toplevel equals its build with its own `pkgs` (`nixosConfigurationsOwnPkgs`).
+
+Two rules. A sharing host cannot set `nixpkgs.config` or `nixpkgs.overlays` of its own: its group shares them, so every host in the group must give the same. And documentation must be off on sharing hosts, because the manual and man pages differ when `pkgs` is shared.
+
 ## Generated files and checks
 
 `flake.nix`, `README.md` and `ci.json` are generated. Do not edit them. Edit `modules/`, then run:
