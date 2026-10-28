@@ -14,6 +14,7 @@ let
   triple = s: p: o: "${s} ${p} ${o} .";
   parentOf = id: let m = b.match "(.*)/[^/]*" id; in if m == null then [ ] else b.head m;
 
+  inst = k: n: "<${base}instance/${iriPart k}/${iriPart n}>";
   triples = r:
     let
       engineKeys = [ "kind" "name" "key" "parent" "path" "id" "up" "rup" "__here" ];
@@ -21,13 +22,13 @@ let
         if b.isString v then lit v
         else if b.isInt v then "\"${toString v}\"^^<${xsd}integer>"
         else if b.isBool v then "\"${if v then "true" else "false"}\"^^<${xsd}boolean>"
-        else if b.isAttrs v && b.isString (v.kind or null) && b.isString (v.name or null) then "<${base}instance/${iriPart v.kind}/${iriPart v.name}>"
+        else if b.isAttrs v && b.isString (v.kind or null) && b.isString (v.name or null) then inst v.kind v.name
         else null;
       fields = n: s: b.concatMap
         (k: let o = fieldObj s.${k}; in if o == null then [ ] else [ (triple n (fpred k) o) ])
         (b.filter (k: !b.elem k engineKeys) (b.attrNames s));
       scope = s: let n = iri "scope" s.id; in
-        [ (triple n type (iri "kind" s.kind)) (triple n (pred "name") (lit s.name)) ]
+        [ (triple n type (iri "kind" s.kind)) (triple n (pred "name") (lit s.name)) (triple n (pred "instance") (inst s.kind s.name)) ]
         ++ fields n s
         ++ (let p = parentOf s.id; in if p == [ ] then [ ] else [ (triple n (pred "parent") (iri "scope" p)) ]);
       on = a: b.filter (id: r.active.${a}.${id}) (b.attrNames r.active.${a});
@@ -40,7 +41,12 @@ let
           (triple n (pred "origin") (lit e.origin))
         ];
       error = e: let n = iri "error" (h16 "${e.from}|${e.error}"); in [ (triple n (pred "message") (lit e.error)) (triple n (pred "at") (lit e.from)) ];
-      all = b.concatMap scope r.scopes ++ b.concatMap aspect (b.attrNames r.active)
+      # every instance is typed, so a ref field (an instance IRI) meets `sh:class`; data kinds have instances and no scopes
+      typed = k: n: [ (triple (inst k n) type (iri "kind" k)) (triple (inst k n) (pred "name") (lit n)) ];
+      instances = b.concatLists (b.attrValues (b.mapAttrs (k: ns: b.concatMap (typed k) (b.attrNames ns)) (r.data or { })))
+        ++ b.concatMap (s: typed s.kind s.name) scopes;
+      scopes = r.scopes or r.graph.scopes;   # inside a fleet only the graph is visible
+      all = b.concatMap scope scopes ++ instances ++ b.concatMap aspect (b.attrNames r.active)
         ++ b.concatMap edge r.graph.edges ++ b.concatMap error r.errors;
       uniq = map (i: i.key) (b.genericClosure { startSet = map (key: { inherit key; }) all; operator = _: [ ]; });
     in
