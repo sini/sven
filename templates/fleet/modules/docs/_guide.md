@@ -441,9 +441,16 @@ The `lab` environment compares the two: `app-1`, `app-2` and `app-3` share, `app
 | each its own pkgs | 19.0 s | 21.7 M | 17.0 M |
 | shared pkgs | 12.7 s | 16.8 M | 12.9 M |
 
-The `drvPath`s are the same both ways. The e2e check `shared-pkgs-same-drv` proves it on every run: each follower's toplevel equals its build with its own `pkgs` (`nixosConfigurationsOwnPkgs`).
+The prod hosts share too: `lb`, its variant `lb-minimal`, `web-1` and `web-2` join app-1's group (same channel and system). Evaluated both ways (`--arg hosts '[ "lb" "web-1" "web-2" ]'`):
 
-Two rules. A sharing host cannot set `nixpkgs.config` or `nixpkgs.overlays` of its own: its group shares them, so every host in the group must give the same. And documentation must be off on sharing hosts, because the manual and man pages differ when `pkgs` is shared.
+| lb, web-1, web-2 toplevel | CPU | Thunks | Function calls | Values | Sets | Lists | GC total |
+|---|---|---|---|---|---|---|---|
+| each its own pkgs | 35.3 s | 36.6 M | 27.9 M | 806 MB | 929 MB | 76 MB | 2.71 GB |
+| shared pkgs | 24.8 s | 29.3 M | 21.9 M | 641 MB | 585 MB | 61 MB | 1.96 GB |
+
+The `drvPath`s are the same both ways. The e2e check `shared-pkgs-same-drv` proves it on every run, for all six followers: each follower's toplevel equals its build with its own `pkgs` (`nixosConfigurationsOwnPkgs`).
+
+Two rules. A sharing host cannot set `nixpkgs.config` or `nixpkgs.overlays` of its own: its group shares them, so every host in the group must give the same. Here the overlays are fleet-wide, and the unfree and insecure permits are only on `stage`, which does not share. And documentation is off on every sharing host (`shared-pkgs-no-docs` in [platforms/nixos.nix](modules/platforms/nixos.nix)), because the manual and man pages differ when `pkgs` is shared. With docs on, the e2e check fails.
 
 ## Generated files and checks
 
