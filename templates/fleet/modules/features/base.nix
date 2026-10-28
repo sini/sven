@@ -14,5 +14,6 @@
     };
   };
   sven.aspects.state-version = { at = sven.helpers.linux; nixos.system.stateVersion = "25.05"; };
-  sven.aspects.user-account = { at = sven.kinds.user; account.isNormalUser = true; };
+  sven.aspects.user-account = { at = sven.lib.all [ sven.kinds.user (sven.lib.within sven.helpers.linux) ]; account.isNormalUser = true; };   # NixOS only
+  sven.aspects.user-account-mac = { at = sven.lib.all [ sven.kinds.user (sven.lib.within sven.kinds.mac) ]; account = { user, ... }: { home = "/Users/${user.name}"; }; };
 }

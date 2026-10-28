@@ -207,6 +207,34 @@ let
     hoag-ci-visible = out.visibleMotd == { a = "w1"; b = "w2"; w = "w1"; };
     hoag-ci-suppress-chain = map (a: r.active.${a}.${lb}) [ "sup-a" "sup-b" "sup-c" "sup-d" ] == [ true false true false ];
     hoag-ci-class-share-per-class = out.classShare ? nixos && !(out.classShare ? homeManager);
+    clan-members = lib.sort (a: b: a < b) (map (s: s.name) (lib.filter (s: s.kind == "member" && s.parent.id == lb) r.scopes))
+        == [ "backup.client" "backup.server" "fleet-sshd-for-backup.server" "sshd.server" "svc-a.default" "svc-b.default" ]
+      && lib.sort (a: b: a < b) (map (s: s.name) (lib.filter (s: s.kind == "member" && s.parent.id == studio) r.scopes)) == [ "banner.default" "sshd.server" ];
+    clan-settings-layers = nixosAt stage [ "environment" "etc" "wifi/networks" "text" ] == [ "home office" ]
+      && nixosAt lb [ "services" "borgbackup" "jobs" "backup" "startAt" ] == [ "02:00" ];
+    clan-interface-default = osAt studio [ "environment" "etc" "banner" "text" ] == [ "managed by sven" ];
+    clan-multi-instance = lib.sort (a: b: a < b) (lib.concatMap lib.attrNames (nixosAt lb [ "users" "users" ])) == [ "svc-a" "svc-b" ];
+    clan-per-machine = lib.length (osAt lb [ "services" "openssh" "enable" ]) == 1 && lib.length (lib.filter (s: s.kind == "member" && s.parent.id == lb && s.service == "sshd") r.scopes) == 2;
+    clan-exports = nixosAt web1 [ "services" "borgbackup" "jobs" "backup" "repo" ] == [ "borg@10.0.1.1:/srv/web-1" ]
+      && map (e: "${e.service}:${e.instance}:${e.role}:${e.machine}") (red "exports" "fleet:main") == [ "borg:backup:server:lb" ];
+    clan-exports-owned = map (e: e.service) (red "exports" "fleet:main" ++ [ ]) == [ "borg" ]
+      && lib.sort (a: b: a < b) (map (e: e.service) ((with' ({ sven, ... }: { sven.aspects.forge = { at = sven.lib.all [ sven.kinds.member (s: s.service == "sshd") ]; exports = { service = "borg"; }; }; })).reduced.exports."fleet:main"))
+        == [ "borg" "sshd" ];
+    clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
+    clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
+        bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };
+        backup2 = { module = "borg"; roles.server.machines = { lb = { }; web-1 = { }; }; };
+        banner2 = { module = "banner"; roles.default.machines.lb = { }; };
+        nouser = { module = "users"; roles.default.machines.web-1 = { }; }; }; }); in
+      lib.all (hasMsg e) [ ".*instance bad-role uses unknown service bad-role.*" ".*instance empty has no roles.*" ".*backup2 role server: 2 machines, at most 1.*"
+        ".*service banner allows 1 instances.*" ".*nouser.default: setting user is not a string.*" ];
+    clan-vars = lib.sort (a: b: a < b) (lib.attrNames (red "generators" "fleet:main")) == [ "borg-backup@lb" "borg-backup@lb-minimal" "borg-backup@stage" "borg-backup@web-1" "borg-backup@web-2"
+        "openssh@lb" "openssh@lb-minimal" "openssh@stage" "openssh@studio" "openssh@web-1" "openssh@web-2" "wifi.home" ]
+      && hasMsg (with' ({ sven, ... }: { sven.aspects.dep-bad = { at = sven.host.web-1; generators = { scope, ... }: { name = "x"; dependencies = [ "missing" ]; }; }; })) ".*x@web-1 depends on missing, which web-1 has not.*";
+    clan-public-value = osAt lb [ "environment" "etc" "ssh/host-key.pub" "text" ] == [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFleetTestKeyNotReal lb" ]
+      && osAt web1 [ "environment" "etc" "ssh/host-key.pub" "text" ] == [ "absent" ];
+    clan-autoinclude = lib.any (m: lib.isAttrs m && lib.elem ./machines/web-2/configuration.nix (m.imports or [ ])) (list (red "nixos" web2))
+      && !r.active.autoinclude.${web1};
     hoag-claims-reverse-read = first (nixosAt lb [ "services" "postgresql" "ensureDatabases" ]) == [ "app_web_1" "app_web_2" ]
       && first (nixosAt stage [ "services" "postgresql" "ensureDatabases" ]) == [ "app_stage" ] && first (nixosAt web1 [ "services" "postgresql" "ensureDatabases" ]) == null
       && first (nixosAt web1 [ "environment" "etc" "app/database-url" "text" ]) == "postgres://10.0.1.1/app_web_1";
@@ -219,6 +247,11 @@ let
     lbCfg = out.nixosConfigurations.lb.config;
     checks = {
       lb-toplevel = lib.hasSuffix ".drv" lbCfg.system.build.toplevel.drvPath;
+      clan-built = lbCfg.services.borgbackup.jobs.backup.repo == "borg@10.0.1.1:/srv/lb" && lbCfg.users.users ? svc-a && lbCfg.users.users ? svc-b
+        && lbCfg.services.openssh.enable && lbCfg.environment.etc.extra.text == "svc-a"
+        && out.nixosConfigurations.web-2.config.environment.etc.autoinclude.text == "web-2"
+        && out.nixosConfigurations.stage.config.environment.etc."wifi/networks".text == "home office"
+        && out.darwinConfigurations.studio.config.environment.etc.banner.text == "managed by sven";
       lb-haproxy-order = lib.hasInfix "10.0.1.10:80 check\n  server 10.0.1.11" lbCfg.services.haproxy.config;
       lb-motd = lbCfg.environment.etc.motd.text == "managed by sven" && lbCfg.networking.hostName == "lb";
       lb-overlay = lib.length lbCfg.nixpkgs.overlays == 1;
@@ -247,6 +280,6 @@ let
   };
 in
 {
-  inherit checks e2e r;
+  inherit checks e2e r with';
   failed = lib.filter (n: !checks.${n}) (lib.attrNames checks);
 }
