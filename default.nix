@@ -39,6 +39,7 @@ let
     inherit reduce;
     is = check: { inherit check; };                                   # any check is a type: `sven.lib.is builtins.isString`
     opt = t: d: t // { default = d; };
+    derive = t: f: t // { defaultFrom = f; };                         # a default computed from the instance itself (Den schema defaults)
     maybe = t: { check = v: v == null || checkOf t v; default = null; };
   };
 
@@ -66,13 +67,14 @@ let
       # ── declarations: queries on the files, in file order. A leaf is the first answer; `at` is all answers ──
       answers = path: concatMap (d: let r = get path d; in if r ? ok then [ r.ok ] else [ ]) defs;
       atKey = path: path != [ ] && b.elemAt path (length path - 1) == "at";
+      sinkKeyOf = path: length path == 3 && head path == "aspects" && elem (b.elemAt path 2) sinkNames;   # several files may each give an element
       decl = path: let hs = answers path; in
         if atKey path then concatMap toList hs
         else if hs == [ ] then null
         else if isAttrs (head hs) && !isLeaf (head hs) then listToAttrs (map (n: { name = n; value = decl (path ++ [ n ]); }) (names (attrsIn hs)))
         else head hs;
       declErrors = path: let hs = answers path; in
-        if atKey path || length hs < 2 then [ ]
+        if atKey path || length hs < 2 || sinkKeyOf path then [ ]
         else if all (x: isAttrs x && !isLeaf x) hs then concatMap (n: declErrors (path ++ [ n ])) (names (attrsIn hs))
         else if all (x: x == head hs) hs then [ ]
         else [ (err "declarations" "two answers for ${concatStringsSep "." path}") ];
@@ -84,8 +86,8 @@ let
 
       # ── instance data: typed paths. Answers first, then the type defaults; a failed check reads as null ──
       typesAt = k: path: answers ([ "kinds" k "fields" ] ++ path);
-      dataAt = k: n: path: let hits = answers ([ k n ] ++ path); d = first (t: isAttrs t && t ? default) (typesAt k path); in
-        if hits != [ ] then { ok = head hits; } else if d != null then { ok = d.default; } else { };
+      dataAt = k: n: path: let hits = answers ([ k n ] ++ path); d = first (t: isAttrs t && (t ? default || t ? defaultFrom)) (typesAt k path); in
+        if hits != [ ] then { ok = head hits; } else if d != null then { ok = if d ? defaultFrom then d.defaultFrom instances.${k}.${n} else d.default; } else { };
       view = k: n: path:
         let ts = typesAt k path; tys = filter isType ts; r = dataAt k n path; in
         if tys != [ ] then (if r ? ok && all (t: checkOf t r.ok) tys then r.ok else null)
@@ -132,6 +134,8 @@ let
         else if p ? __aspect then holds (aspects.${p.__aspect}.at or [ ]) s   # per scope: structure may depend on presence (Den #525) without the whole tree
         else p ? kind && p ? name && s.kind == p.kind && s.name == p.name;
       active = mapAttrs (_: a: listToAttrs (map (s: { name = s.id; value = holds (a.at or [ ]) s; }) unsorted)) aspects;
+      atErrors = concatMap (n: map (p: err "aspect ${n}" "`at` holds a ${b.typeOf p}, not a predicate")   # a typo must not read as false
+        (filter (p: !(isFunction p || isList p || isAttrs p && (p ? __functor || p ? __kind || p ? __aspect || p ? kind && p ? name))) (toList (aspects.${n}.at or [ ])))) aspectNames;
 
       # ── components: one cycle per (aspect, scope). Its own tree requests feed its sources ──
       cycleOuts = mapAttrs (n: a: listToAttrs (map (s: { name = s.id; value = let o = a.cycle (sourcesAt s (o.tree or [ ])); in o; })
@@ -156,8 +160,10 @@ let
       receiverIn = k: first (r: sinkOf r k != null && holds ((sinkOf r k).at or (_: true)) r);
       given = concatMap (s: concatMap (n: let a = aspects.${n}; o = outAt n s; in
           if !active.${n}.${s.id} then [ ]
-          else map (k: { origin = "aspect ${n}"; key = k; from = s; value = a.${k}; }) (filter (k: !elem k [ "at" "cycle" "order" "__aspect" ]) (attrNames a))
-            ++ concatMap (k: map (v: { origin = "aspect ${n}"; key = k; from = s; value = v; raw = true; }) (toList o.${k}))
+          else concatMap (k: let hs = answers [ "aspects" n k ]; one = length hs < 2 || all (x: isAttrs x && !isLeaf x) hs; in   # data merges; functions from several files each apply
+            b.genList (i: { origin = "aspect ${n}" + (if one then "" else "#${toString i}"); key = k; from = s; value = if one then a.${k} else b.elemAt hs i; }) (if one then 1 else length hs))
+            (filter (k: !elem k [ "at" "cycle" "order" "__aspect" ]) (attrNames a))
+            ++ concatMap (k: let vs = toList o.${k}; in b.genList (i: { origin = "aspect ${n}"; key = k; from = s; value = b.elemAt vs i; raw = i; }) (length vs))   # raw = position: a cycle may emit many
               (filter (k: !elem k [ "tree" "order" ]) (attrNames o))) aspectNames) scopes;
       direct = concatMap (e: let to = receiverIn e.key (nearestFirst e.from); in if to == null then [ ] else [ (e // { inherit to; }) ])
         (filter (e: e.key != "errors") given);                       # nobody reads it: nothing happens
@@ -209,7 +215,7 @@ let
           else { ok = { __functor = _: m: v (m // got); __functionArgs = rest; }; };
 
       # ── the drivers ──
-      idOf = e: if !isFunction e.value then "${e.origin}|${toString (e.raw or false)}|${e.from.id}"
+      idOf = e: if !isFunction e.value then (if e ? raw then "${e.origin}|raw${toString e.raw}|${e.from.id}" else e.origin)   # static content: once per receiver (Ren r13 rule 9)
         else "${e.origin}|" + concatStringsSep "," (map (n: if n == "scope" then e.from.id else if kinds ? ${n} then ((nearest n e.from).id or "") else "") (attrNames (functionArgs e.value)));
       reduceAt = k: r:
         let
@@ -243,7 +249,7 @@ let
     {
       inherit scopes active reduced graph;
       errors = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
-        ++ treeErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
+        ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
       flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
     };
 in

@@ -144,7 +144,7 @@ let
       && osAt stage [ "nixpkgs" "config" "permittedInsecurePackages" ] == [ [ "olm-3.2.16" ] ]
       && r.active.global-pkgs.${lb} && !r.active.global-pkgs."fleet:main/environment:prod/cluster:axon";
     den-chained-forward = edge "git" "${lb}/user:alice" "${lb}/user:alice" && gave "sink git" "homeManager" "${lb}/user:alice" && gave "sink homeManager" "os" lb;
-    den-custom-class-no-hm = gave "sink files" "os" "${stage}/user:bob" == false && gave "sink files" "os" stage && !(gave "sink files" "os" lb) && !(gave "sink files" "os" studio); # files: linux only, never darwin
+    den-custom-class-no-hm = gave "sink maid" "os" "${stage}/user:bob" == false && gave "sink maid" "os" stage && !(gave "sink maid" "os" lb) && !(gave "sink maid" "os" studio); # maid: linux only, never darwin
     den-609-host-hm-no-leak = msgs (with' ({ sven, ... }: { sven.aspects.host-hm = { at = sven.host.lb; homeManager.programs.htop.enable = true; }; })) == []
       && !(lib.any (e: e.origin == "aspect host-hm") (with' ({ sven, ... }: { sven.aspects.host-hm = { at = sven.host.lb; homeManager.programs.htop.enable = true; }; })).graph.edges);
     den-projected-has-aspect = gave "aspect dev" "os" lb && gave "aspect dev" "homeManager" "${lb}/user:alice" && !(gave "aspect desktop" "nixos" ci);
@@ -158,6 +158,16 @@ let
     den-sibling-laziness = let p = with' ({ sven, ... }: { sven.aspects.poison = { at = sven.host.web-2; nixos = throw "poisoned web-2"; }; }); in
       lib.length p.reduced.nixos.${lb} > 0 && !(builtins.tryEval (builtins.deepSeq p.reduced.nixos.${web2} true)).success;
 
+    # ── Den CI usage patterns (vic/den-patterns.md) ──
+    den-cartesian-and-transitive = lib.sort (a: b: a < b) (red "pairs" stage) == [ "alice-fido" "alice-rex" "bob-fido" "bob-rex" "rex/ball" "rex/bone" ] && red "pairs" lb == null;
+    den-user-classes = gave "sink maid" "os" stage && !(r.reduced.maid ? "${stage}/user:alice");
+    den-enrichment-sinks = red "isNixos" lb == true && red "platform" lb == "linux" && nixosAt lb [ "environment" "variables" "PLATFORM" ] == [ "linux" ];
+    den-user-packages-per-system = lib.all (n: out.packages.x86_64-linux ? ${n}) [ "sw-lb-alice" "sw-stage-bob" "sw-web-1-alice" ];
+    den-opt-in-projection = hmAt "${stage}/user:alice" [ "home" "sessionVariables" "HMVALS" ] == [ "user" ] && hmAt "${stage}/user:alice" [ "home" "sessionVariables" "HOST_ENV" ] == [ "staging" ] && hmAt "${stage}/user:bob" [ "home" "sessionVariables" "HMVALS" ] == [ ];
+    den-pipeline-stage = nixosAt lb [ "networking" "firewall" "allowedTCPPorts" ] == [ [ 80 ] ] && lib.length (red "fw" lb) == 2;
+    den-one-class-two-systems = gave "sink both" "os" stage && gave "sink both" "homeManager" "${stage}/user:bob";
+    den-broadcast = let p = first (nixosAt lb [ "environment" "etc" "peers" "text" ]); in lib.hasInfix "bob@stage" p && !(lib.hasInfix "alice@lb," p) && !(lib.hasSuffix "alice@lb" p);
+    den-producer-own-config = hmAt "${stage}/user:alice" [ "home" "sessionVariables" "DEV" ] == [ "h:stage" ];
     # ── den-hoag (Den + Gen) capabilities ──
     hoag-settings-authority = (red "aspect-settings" web1).nginx == { gzip = true; workers = 8; } && (red "aspect-settings" web2).nginx.workers == 4
       && (red "aspect-settings" stage).nginx == { gzip = false; workers = 1; };
@@ -188,6 +198,8 @@ let
       den-739-standalone-home = out.homeConfigurations."alice@stage".config.home.sessionVariables.MONITORRES == "2560x1440";
       infra-lb-passes = out.checks.x86_64-linux.infra-lb.drvAttrs.buildCommand == "touch $out";
       infra-lb-drift-fails = lib.hasInfix "networking.hostName" (with' { sven.aspects.drift = { at = { kind = "host"; name = "lb"; }; nixos = { lib, ... }: { networking.hostName = lib.mkForce "drifted"; }; }; }).flake.checks.x86_64-linux.infra-lb.drvAttrs.buildCommand;
+      den-enrichment-built = lbCfg.environment.variables.PLATFORM == "linux" && lib.hasInfix "bob@stage" lbCfg.environment.etc.peers.text && lib.elem 80 lbCfg.networking.firewall.allowedTCPPorts && !(lib.elem 53 lbCfg.networking.firewall.allowedTCPPorts); # 2200 is ssh-port
+      den-producer-own-config-built = out.homeConfigurations."alice@stage".config.home.sessionVariables.HOST_DESKTOP == "yes";
       den-713-home-reads-host-config = out.homeConfigurations."alice@stage".config.home.sessionVariables.HOST_DESKTOP == "yes";
       hoag-claims-built = lib.elem "app_web_1" out.nixosConfigurations.lb.config.services.postgresql.ensureDatabases;
       den-chained-forward-built = out.nixosConfigurations.lb.config.home-manager.users.alice.programs.git.extraConfig.init.defaultBranch == "main"; # lb: stable channel, HM 25.05

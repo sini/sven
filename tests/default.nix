@@ -92,6 +92,22 @@ let
     sven.host = { a = { }; b = { }; };
     sven.aspects.server.at = sven.host.a;
   });
+  # Den CI gaps closed: derived defaults, bad `at`, one key from many files, static once per receiver
+  gaps = sven.eval ({ sven, ... }: {
+    imports = [ { sven.aspects.multi.nixos = { scope, ... }: [ "a-${scope.name}" ]; } { sven.aspects.multi.nixos = { scope, ... }: [ "b-${scope.name}" ]; } ];
+    sven.kinds.fleet = { spawns.host = _: sven.host; };
+    sven.kinds.host = {
+      fields.vpn = sven.lib.derive (sven.lib.is b.isString) (self: "vpn-${self.name}");
+      spawns.user = _: { u1 = { }; u2 = { }; };
+      sinks.nixos = { };
+    };
+    sven.kinds.user = { };
+    sven.fleet.main = { };
+    sven.host = { h1 = { }; h2.vpn = "custom"; };
+    sven.aspects.multi.at = sven.kinds.host;
+    sven.aspects.shared = { at = [ sven.kinds.host sven.kinds.user ]; nixos = "marker"; };
+    sven.aspects.typo.at = "host";
+  });
   checks = {
     good-no-errors = msgs good == [ ];
     good-persist = good.reduced.persist."fleet:main/host:lb" == [ "/var/lib/motd" ];
@@ -114,11 +130,16 @@ let
     q5-required = has (q5 ({ cluster, ... }: { })) "aspect k3s: arg `cluster` has no answer";
     q5-optional = !(b.any (m: b.match ".*arg `cluster`.*" m != null) (msgs (q5 ({ cluster ? null, ... }: { }))));
     q5-emitted = has (q5 ({ cluster ? null, ... }: { })) "no cluster: k3s off";
+    cycle-many-elements = (sven.eval ({ sven, ... }: { sven.kinds.top = { spawns = { }; sinks.many.reduce = sven.lib.reduce.list; }; sven.top.t = { }; sven.aspects.m = { at = sven.kinds.top; cycle = _: { many = [ "a" "b" "c" ]; }; }; })).reduced.many."top:t" == [ "a" "b" "c" ];
     tree-nearest = treeHit.reduced.seen."top:t/cluster:c1/node:n1" or null == [ "c1" ] && map (e: e.error) treeHit.errors == [ ];
     unread-sink-no-error = msgs (sven.eval { imports = [ (fleet { addr = "a"; }) { sven.aspects.motd.nixso = { }; } ]; }) == [ ];
     args-flow-down = (hostOf argsDown).addr == "hi" && msgs argsDown == [ ];
     args-missing = has argsMissing "module root/0: arg `nope` has no answer";
     presence-spawns = ids presence == [ "top:t" "top:t/host:a" "top:t/host:a/svc:web" "top:t/host:b" ] && msgs presence == [ ];
+    gap-derived-default = (b.head (b.filter (s: s.name == "h1") gaps.scopes)).vpn == "vpn-h1" && (b.head (b.filter (s: s.name == "h2") gaps.scopes)).vpn == "custom";
+    gap-multi-file-functions = gaps.reduced.nixos."fleet:main/host:h1" == [ [ "a-h1" ] [ "b-h1" ] "marker" ] && !(has gaps "two answers for aspects.multi.nixos");
+    gap-static-once-per-receiver = b.length (b.filter (v: v == "marker") gaps.reduced.nixos."fleet:main/host:h1") == 1;
+    gap-bad-at = has gaps "`at` holds a string, not a predicate";
     graph-edges = b.elem { sink = "persist"; from = "fleet:main/host:lb"; to = "fleet:main/host:lb"; origin = "aspect motd"; } good.graph.edges;
     deep-1000 = b.length (deep 1000).scopes == 1002;
     wide-3000 = b.length (wide 3000).scopes == 3001;
