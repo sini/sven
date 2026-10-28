@@ -135,7 +135,32 @@ let
       { name = "x${toString i}"; value.at = sven.lib.all [ sven.aspects."l${toString i}" sven.aspects."r${toString i}" ]; } ]) (b.genList (i: i + 1) k));
   });
 
+  G = sven.graphs; D = sven.datalog; K = sven.krn;
+  ring = { a = [ "b" ]; b = [ "c" ]; c = [ "a" ]; d = [ "a" ]; };
+  dag = { app = [ "db" "cache" ]; cache = [ "net" ]; db = [ "net" ]; net = [ ]; };
+  choice = [ { head = "a"; neg = [ "b" ]; } { head = "b"; neg = [ "a" ]; } { head = "c"; pos = [ "a" ]; } { head = "s"; } { head = "t"; pos = [ "u" ]; } ];
+
   checks = {
+    graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
+    graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
+      && (G.topo ring).ok == false && (G.topo ring).stuck == [ "a" "b" "c" "d" ];
+    graphs-layers = G.layers dag == [ [ "net" ] [ "cache" "db" ] [ "app" ] ];
+    graphs-cycles = G.cycles ring == [ "a" "b" "c" ] && G.cycles dag == [ ] && G.sccs ring == [ [ "a" "b" "c" ] ];
+    graphs-paths = G.shortest ring "d" "c" == [ "d" "a" "b" "c" ] && G.shortest dag "net" "app" == null
+      && G.paths dag "app" "net" == [ [ "app" "cache" "net" ] [ "app" "db" "net" ] ];
+    datalog-wfs = let w = D.wfs choice; in w.true == [ "s" ] && w.undefined == [ "a" "b" "c" ] && w.false == [ "t" "u" ];
+    datalog-stratified = let w = D.wfs (choice ++ [ { head = "b"; } ]); in w.true == [ "b" "s" ] && w.undefined == [ ] && w.false == [ "a" "c" "t" "u" ];
+    datalog-stable = D.stable choice == [ [ "b" "s" ] [ "a" "c" "s" ] ] && D.stable [ { head = "p"; neg = [ "p" ]; } ] == [ ];
+    datalog-why = D.why choice (D.wfs choice) "s" == [ { head = "s"; } ] && D.why choice (D.wfs choice) "t" == [ ];
+    krn-backward = K.runAll (q: K.fresh ({ a, b }: [ (K.appendo a b [ 1 2 ]) (K.eq q [ a b ]) ])) == [ [ [ ] [ 1 2 ] ] [ [ 1 ] [ 2 ] ] [ [ 1 2 ] [ ] ] ]
+      && K.run 1 (q: K.appendo [ 1 ] [ 2 3 ] q) == [ [ 1 2 3 ] ];
+    krn-unify-records = K.runAll (q: K.fresh ({ x }: [ (K.eq q { addr = x; port = 443; }) (K.membero x [ "10.0.1.1" "10.0.1.2" ]) ]))
+      == [ { addr = "10.0.1.1"; port = 443; } { addr = "10.0.1.2"; port = 443; } ]
+      && K.runAll (q: K.eq { a = q; } { b = 1; }) == [ ] && K.runAll (q: K.eq [ q 1 ] [ 2 3 ]) == [ ];
+    krn-fresh-occurs = K.run 1 (q: K.fresh ({ x }: K.eq q [ x x ])) == [ [ "_.0" "_.0" ] ] && K.run 1 (q: K.eq q [ q ]) == [ ];
+    krn-interleave = let fives = x: K.disj [ (K.eq x 5) (fives x) ]; sixes = x: K.disj [ (K.eq x 6) (sixes x) ]; in
+      K.run 4 (q: K.disj [ (fives q) (sixes q) ]) == [ 5 6 5 6 ];
+    krn-neq = K.runAll (q: K.fresh ({ a, b }: [ (K.membero a [ "x" "y" ]) (K.membero b [ "x" "y" ]) (K.neq a b) (K.eq q [ a b ]) ])) == [ [ "x" "y" ] [ "y" "x" ] ];
     not-cycle-undefined = let r = logic true; h = "top:t/host:h"; in
       map (x: "${x.aspect}@${x.scope}") r.undefined == [ "a@${h}" "b@${h}" "c@${h}" "v@${h}" "w@${h}/user:u" ]   # within and has carry it across scopes
       && !r.active.a.${h} && !r.active.b.${h} && !r.active.c.${h} && msgs r == [ ];

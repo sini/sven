@@ -5,7 +5,7 @@ let
   sort = b.sort b.lessThan;
   uniq = xs: b.attrNames (b.listToAttrs (map (x: { name = x; value = null; }) xs));
   nodesOf = succ: uniq (b.attrNames succ ++ b.concatLists (b.attrValues succ));
-  next = succ: n: succ.${n} or [ ];
+  next = succ: n: sort (succ.${n} or [ ]);   # sorted: the order the data is written in never changes an answer
   # nodes reachable by one or more edges (genericClosure: no recursion depth limit)
   reach = succ: start: sort (map (x: x.key) (b.genericClosure {
     startSet = map (n: { key = n; }) (next succ start);
