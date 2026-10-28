@@ -196,6 +196,13 @@ let
       && sven.narrow all' g == g && sven.narrow g all' == g
       && (sven.narrow g (sven.grant { scopes = [ "top:t/host:b" ]; })).scopes == [ ]
       && (sven.stage { base = { imports = [ portsBase ]; }; change = { sven.aspects.firewall.at = [ { kind = "host"; name = "b"; } ]; }; grant = g; }).refused != [ ];
+    agent-json = let a = sven.agent (ports { sven.host.c.port = 70000; }); in b.fromJSON (b.toJSON a) == a && a.counts.scopes == 4 && b.length a.errors == 1
+      && sven.jsonSafe { f = x: x; p = ./.; } == { f = "<function>"; p = toString ./.; };
+    agent-context = let r = ports ({ sven, ... }: { sven.kinds.host.sinks.fw2 = { }; sven.aspects.more = { at = sven.host.a; fw = "x"; fw2 = "y"; }; });
+        c = r.context "top:t/host:a" { maxEdges = 1; }; in
+      c.received.truncated == { shown = 1; of = 3; } && b.length c.received.items == 1 && c.aspects.items == [ "firewall" "more" ] && c.parent == "top:t"
+      && (r.context "top:t/host:q" { }).code == "unknown-scope" && b.length (r.context "top:t/host:q" { }).near == 2
+      && b.fromJSON (b.toJSON c) == c;
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }

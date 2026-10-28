@@ -56,6 +56,11 @@ let
     maybe = t: { check = v: v == null || checkOf t v; default = null; };
     graphs = import ./lib/graphs.nix;     # reach, transpose, topo, layers, sccs, cycles, paths, shortest over succ attrsets
     datalog = import ./lib/datalog.nix;   # ground rules with negation: wfs (three values), stable, why
+    # JSON-safe: functions and derivations become strings; toJSON then never fails
+    jsonSafe = v: if b.isFunction v then "<function>" else if b.isPath v then toString v else if b.isList v then map static.jsonSafe v
+      else if b.isAttrs v then (if (v.type or null) == "derivation" then "<derivation ${v.name or "?"}>" else if v ? __functor then "<function>" else b.mapAttrs (_: static.jsonSafe) v)
+      else v;
+    agent = r: r.agent;
     krn = import ./lib/krn.nix;           # µKanren: logic variables, unification, run, fresh, conde, appendo, facto
   };
 
@@ -370,11 +375,31 @@ let
           gives = map (e: { inherit (e) sink; to = e.to; }) (filter (e: e.origin == "aspect ${n}" && e.from == id) graph.edges);
           files = declaredIn [ "aspects" n ];
         };
+      # ── the agent surface: JSON-safe answers, every list says when it was cut ──
+      cut = max: xs: { items = b.genList (i: b.elemAt xs i) (if length xs < max then length xs else max); truncated = { shown = if length xs < max then length xs else max; of = length xs; }; };
+      context = id: { maxEdges ? 20, maxAspects ? 50 }:
+        if !(byId ? ${id}) then errWith "context" "no scope ${id}" { code = "unknown-scope"; near = near id (attrNames byId); }
+        else let s = byId.${id}; in static.jsonSafe {
+          scope = id; inherit (s) kind name; parent = if s.parent == null then null else s.parent.id;
+          children = map (c: c.id) (byParent.${id} or [ ]);
+          aspects = cut maxAspects (filter (n: active.${n}.${id}) aspectNames);
+          undefined = map (x: x.aspect) (filter (x: x.scope == id) undefined);
+          given = cut maxEdges (filter (e: e.from == id) graph.edges);
+          received = cut maxEdges (filter (e: e.to == id) graph.edges);
+          errors = filter (e: e.from == id) errorsAll;
+        };
+      agent = static.jsonSafe {
+        inherit schema;
+        errors = errorsAll;
+        check = { inherit (check) violations incomplete ok; };
+        undefined = undefined;
+        counts = { scopes = length scopes; edges = length graph.edges; aspects = length aspectNames; kinds = length kindNames; };
+      };
       errorsAll = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
     in
     {
-      inherit scopes active reduced graph undefined declaredIn check facts schema explain;
+      inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent;
       errors = errorsAll;
       flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
     };
