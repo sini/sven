@@ -320,30 +320,31 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 
 ## This fleet, live
 
-Generated from the fleet's queries: 47 scopes, 25 kinds, 145 aspects, 708 routed elements.
+Generated from the fleet's queries: 56 scopes, 26 kinds, 156 aspects, 728 routed elements.
 
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
 | `backup` |  |  | `nixos` | 3 |
 | `channel` | `darwin`, `home-manager`, `nixpkgs` |  |  | 0 |
 | `cluster` | `environment`, `hosts`, `ingestUrl`, `settings` |  | `age-secrets`, `k8s-manifests` | 1 |
+| `database` |  | `connect`, `secret` |  | 3 |
 | `db` | `zone` |  |  | 0 |
 | `domain` | `mail`, `under` | `domain` |  | 3 |
 | `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `idm-users`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
 | `export` |  |  | `os` | 1 |
-| `fleet` |  | `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `db-claims`, `dns-records`, `dns-zones`, `flake-file`, `gateway-upstreams`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `scrape`, `served-domains`, `syncthing-peers`, `templates`, `unit-checks`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
+| `fleet` |  | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `flake-file`, `gateway-upstreams`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
 | `group` | `label`, `members` |  |  | 0 |
-| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `on`, `passthrough`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
+| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `on`, `passthrough`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |
 | `home` | `channel`, `on`, `system`, `user` | `user` | `homeManager`, `os` | 2 |
-| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `backup`, `guest`, `home`, `host`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `unfree` | 5 |
-| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `darwin`, `os` | 1 |
-| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` |  |  | 0 |
+| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
+| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `darwin`, `os` | 1 |
+| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
 | `pet` | `of` | `toy` |  | 2 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |
 | `region` | `zone` |  |  | 0 |
 | `replica` | `db`, `region` |  |  | 1 |
-| `secret` | `sopsKey` |  |  | 0 |
+| `secret` | `sopsKey` |  |  | 3 |
 | `system` |  | `vim` | `checks`, `devshell`, `files`, `git-hooks`, `no-gui`, `packages`, `treefmt` | 3 |
 | `toy` | `of` |  |  | 2 |
 | `user` | `classes`, `groups`, `phone`, `shell` |  | `account`, `age-secrets`, `both`, `git`, `hmvals`, `homeDarwin`, `homeLinux`, `homeManager`, `maid`, `secrets` | 13 |
@@ -357,6 +358,15 @@ A kind with 0 scopes is data: nothing spawns it.
 ```mermaid
 flowchart LR
   s6c4c773b["fleet:main"]
+  s16dfc102["database:audit"]
+  s6ab735ce["connect:audit-url"]
+  s5bdb8d65["secret:audit-pw"]
+  se22efb42["database:orders"]
+  s932d75a4["connect:orders-url"]
+  s8b01df51["secret:orders-pw"]
+  sc57390ab["database:users"]
+  s2936f18a["connect:users-url"]
+  s1505b103["secret:users-pw"]
   s2911e9c4["domain:example.org"]
   s366cbd5f["domain:api.example.org"]
   sab02c799["domain:v1.api.example.org"]
@@ -403,6 +413,15 @@ flowchart LR
   s561d4bec["system:x86_64-linux"]
   s7502a912["vim:dev"]
   s5b6ebf2d["vim:min"]
+  s6c4c773b --> s16dfc102
+  s16dfc102 --> s6ab735ce
+  s16dfc102 --> s5bdb8d65
+  s6c4c773b --> se22efb42
+  se22efb42 --> s932d75a4
+  se22efb42 --> s8b01df51
+  s6c4c773b --> sc57390ab
+  sc57390ab --> s2936f18a
+  sc57390ab --> s1505b103
   s6c4c773b --> s2911e9c4
   s2911e9c4 --> s366cbd5f
   s366cbd5f --> sab02c799
