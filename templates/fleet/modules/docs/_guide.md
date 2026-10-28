@@ -268,6 +268,7 @@ The home reads stage's `monitor` sink like any child. It still builds its own `h
 | collectors: an aggregate with its own content | a `hive` kind that selects its members | [hoag/collectors.nix](modules/hoag/collectors.nix) |
 | relations and the query calculus (`rel*`, layers) | plain Nix over ref fields, with `genericClosure` | [hoag/relations.nix](modules/hoag/relations.nix) |
 | permutation-stable output (A12), per-member laziness (A17) | file order never changes a result, and sinks are lazy per receiver | `tests.nix`: `den-permutation-stable`, `den-sibling-laziness` |
+| class-share (A18): the config every member of a class shares is built once, gated against the full build | the core is the elements equal at every host; each host's shared build has the same toplevel `drvPath` as its full build | [hoag/class-share.nix](modules/hoag/class-share.nix) |
 
 sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
 

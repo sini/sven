@@ -272,6 +272,7 @@ The home reads stage's `monitor` sink like any child. It still builds its own `h
 | collectors: an aggregate with its own content | a `hive` kind that selects its members | [hoag/collectors.nix](modules/hoag/collectors.nix) |
 | relations and the query calculus (`rel*`, layers) | plain Nix over ref fields, with `genericClosure` | [hoag/relations.nix](modules/hoag/relations.nix) |
 | permutation-stable output (A12), per-member laziness (A17) | file order never changes a result, and sinks are lazy per receiver | `tests.nix`: `den-permutation-stable`, `den-sibling-laziness` |
+| class-share (A18): the config every member of a class shares is built once, gated against the full build | the core is the elements equal at every host; each host's shared build has the same toplevel `drvPath` as its full build | [hoag/class-share.nix](modules/hoag/class-share.nix) |
 
 sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
 
@@ -319,7 +320,7 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 
 ## This fleet, live
 
-Generated from the fleet's queries: 47 scopes, 25 kinds, 131 aspects, 682 routed elements.
+Generated from the fleet's queries: 47 scopes, 25 kinds, 132 aspects, 688 routed elements.
 
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
@@ -330,7 +331,7 @@ Generated from the fleet's queries: 47 scopes, 25 kinds, 131 aspects, 682 routed
 | `domain` | `mail`, `under` | `domain` |  | 3 |
 | `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
 | `export` |  |  | `os` | 1 |
-| `fleet` |  | `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `colmena`, `db-claims`, `dns-records`, `flake-file`, `globals`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `scrape`, `syncthing-peers`, `templates`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
+| `fleet` |  | `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `db-claims`, `dns-records`, `flake-file`, `globals`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `scrape`, `syncthing-peers`, `templates`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
 | `group` | `members` |  |  | 0 |
 | `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `on`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |

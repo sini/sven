@@ -200,6 +200,8 @@ let
       infra-lb-drift-fails = lib.hasInfix "networking.hostName" (with' { sven.aspects.drift = { at = { kind = "host"; name = "lb"; }; nixos = { lib, ... }: { networking.hostName = lib.mkForce "drifted"; }; }; }).flake.checks.x86_64-linux.infra-lb.drvAttrs.buildCommand;
       den-enrichment-built = lbCfg.environment.variables.PLATFORM == "linux" && lib.hasInfix "bob@stage" lbCfg.environment.etc.peers.text && lib.elem 80 lbCfg.networking.firewall.allowedTCPPorts && !(lib.elem 53 lbCfg.networking.firewall.allowedTCPPorts); # 2200 is ssh-port
       den-producer-own-config-built = out.homeConfigurations."alice@stage".config.home.sessionVariables.HOST_DESKTOP == "yes";
+      hoag-class-share-gate = out.classShare.nixos.members.lb.gate && out.classShare.nixos.coreSize > 0 && out.classShare.nixos.members.lb.deltaSize < out.classShare.nixos.members.lb.fullSize;
+      hoag-class-share-tampered-core-fails = let cs = out.classShare.nixos; bad = inputs.nixpkgs.lib.nixosSystem { system = "x86_64-linux"; modules = [ { imports = cs.core ++ [ { networking.domain = "tampered"; } ]; } ] ++ cs.members.lb.delta; }; in bad.config.system.build.toplevel.drvPath != lbCfg.system.build.toplevel.drvPath;
       den-713-home-reads-host-config = out.homeConfigurations."alice@stage".config.home.sessionVariables.HOST_DESKTOP == "yes";
       hoag-claims-built = lib.elem "app_web_1" out.nixosConfigurations.lb.config.services.postgresql.ensureDatabases;
       den-chained-forward-built = out.nixosConfigurations.lb.config.home-manager.users.alice.programs.git.extraConfig.init.defaultBranch == "main"; # lb: stable channel, HM 25.05
