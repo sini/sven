@@ -40,4 +40,10 @@ check export-full '.complete == true and (.result.sha256 | length == 64) and (.r
 out=$(call sven_context '{}')
 check eval-error '.result.isError == true and (.result.content[0].text | fromjson | .complete == false and (.error | length > 0))' "$out"
 
+# the flake app: `nix run .#sven-mcp` from the fleet directory (set SVEN_MCP_SKIP_APP=1 to skip)
+if [ -z "${SVEN_MCP_SKIP_APP:-}" ]; then
+  out=$(cd "$HERE/.." && printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sven_context","arguments":{"id":"fleet:main/environment:lab/host:app-1","maxEdges":2}}}' \
+    | timeout -k 5 600 nix run "path:$(git rev-parse --show-toplevel)?dir=templates/fleet#sven-mcp" 2>/dev/null)
+  check flake-app '.result.content[0].text | fromjson | .complete == true and .result.kind == "host" and .result.given.truncated.shown == 2' "$out"
+fi
 [ "$fails" -eq 0 ]
