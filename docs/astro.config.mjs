@@ -29,7 +29,7 @@ export default defineConfig({
 			autoTheme: true
 		}),
 		starlight({
-			title: 'sven',
+			title: '{sven}',
 			social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/vic/sven' }
       ],
