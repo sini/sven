@@ -169,6 +169,12 @@ let
         sinks = { fw = { reduce = "list"; of = null; feeds = [ ]; out = false; conditional = false; }; tags = { reduce = "set"; of = null; feeds = [ ]; out = false; conditional = false; }; }; }
       && s.kinds.top.spawns == [ "host" ] && s.aspects.firewall == { keys = [ "fw" ]; cycle = false; files = [ "root" ]; activeAt = 1; }
       && s.invariants == [ "fw" ] && b.isString (b.toJSON s);
+    explain = let r = ports ({ sven, ... }: { sven.aspects.both.at = sven.lib.all [ sven.kinds.host (sven.lib.not sven.aspects.firewall) ]; });
+        e = r.explain "both" "top:t/host:b" 3; all' = b.head e.at.kids; in
+      e.active && all'.op == "all" && map (k: k.op) all'.kids == [ "kind" "not" ] && (b.head (b.elemAt all'.kids 1).kids).value == false
+      && (b.head (r.explain "both" "top:t/host:a" 1).at.kids).kids == "cut"
+      && (r.explain "bth" "top:t/host:a" 1).near == [ "both" ] && (r.explain "both" "top:t/host:z" 1).code == "unknown-scope"
+      && (r.explain "firewall" "top:t/host:a" 2).gives == [ { sink = "fw"; to = "top:t/host:a"; } ];
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
