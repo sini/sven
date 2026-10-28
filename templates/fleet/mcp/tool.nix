@@ -27,6 +27,19 @@ let
     declared_in = r.declaredIn args.path;
     export = sven.lib.rdf.share r;
     stage = removeAttrs (sven.lib.stage { inherit base; change = args.change; }) [ "render" ];
+    queries = r.queries;
+    ask = r.ask args.name (args.args or { });
+    impact = r.impact args.id (opt [ "hops" "sinks" "max" ]);
+    labels = {
+      labels = r.labels;
+      floor = if args ? floor then map (e: { inherit (e) aspect trust file; inherit (e.edge) sink from to; }) (r.floor args.floor) else [ ];
+    };
+    why_not = {
+      holds = builtins.elem args.atom r.check.violations;
+      whyNot = r.check.whyNot args.atom;
+      why = r.check.why args.atom;
+    };
+    program = sven.lib.program.dryRun { inherit base r; prog = args.program; };
   };
 in
 safe tools.${env "SVEN_TOOL"}

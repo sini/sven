@@ -16,7 +16,7 @@ out=$(rpc '{"jsonrpc":"2.0","id":1,"method":"initialize"}')
 check initialize '.result.serverInfo.name == "sven-mcp"' "$out"
 
 out=$(rpc '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
-check tools-list '(.result.tools | map(.name) | sort) == ["sven_check","sven_context","sven_declared_in","sven_errors","sven_explain","sven_export","sven_schema","sven_stage"]' "$out"
+check tools-list '(.result.tools | map(.name) | sort) == ["sven_ask","sven_check","sven_context","sven_declared_in","sven_errors","sven_explain","sven_export","sven_impact","sven_labels","sven_program","sven_queries","sven_schema","sven_stage","sven_why_not"]' "$out"
 
 out=$(call sven_schema '{}' | text)
 check schema '.complete == true and (.result.kinds | has("host"))' "$out"
@@ -29,6 +29,33 @@ check errors-list '.complete == true and (.result | type == "array")' "$out"
 
 out=$(call sven_stage '{"change":{"sven":{"aspects":{"attic":{"at":[{"kind":"mac","name":"studio"}]}}}}}' | text)
 check stage-attic '.result.ok == false and (.result.violations | map(contains("attic-on-mac")) | any)' "$out"
+
+out=$(call sven_queries '{}' | text)
+check queries-freeport '.result.freePort.required == ["host"]' "$out"
+
+out=$(call sven_ask '{"name":"freePort","args":{"host":"lb"}}' | text)
+check ask-freeport '.result.port == 8083' "$out"
+
+out=$(call sven_ask '{"name":"freePort","args":{}}' | text)
+check ask-missing-param '.result.code == "missing-param"' "$out"
+
+out=$(call sven_impact '{"id":"fleet:main/environment:prod/host:lb","hops":1}' | text)
+check impact-reached '(.result.reached | length) > 0' "$out"
+
+out=$(call sven_impact '{"id":"fleet:main/environment:prod/host:lb","sinks":["nope"]}' | text)
+check impact-unknown-sink '.result.code == "unknown-sink"' "$out"
+
+out=$(call sven_labels '{"floor":3}' | text)
+check labels-floor '(.result.floor | length > 0 and all(.trust == 1)) and (.result.labels | type == "object")' "$out"
+
+out=$(call sven_why_not '{"atom":"bad:attic-on-mac:fleet:main/environment:staging/mac:studio"}' | text)
+check why-not-holds-false '.result.holds == false' "$out"
+
+out=$(call sven_program '{"program":[{"op":"place","aspect":"attic","kind":"mac","name":"studio"}]}' | text)
+check program-violation '.result.ok == false and (.result.violations | map(contains("attic-on-mac")) | any)' "$out"
+
+out=$(call sven_program '{"program":[{"op":"plac"}]}' | text)
+check program-invalid '.result.valid == false and .result.errors[0].near == ["place"]' "$out"
 
 out=$(SVEN_TIMEOUT=1 call sven_export '{}' | text)
 check export-timeout '.complete == false and .error == "timeout"' "$out"
