@@ -320,7 +320,7 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 
 ## This fleet, live
 
-Generated from the fleet's queries: 56 scopes, 26 kinds, 156 aspects, 728 routed elements.
+Generated from the fleet's queries: 73 scopes, 28 kinds, 170 aspects, 764 routed elements.
 
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
@@ -332,14 +332,16 @@ Generated from the fleet's queries: 56 scopes, 26 kinds, 156 aspects, 728 routed
 | `domain` | `mail`, `under` | `domain` |  | 3 |
 | `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `idm-users`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
 | `export` |  |  | `os` | 1 |
-| `fleet` |  | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `flake-file`, `gateway-upstreams`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
+| `fleet` |  | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `exports`, `flake-file`, `gateway-upstreams`, `generators`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
 | `group` | `label`, `members` |  |  | 0 |
-| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `on`, `passthrough`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
+| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `on`, `passthrough`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |
 | `home` | `channel`, `on`, `system`, `user` | `user` | `homeManager`, `os` | 2 |
-| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
-| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `darwin`, `os` | 1 |
-| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
+| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `member`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
+| `instance` | `module`, `roles` |  |  | 0 |
+| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `member`, `user` | `darwin`, `os` | 1 |
+| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
+| `member` |  |  |  | 17 |
 | `pet` | `of` | `toy` |  | 2 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |
 | `region` | `zone` |  |  | 0 |
@@ -375,14 +377,26 @@ flowchart LR
   sc1312ce7["host:lb"]
   sf9f17122["backup:nightly"]
   s701b3a10["host:lb-minimal"]
+  sf9eca2c3["member:backup.client"]
+  sed675275["member:sshd.server"]
   sc0428e06["user:alice"]
+  s0970bac0["member:backup.client"]
+  s098e9b5b["member:backup.server"]
+  se859c3e1["member:fleet-sshd-for-backup.server"]
+  s0f9a4fe1["member:sshd.server"]
+  s72a16165["member:svc-a.default"]
+  s70b6ad1c["member:svc-b.default"]
   sa830f4b8["user:alice"]
   s3459c6cb["variant:debug"]
   s348d4306["host:web-1"]
   s4fa72356["backup:nightly"]
+  s12224d54["member:backup.client"]
+  s0a71d135["member:sshd.server"]
   sc7ac250a["user:alice"]
   s83e8ed4e["host:web-2"]
   sb74b34b1["backup:nightly"]
+  s32c7676c["member:backup.client"]
+  sc3a2134b["member:sshd.server"]
   sc13f188c["user:alice"]
   s6a423160["environment:staging"]
   s6d0ac6bd["host:stage"]
@@ -391,6 +405,9 @@ flowchart LR
   scb25ae93["user:bob"]
   sc323d023["home:alice@stage"]
   sdcbb6559["user:alice"]
+  s30ba2a2e["member:backup.client"]
+  s6eb5b208["member:sshd.server"]
+  sf2e1c7f9["member:wifi.default"]
   s9dc85016["pet:fido"]
   sbb628669["pet:rex"]
   s6a2516ba["toy:ball"]
@@ -398,6 +415,8 @@ flowchart LR
   sd081aeb7["user:alice"]
   s22a49c85["user:bob"]
   s2ed910d1["mac:studio"]
+  sd73deb06["member:banner.default"]
+  s0b7ec9a8["member:sshd.server"]
   s844bc5de["user:alice"]
   sc355b316["user:bob"]
   sde1685e5["phone:pixel"]
@@ -430,14 +449,26 @@ flowchart LR
   s4a308930 --> sc1312ce7
   sc1312ce7 --> sf9f17122
   sc1312ce7 --> s701b3a10
+  s701b3a10 --> sf9eca2c3
+  s701b3a10 --> sed675275
   s701b3a10 --> sc0428e06
+  sc1312ce7 --> s0970bac0
+  sc1312ce7 --> s098e9b5b
+  sc1312ce7 --> se859c3e1
+  sc1312ce7 --> s0f9a4fe1
+  sc1312ce7 --> s72a16165
+  sc1312ce7 --> s70b6ad1c
   sc1312ce7 --> sa830f4b8
   sc1312ce7 --> s3459c6cb
   s4a308930 --> s348d4306
   s348d4306 --> s4fa72356
+  s348d4306 --> s12224d54
+  s348d4306 --> s0a71d135
   s348d4306 --> sc7ac250a
   s4a308930 --> s83e8ed4e
   s83e8ed4e --> sb74b34b1
+  s83e8ed4e --> s32c7676c
+  s83e8ed4e --> sc3a2134b
   s83e8ed4e --> sc13f188c
   s6c4c773b --> s6a423160
   s6a423160 --> s6d0ac6bd
@@ -446,6 +477,9 @@ flowchart LR
   s6c189246 --> scb25ae93
   s6d0ac6bd --> sc323d023
   sc323d023 --> sdcbb6559
+  s6d0ac6bd --> s30ba2a2e
+  s6d0ac6bd --> s6eb5b208
+  s6d0ac6bd --> sf2e1c7f9
   s6d0ac6bd --> s9dc85016
   s6d0ac6bd --> sbb628669
   sbb628669 --> s6a2516ba
@@ -453,6 +487,8 @@ flowchart LR
   s6d0ac6bd --> sd081aeb7
   s6d0ac6bd --> s22a49c85
   s6a423160 --> s2ed910d1
+  s2ed910d1 --> sd73deb06
+  s2ed910d1 --> s0b7ec9a8
   s2ed910d1 --> s844bc5de
   s2ed910d1 --> sc355b316
   s6a423160 --> sde1685e5
