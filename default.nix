@@ -412,10 +412,18 @@ let
         if !(byId ? ${id}) then errWith "impact" "no scope ${id}" { code = "unknown-scope"; near = near id (attrNames byId); }
         else if bad != [ ] then errWith "impact" "no sink ${head bad}" { code = "unknown-sink"; near = near (head bad) sinkNames; }
         else let c = cut max (map (x: { scope = x.key; inherit (x) depth via; }) hits); in { reached = c.items; inherit (c) truncated; inherit hops; };
+      # ── labels by file path prefix (`sven.labels."agent/" = { trust = 1; }`): an aspect's label is the meet (the
+      # lowest trust) over the files that declare it; an element carries its aspect's label; `floor n` lists what is below ──
+      labelTable = top.labels or { };
+      labelOf = n: let files = declaredIn [ "aspects" n ]; ms = concatMap (f: map (p: labelTable.${p} // { prefix = p; file = f; }) (filter (p: b.match ".*/${p}.*" f != null) (attrNames labelTable))) files; in
+        if ms == [ ] then null else foldl' (a: x: if a == null || (x.trust or 0) < (a.trust or 0) then x else a) null ms;
+      labels = listToAttrs (concatMap (n: let l = labelOf n; in if l == null then [ ] else [ { name = n; value = l; } ]) aspectNames);
+      floor = t: map (e: let n = b.substring 7 (b.stringLength e.origin) e.origin; in { edge = e; aspect = n; inherit (labels.${n}) trust file prefix; })
+        (filter (e: let n = b.substring 7 (b.stringLength e.origin) e.origin; in b.substring 0 7 e.origin == "aspect " && labels ? ${n} && (labels.${n}.trust or 0) < t) graph.edges);
       errorsAll = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
       self = {
-        inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent impact;
+        inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent impact labels floor;
         # every instance's field values, JSON-safe: for history diffs and agents
         data = mapAttrs (k: _: mapAttrs (n: i: static.jsonSafe (mapAttrs (_: v: if isAttrs v && v ? kind && v ? name then "${v.kind}:${v.name}" else v) (removeAttrs i [ "kind" "name" ]))) instances.${k}) kinds;
         errors = errorsAll;

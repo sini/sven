@@ -221,6 +221,10 @@ let
       i.reached == [ { scope = "top:t"; depth = 1; via = "peers"; } ] && i.truncated == { shown = 1; of = 1; }
       && (r.impact "top:t/host:db" { sinks = [ "nixos" ]; }).reached == [ ]
       && (r.impact "top:t/host:db" { sinks = [ "peer" ]; }).code == "unknown-sink" && (r.impact "top:t/host:dd" { }).code == "unknown-scope";
+    labels-floor = let r = sven.eval { imports = [ ./fixtures/labels/modules/base.nix ./fixtures/labels/agent/web.nix ]; }; in
+      r.labels.web.trust == 1 && r.labels.web.prefix == "agent/" && r.labels.cache.trust == 1
+      && b.all (x: x.trust == 1 && b.match ".*agent/web.nix" x.file != null) (r.floor 3) && b.length (r.floor 3) >= 2 && r.floor 1 == [ ]
+      && (sven.eval { imports = [ ./fixtures/labels/modules/base.nix ]; }).labels.web.trust == 3;
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
