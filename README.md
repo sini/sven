@@ -1,6 +1,6 @@
-# sven - A cycle.js inspired pure-Nix language for advanced fleet configurations where everything is a query.
+# sven - **Nix configurations you can ask questions about, and prove things about, before you deploy.**
 
-**Nix configurations you can ask questions about, and prove things about, before you deploy.**
+A cycle.js inspired pure-Nix language for advanced fleet configurations where everything is a query.
 
 ![sven](./sven.png)
 
