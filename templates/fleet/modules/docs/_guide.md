@@ -308,6 +308,12 @@ SELECT ?name WHERE { ?s rdf:type <https://sven.dev/fleet/kind/host> ; <https://s
 # at the first revision's tx: db, web.   Now: web.
 ```
 
+**Bounded search.** A krn query an agent writes must stop. `sven.lib.krn.runFuel n fuel f` and `runAllFuel fuel f` count each search step and return `{ answers; complete; }`: `complete = false` means "bounded", never "no answer". `maximize fuel measure f` gives `{ best; value; complete; count; }`; a best found under `complete = false` is not proven optimal. [query/krn.nix](modules/query/krn.nix) gives guest memory by `maximize` with `ramFuel` steps; a search that runs out of fuel is an error record.
+
+**Shapes.** `sven.lib.rdf.shacl r` gives SHACL shapes from the schema: one node shape per kind with scopes, `sven:name` required, `sven:parent` of the spawning kind, each field at most once, and `sh:class` for ref fields. The pack types every instance, so a ref meets its class. quipu's validator accepts the pack of a fixture fleet and reports one `sh:class` violation for a ref to a missing instance.
+
+**An MCP server.** `templates/fleet/mcp/sven-mcp.sh` answers agents over stdio (JSON-RPC, MCP). Its tools: `sven_schema`, `sven_check`, `sven_context`, `sven_explain`, `sven_errors`, `sven_declared_in`, `sven_export` (the knowledge pack; the agent decides whether to store it) and `sven_stage` (a change as JSON, in quarantine). Each answer is `{ complete; result }` or `{ complete = false; error }`; a timeout is never an empty answer. Arguments reach Nix through a file and `builtins.fromJSON`, never through string interpolation. `mcp/test.sh` drives it.
+
 **Grants only narrow.** `sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where an agent may give elements. `narrow g h` keeps what both allow. No function makes a grant wider. A staged change that gives an element outside its grant is refused.
 
 ## Patterns in this fleet
