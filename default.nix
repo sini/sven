@@ -41,6 +41,9 @@ let
     opt = t: d: t // { default = d; };
     derive = t: f: t // { defaultFrom = f; };                         # a default computed from the instance itself (Den schema defaults)
     maybe = t: { check = v: v == null || checkOf t v; default = null; };
+    graphs = import ./lib/graphs.nix;     # reach, transpose, topo, layers, sccs, cycles, paths, shortest over succ attrsets
+    datalog = import ./lib/datalog.nix;   # ground rules with negation: wfs (three values), stable, why
+    krn = import ./lib/krn.nix;           # µKanren: logic variables, unification, run, fresh, conde, appendo, facto
   };
 
   eval = root:
