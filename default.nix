@@ -398,10 +398,24 @@ let
         undefined = undefined;
         counts = { scopes = length scopes; edges = length graph.edges; aspects = length aspectNames; kinds = length kindNames; };
       };
+      # ── impact: the scopes an element of `id` reaches, transitively over routed elements, by depth ──
+      impact = id: { hops ? 3, sinks ? null, max ? 50 }:
+        let
+          bad = if sinks == null then [ ] else filter (k: !elem k sinkNames) sinks;
+          step = from: filter (e: e.from == from && (sinks == null || elem e.sink sinks)) graph.edges;
+          reached = genericClosure {
+            startSet = [ { key = id; depth = 0; } ];
+            operator = x: if x.depth >= hops then [ ] else map (e: { key = e.to; depth = x.depth + 1; via = e.sink; }) (step x.key);
+          };
+          hits = b.sort (p: q: p.depth < q.depth || p.depth == q.depth && p.key < q.key) (filter (x: x.key != id) reached);
+        in
+        if !(byId ? ${id}) then errWith "impact" "no scope ${id}" { code = "unknown-scope"; near = near id (attrNames byId); }
+        else if bad != [ ] then errWith "impact" "no sink ${head bad}" { code = "unknown-sink"; near = near (head bad) sinkNames; }
+        else let c = cut max (map (x: { scope = x.key; inherit (x) depth via; }) hits); in { reached = c.items; inherit (c) truncated; inherit hops; };
       errorsAll = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
       self = {
-        inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent;
+        inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent impact;
         # every instance's field values, JSON-safe: for history diffs and agents
         data = mapAttrs (k: _: mapAttrs (n: i: static.jsonSafe (mapAttrs (_: v: if isAttrs v && v ? kind && v ? name then "${v.kind}:${v.name}" else v) (removeAttrs i [ "kind" "name" ]))) instances.${k}) kinds;
         errors = errorsAll;
@@ -475,7 +489,13 @@ let
   history = { url, revs, module }: let rs = map (rev: { inherit rev; r = asOf { inherit url rev module; }; }) revs; in
     b.genList (i: let x = b.elemAt rs i; in { inherit (x) rev; errors = length x.r.errors; scopes = length x.r.scopes;
       changes = if i == 0 then [ ] else diffData (b.elemAt rs (i - 1)).r.data x.r.data; }) (length rs);
+  # without: the fleet with the files that declare `path` removed (coarse: a whole file goes; no engine hook)
+  without = { files, path, args ? { } }: let
+    mk = fs: { imports = fs; _module.args = args; };
+    hit = (eval (mk files)).declaredIn path;
+    keep = filter (f: !elem (toString f) hit) files;
+  in { dropped = filter (f: elem (toString f) hit) files; r = eval (mk keep); };
   # a change as data: set one declaration path (`change.set [ "host" "web-1" "port" ] 8080`)
   change = { set = path: value: { sven = b.foldl' (acc: k: { ${k} = acc; }) value (reverse path); }; };
 in
-{ lib = static // { inherit eval stage change grants diffData asOf history; inherit (grants) grant narrow allowed; mkFlake = m: (eval m).flake; }; }
+{ lib = static // { inherit eval stage change grants diffData asOf history without; inherit (grants) grant narrow allowed; mkFlake = m: (eval m).flake; }; }

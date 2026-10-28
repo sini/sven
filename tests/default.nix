@@ -214,6 +214,13 @@ let
     valid-at = let r = sven.eval ({ sven, ... }: { imports = [ ./fixtures/history.nix ];
         sven.aspects.backup.at = sven.lib.all [ sven.kinds.host (sven.lib.validAt "2026-11-15") ]; sven.aspects.late.at = sven.lib.all [ sven.kinds.host (sven.lib.validAt "2027-01-01") ]; }); in
       r.active.backup."top:t/host:a" && r.active.backup."top:t/host:b" && !r.active.late."top:t/host:a" && r.active.late."top:t/host:b";
+    without = let w = sven.without { files = [ ./fixtures/without/base.nix ./fixtures/without/db.nix ]; path = [ "host" "db" ]; }; in
+      w.dropped == [ ./fixtures/without/db.nix ] && b.all (s: s.name != "db") w.r.scopes && b.any (s: s.name == "web") w.r.scopes
+      && (sven.without { files = [ ./fixtures/without/base.nix ./fixtures/without/db.nix ]; path = [ "host" "nope" ]; }).dropped == [ ];
+    impact = let r = sven.eval { imports = [ ./fixtures/without/base.nix ./fixtures/without/db.nix ]; }; i = r.impact "top:t/host:db" { }; in
+      i.reached == [ { scope = "top:t"; depth = 1; via = "peers"; } ] && i.truncated == { shown = 1; of = 1; }
+      && (r.impact "top:t/host:db" { sinks = [ "nixos" ]; }).reached == [ ]
+      && (r.impact "top:t/host:db" { sinks = [ "peer" ]; }).code == "unknown-sink" && (r.impact "top:t/host:dd" { }).code == "unknown-scope";
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
