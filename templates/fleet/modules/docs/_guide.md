@@ -463,6 +463,17 @@ The `drvPath`s are the same both ways. The e2e check `shared-pkgs-same-drv` prov
 
 Two rules. A sharing host cannot set `nixpkgs.config` or `nixpkgs.overlays` of its own: its group shares them, so every host in the group must give the same. Here the overlays are fleet-wide, and the unfree and insecure permits are only on `stage`, which does not share. And documentation is off on every sharing host (`shared-pkgs-no-docs` in [platforms/nixos.nix](modules/platforms/nixos.nix)), because the manual and man pages differ when `pkgs` is shared. With docs on, the e2e check fails.
 
+### A smaller NixOS module list
+
+A host with `trimmedModules = true` evaluates only the NixOS base modules it needs: about 397 of 1,899 ([platforms/_modlists.nix](modules/platforms/_modlists.nix), computed in [vic/modlist-research.md](https://github.com/vic/sven/blob/main/vic/modlist-research.md) as the closure of a learned core and the options the host defines). The list filters `module-list.nix` itself, so the order and the inline entries stay. `web-1` and `app-2` use it:
+
+| web-1, app-2 toplevel | CPU | Thunks | Function calls | Values | Sets | Lists | GC total |
+|---|---|---|---|---|---|---|---|
+| full list | 11.4 s | 14.57 M | 11.15 M | 323 MB | 327 MB | 31.1 MB | 1.03 GB |
+| trimmed list | 10.5 s | 13.21 M | 10.15 M | 290 MB | 302 MB | 28.1 MB | 0.94 GB |
+
+Three oracles hold it: the e2e check `modlist-same-drv` (each trimmed toplevel has the same `drvPath` as `nixosConfigurationsFull`), `modlist-negative` (the list without nginx fails for web-1, and the same list with nginx builds), and `bash cost.sh` (the drvPaths match and the trimmed eval uses at most 95% of the thunks). The lists belong to one nixpkgs revision: after an update, `modlist-same-drv` fails until they are computed again.
+
 ## Generated files and checks
 
 `flake.nix`, `README.md` and `ci.json` are generated. Do not edit them. Edit `modules/`, then run:
