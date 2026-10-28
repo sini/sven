@@ -109,7 +109,7 @@ let
     unread-sink-no-error = msgs (sven.eval { imports = [ (fleet { addr = "a"; }) { sven.aspects.motd.nixso = { }; } ]; }) == [ ];
     args-flow-down = (hostOf argsDown).addr == "hi" && msgs argsDown == [ ];
     args-missing = has argsMissing "module root/0: arg `nope` has no answer";
-    graph-edges = b.elem { sink = "persist"; from = "fleet:main/host:lb"; to = "fleet:main/host:lb"; } good.graph.edges;
+    graph-edges = b.elem { sink = "persist"; from = "fleet:main/host:lb"; to = "fleet:main/host:lb"; origin = "aspect motd"; } good.graph.edges;
     deep-1000 = b.length (deep 1000).scopes == 1002;
     wide-3000 = b.length (wide 3000).scopes == 3001;
   };

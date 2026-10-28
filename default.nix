@@ -227,7 +227,7 @@ let
       receivers = k: filter (s: byTo ? "${k}@${s.id}") scopes;
       reduced = listToAttrs (map (k: { name = k; value = listToAttrs (map (r: { name = r.id; value = (reduceAt k r).value; }) (receivers k)); }) sinkNames);
       reduceErrors = concatMap (k: concatMap (r: (reduceAt k r).errors) (receivers k)) sinkNames;
-      graph = { scopes = map (s: { inherit (s) id kind name; }) scopes; edges = map (e: { sink = e.key; from = e.from.id; to = e.to.id; }) routed; };
+      graph = { scopes = map (s: { inherit (s) id kind name; }) scopes; edges = map (e: { sink = e.key; from = e.from.id; to = e.to.id; inherit (e) origin; }) routed; };   # origin: "aspect x" or "sink y": who gave it
       lib = static // {
         inherit holds graph;   # the graph query, readable inside the fleet (docs)
         all = ps: s: all (p: holds p s) ps;

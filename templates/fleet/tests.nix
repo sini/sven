@@ -29,10 +29,12 @@ let
   first = xs: if xs == [ ] then null else lib.head xs;
   names = xs: let v = first xs; in if lib.isAttrs v then lib.attrNames v else [ ];
   on = a: lib.filter (id: r.active.${a}.${id}) (lib.attrNames r.active.${a});
-  edge = sink: from: to: lib.elem { inherit sink from to; } r.graph.edges;
+  edge = sink: from: to: lib.any (e: e.sink == sink && e.from == from && e.to == to) r.graph.edges;
+  gave = origin: sink: to: lib.any (e: e.origin == origin && e.sink == sink && e.to == to) r.graph.edges; # projected hasAspect: what an aspect delivered where
   scope = id: lib.findFirst (s: s.id == id) null r.scopes;
   at = path: v: lib.attrByPath path null v;
   nixosAt = id: path: lib.filter (v: v != null) (map (at path) (list (red "nixos" id)));
+  osAt = id: path: lib.filter (v: v != null) (map (at path) (list (red "os" id)));
   hmAt = id: path: lib.filter (v: v != null) (map (at path) (list (red "homeManager" id)));
   upTo = kinds: s: lib.findFirst (x: lib.elem x.kind kinds) null (lib.reverseList s.up);
 
@@ -136,6 +138,34 @@ let
     # ── checks derived from the infra ──
     ci-matrix = map (j: j.name) out.ci.matrix == [ "alice-laptop" "alice@stage" "devshell-aarch64-darwin" "devshell-aarch64-linux" "devshell-x86_64-linux" "lb" "stage" "studio" "web-1" "web-2" ];
     infra-facts = lib.attrNames (red "infra" "fleet:main").lb == [ "hostname" "persist /home/alice/.local/state/syncthing" ] && lib.attrNames (red "infra" "fleet:main").web-1 == [ "hostname" "nginx" "persist /home/alice/.local/state/syncthing" "persist /var/lib/nginx" "port80" ];
+
+    # ── Den CI capabilities (templates/ci/modules) ──
+    den-batteries = osAt stage [ "services" "getty" "autologinUser" ] == [ ] && osAt ci [ "services" "getty" "autologinUser" ] == [ "bob" ]
+      && osAt stage [ "nixpkgs" "config" "permittedInsecurePackages" ] == [ [ "olm-3.2.16" ] ]
+      && r.active.global-pkgs.${lb} && !r.active.global-pkgs."fleet:main/environment:prod/cluster:axon";
+    den-chained-forward = edge "git" "${lb}/user:alice" "${lb}/user:alice" && gave "sink git" "homeManager" "${lb}/user:alice" && gave "sink homeManager" "os" lb;
+    den-custom-class-no-hm = gave "sink files" "os" "${stage}/user:bob" == false && gave "sink files" "os" stage && !(gave "sink files" "os" lb) && !(gave "sink files" "os" studio); # files: linux only, never darwin
+    den-609-host-hm-no-leak = msgs (with' ({ sven, ... }: { sven.aspects.host-hm = { at = sven.host.lb; homeManager.programs.htop.enable = true; }; })) == []
+      && !(lib.any (e: e.origin == "aspect host-hm") (with' ({ sven, ... }: { sven.aspects.host-hm = { at = sven.host.lb; homeManager.programs.htop.enable = true; }; })).graph.edges);
+    den-projected-has-aspect = gave "aspect dev" "os" lb && gave "aspect dev" "homeManager" "${lb}/user:alice" && !(gave "aspect desktop" "nixos" ci);
+    den-instance-side-include = r.active.desktop.${stage} && r.active.motd."fleet:main/export:base";
+    den-permutation-stable = let
+        rev = sven.eval { imports = lib.reverseList (import ./_modules-list.nix); _module.args = { inherit inputs lib; }; };
+        j = q: builtins.toJSON (map (k: q.reduced.${k}) [ "persist" "backends" "records" "tags" "vim" "secrets" "ci" ]);
+      in j rev == j r && map (s: s.id) rev.scopes == map (s: s.id) r.scopes;
+    den-sibling-laziness = let p = with' ({ sven, ... }: { sven.aspects.poison = { at = sven.host.web-2; nixos = throw "poisoned web-2"; }; }); in
+      lib.length p.reduced.nixos.${lb} > 0 && !(builtins.tryEval (builtins.deepSeq p.reduced.nixos.${web2} true)).success;
+
+    # ── den-hoag (Den + Gen) capabilities ──
+    hoag-settings-authority = (red "aspect-settings" web1).nginx == { gzip = true; workers = 8; } && (red "aspect-settings" web2).nginx.workers == 4
+      && (red "aspect-settings" stage).nginx == { gzip = false; workers = 1; };
+    hoag-settings-conflict = hasMsg (with' ({ sven, ... }: { sven.aspects.t2 = { at = sven.host.web-1; aspect-settings = { rank = 2; set.nginx.workers = 9; }; }; })) "aspect-settings: two layers of rank 2 disagree";
+    hoag-claims-reverse-read = first (nixosAt lb [ "services" "postgresql" "ensureDatabases" ]) == [ "app_web_1" "app_web_2" ]
+      && first (nixosAt stage [ "services" "postgresql" "ensureDatabases" ]) == [ "app_stage" ] && first (nixosAt web1 [ "services" "postgresql" "ensureDatabases" ]) == null
+      && first (nixosAt web1 [ "environment" "etc" "app/database-url" "text" ]) == "postgres://10.0.1.1/app_web_1";
+    hoag-collectors = lib.attrNames out.colmenaHives.prod == [ "lb" "meta" "web-1" "web-2" ] && lib.attrNames out.colmenaHives.staging == [ "meta" "stage" ]
+      && out.colmenaHives.staging.meta.allowApplyAll;
+    hoag-query-layers = out.deployWaves == [ [ "lb" ] [ "web-1" "web-2" ] [ "stage" ] ] && out.dependents.lb == [ "web-1" "web-2" ] && out.dependents.stage == [ ];
   };
 
   e2e = rec {
@@ -156,6 +186,9 @@ let
       den-739-standalone-home = out.homeConfigurations."alice@stage".config.home.sessionVariables.MONITORRES == "2560x1440";
       infra-lb-passes = out.checks.x86_64-linux.infra-lb.drvAttrs.buildCommand == "touch $out";
       infra-lb-drift-fails = lib.hasInfix "networking.hostName" (with' { sven.aspects.drift = { at = { kind = "host"; name = "lb"; }; nixos = { lib, ... }: { networking.hostName = lib.mkForce "drifted"; }; }; }).flake.checks.x86_64-linux.infra-lb.drvAttrs.buildCommand;
+      den-713-home-reads-host-config = out.homeConfigurations."alice@stage".config.home.sessionVariables.HOST_DESKTOP == "yes";
+      hoag-claims-built = lib.elem "app_web_1" out.nixosConfigurations.lb.config.services.postgresql.ensureDatabases;
+      den-chained-forward-built = out.nixosConfigurations.lb.config.home-manager.users.alice.programs.git.extraConfig.init.defaultBranch == "main"; # lb: stable channel, HM 25.05
       lb-minimal-built = lib.hasSuffix ".drv" out.nixosConfigurations.lb-minimal.config.system.build.toplevel.drvPath && !out.nixosConfigurations.lb-minimal.config.services.haproxy.enable;
       export-module = (inputs.nixpkgs.lib.nixosSystem { system = "x86_64-linux"; modules = [ out.nixosModules.base { boot.loader.grub.device = "nodev"; fileSystems."/".device = "x"; system.stateVersion = "25.05"; } ]; }).config.environment.etc.motd.text == "managed by sven";
     };
