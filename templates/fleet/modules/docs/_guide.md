@@ -289,6 +289,10 @@ sven.lib.stage { base = fleet; change = { sven.aspects.attic.at = [ { kind = "ma
 # ok = false; violations = [ "bad:attic-on-mac:…/mac:studio" ]; diff.active.added = [ "attic@…/mac:studio" ]
 ```
 
+**Proofs and why-not.** `sven.lib.datalog` adds `proof rules model atom` (a proof tree; a positive cycle shows `cycle = true`), `whyNot rules model atom` (per rule: the `missing` positive atoms, the `blocking` negative ones, the undefined ones) and `judge rules a notA` (`supported`, `refuted`, `both`, `neither` or `unknown`). [query/datalog.nix](modules/query/datalog.nix) gives `out.serving.whyNot.<host>` and judges the database primary: `unknown`, a choice the policy leaves open.
+
+**Knowledge packs.** `sven.lib.rdf.share r` gives the eval result as sorted N-Triples with a sha256 and a count: scopes, kinds, parents, active aspects, every routed element as a node with its origin, and errors. The same fleet gives the same hash in every file order, so two revisions compare by hash first. [agent/rdf.nix](modules/agent/rdf.nix) packs the routing graph as `out.rdfPack`.
+
 **Grants only narrow.** `sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where an agent may give elements. `narrow g h` keeps what both allow. No function makes a grant wider. A staged change that gives an element outside its grant is refused.
 
 ## Patterns in this fleet

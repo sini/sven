@@ -275,6 +275,11 @@ let
     agent-context = let c = r.context lb { maxEdges = 5; }; in c.received.truncated.shown == 5 && c.received.truncated.of > 5 && b.fromJSON (b.toJSON c) == c;
     agent-schema = r.schema.kinds.host.sinks.deploy.reduce == "one" && r.schema.kinds.environment.sinks.k3s-nodes.reduce == "entries"
       && b.elem "sshd" (lib.attrNames r.schema.aspects) == false && r.schema.aspects.clan-sshd.activeAt > 0 && b.fromJSON (b.toJSON r.agent) == r.agent;
+    agent-whynot = let w = out.serving.whyNot; in w.lb != [ ] && lib.any (x: x.missing == [ "web:lb" ]) w.lb && w.web-1 == [ ]
+      && out.serving.primary == "unknown"
+      && lib.hasInfix "serves:web-1" (lib.head (lib.filter (v: v != null) (map (m: m.environment.etc."lb/proof-web-1".text or null) (list (red "nixos" lb)))));
+    agent-rdf = let p = sven.rdf.share r; q = sven.rdf.share (sven.eval (fleet [ ({ sven, ... }: { sven.aspects.extra = { at = sven.host.lb; persist = "/var/lib/extra"; }; }) ])); in
+      lib.hasPrefix "<" p.ntriples && p.count > 1000 && p.sha256 != q.sha256 && out.rdfPack.count > 0 && b.isString out.rdfPack.sha256;
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };

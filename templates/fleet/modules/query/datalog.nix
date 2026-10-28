@@ -23,12 +23,23 @@ let
 in
 {
   sven.kinds.machine.fields.maintenance = sven.lib.opt lib.types.bool false;
+  # for agents: why a host does not serve, and whether the db primary is decided (judge: supported, refuted, both, neither, unknown)
+  sven.aspects.serving-explain = {
+    at = sven.fleet.main;
+    out = { ... }: {
+      serving = {
+        whyNot = lib.genAttrs (lib.attrNames hosts) (n: D.whyNot rules model "serves:${n}");
+        primary = D.judge rules "primary:lb" "primary:web-1";
+      };
+    };
+  };
   sven.aspects.serving-policy = {
     at = sven.host.lb;
     nixos.environment.etc = {
       "lb/serving".text = lib.concatStringsSep " " (pick "serves:");
       "db/primary".text = lib.concatStringsSep " " (pick "primary:");
       "lb/why-web-1".text = builtins.toJSON (D.why rules model "serves:web-1");
+      "lb/proof-web-1".text = builtins.toJSON (D.proof rules model "serves:web-1");
     };
     errors = { ... }: map (a: "serving policy: ${a} is undefined") (lib.filter (a: !lib.hasPrefix "primary:" a) model.undefined)
       ++ lib.optional (models == [ ]) "serving policy: no stable model (an odd cycle through not)";
