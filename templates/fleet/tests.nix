@@ -25,12 +25,15 @@ let
   studio = "${S}/mac:studio";
   laptop = "fleet:main/home:alice-laptop";
   red = sink: id: r.reduced.${sink}.${id} or null;
+  list = v: if lib.isList v then v else [ ];
+  first = xs: if xs == [ ] then null else lib.head xs;
+  names = xs: let v = first xs; in if lib.isAttrs v then lib.attrNames v else [ ];
   on = a: lib.filter (id: r.active.${a}.${id}) (lib.attrNames r.active.${a});
   edge = sink: from: to: lib.elem { inherit sink from to; } r.graph.edges;
   scope = id: lib.findFirst (s: s.id == id) null r.scopes;
   at = path: v: lib.attrByPath path null v;
-  nixosAt = id: path: lib.filter (v: v != null) (map (at path) (red "nixos" id));
-  hmAt = id: path: lib.filter (v: v != null) (map (at path) (red "homeManager" id));
+  nixosAt = id: path: lib.filter (v: v != null) (map (at path) (list (red "nixos" id)));
+  hmAt = id: path: lib.filter (v: v != null) (map (at path) (list (red "homeManager" id)));
   upTo = kinds: s: lib.findFirst (x: lib.elem x.kind kinds) null (lib.reverseList s.up);
 
   checks = {
@@ -41,7 +44,7 @@ let
     fold-one-two-emitters = hasMsg (with' ({ sven, ... }: { sven.aspects.deploy2 = { at = sven.host.lb; deploy = { address = "x"; user = "y"; }; }; })) "one: got 2 elements";
     fold-list-order = red "backends" P == [ "10.0.1.10" "10.0.1.11" ];
     guest-channel-stable = (scope ci).channel.name == "stable" && (scope stage).channel.name == "edge";
-    guest-pkgs-stable = (lib.head (nixosAt stage [ "microvm" "vms" "ci" "pkgs" ])).path == inputs.nixpkgs.legacyPackages.x86_64-linux.path;
+    guest-pkgs-stable = (first (nixosAt stage [ "microvm" "vms" "ci" "pkgs" ])).path == inputs.nixpkgs.legacyPackages.x86_64-linux.path;
     chained-forward = edge "os" "${ci}/user:bob" ci && edge "nixos" ci stage && !(lib.any (u: u ? bob) (nixosAt stage [ "home-manager" "users" ]));
     darwin-not-nixos = out ? darwinConfigurations.studio && !(out.nixosConfigurations ? studio) && !(out.nixosConfigurations ? ci);
     kernel-not-on-studio = !r.active.kernel.${studio} && r.active.kernel.${lb};
@@ -49,7 +52,7 @@ let
     host-qualified-htop = on "htop" == [ "${web1}/user:alice" ];
     substitute-web2 = !r.active.motd.${web2} && r.active.motd-short.${web2} && r.active.motd.${web1};
     has-docker = lib.sort (a: b: a < b) (on "docker") == [ stage ci ];
-    parent-devices = lib.attrNames (lib.head (hmAt "${lb}/user:alice" [ "services" "syncthing" "settings" "devices" ]))
+    parent-devices = names (hmAt "${lb}/user:alice" [ "services" "syncthing" "settings" "devices" ])
       == lib.sort (a: b: a < b) [ "web-1" "web-2" "stage" "ci" "studio" "pixel" "alice-laptop" ];
     per-system = lib.attrNames out.packages == [ "aarch64-darwin" "aarch64-linux" "x86_64-linux" ] && lib.all (p: p ? hello) (lib.attrValues out.packages);
     overlays-once = lib.length (red "overlays" "fleet:main") == 1;
@@ -94,9 +97,9 @@ let
     unifi-forwards = out.unifiTerranixModules.prod != [ ] && lib.length (red "port-forwards" P) == 1;
     home-linux = r.reduced.homeLinux ? "${lb}/user:alice" && !(r.reduced.homeLinux ? "${studio}/user:alice") && !(r.reduced.homeLinux ? "${laptop}/user:alice");
     primary-user = on "primary-user" == [ "${lb}/user:alice" ];
-    syncthing-hub = on "syncthing-hub" == [ stage ] && lib.attrNames (lib.head (nixosAt stage [ "services" "syncthing" "settings" "folders" ])) == [ "alice-home" "bob-home" ];
-    syncthing-peers = lib.head (hmAt "${lb}/user:alice" [ "home" "file" ".syncthing-peers" "text" ]) == builtins.toJSON [ "web-1" "web-2" "ci" "stage" ]; # path order: guest:ci sorts before user:alice
-    unpersist-web2 = let d = id: lib.head (nixosAt id [ "environment" "persistence" "/persist" "directories" ]); in !(lib.elem "/var/lib/nginx" (d web2)) && lib.elem "/var/lib/nginx" (d web1) && lib.elem "/var/lib/nginx" (red "persist" web2);
+    syncthing-hub = on "syncthing-hub" == [ stage ] && names (nixosAt stage [ "services" "syncthing" "settings" "folders" ]) == [ "alice-home" "bob-home" ];
+    syncthing-peers = first (hmAt "${lb}/user:alice" [ "home" "file" ".syncthing-peers" "text" ]) == builtins.toJSON [ "web-1" "web-2" "ci" "stage" ]; # path order: guest:ci sorts before user:alice
+    unpersist-web2 = let d = id: first (nixosAt id [ "environment" "persistence" "/persist" "directories" ]); in !(lib.elem "/var/lib/nginx" (d web2)) && lib.elem "/var/lib/nginx" (d web1) && lib.elem "/var/lib/nginx" (red "persist" web2);
     tags-from-roles = r.reduced.colmena."fleet:main".stage.deployment.tags == [ "staging" "web" "workstation" "laptop" ] && r.reduced.colmena."fleet:main".lb.deployment.tags == [ "prod" "server" ];
     profile-not-guests = r.active.desktop.${stage} && !r.active.desktop.${ci} && r.active.thermald.${stage};
     unfree-set = red "unfree" stage == [ "terraform" ];
