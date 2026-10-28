@@ -7,6 +7,10 @@
   sven.kinds.host.fields.apps = sven.lib.is (v: lib.isList v && lib.all lib.isString v);
 
   sven.fleet.main = { };
-  sven.host.lb.apps = [ "grafana" "loki" "prometheus" ];
+  sven.host.lb.apps = [
+    "grafana"
+    "loki"
+    "prometheus"
+  ];
   sven.flake = { out, ... }: out;
 }

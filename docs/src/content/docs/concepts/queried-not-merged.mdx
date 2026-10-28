@@ -58,8 +58,14 @@ A cascade is a list in your order. `sven.lib.cascade path xs` gives the first no
   sven.kinds.host.fields.environment = sven.kinds.environment;
   sven.environment.prod.settings.zfs.arcMax = 8;
 
-  sven.host.nas = { environment = sven.environment.prod; settings.zfs.arcMax = 32; };
-  sven.host.node = { environment = sven.environment.prod; settings.k3s.role = "server"; };
+  sven.host.nas = {
+    environment = sven.environment.prod;
+    settings.zfs.arcMax = 32;
+  };
+  sven.host.node = {
+    environment = sven.environment.prod;
+    settings.k3s.role = "server";
+  };
 }
 ```
 
@@ -69,12 +75,14 @@ A cascade is a list in your order. `sven.lib.cascade path xs` gives the first no
 {
   sven.aspects.report = {
     at = sven.kinds.host;
-    report = { host, ... }: {
-      ${host.name} = {
-        arcMax = sven.lib.cascade [ "settings" "zfs" "arcMax" ] [ host host.environment ];
-        k3s = host.settings.k3s.role;
+    report =
+      { host, ... }:
+      {
+        ${host.name} = {
+          arcMax = sven.lib.cascade [ "settings" "zfs" "arcMax" ] [ host host.environment ];
+          k3s = host.settings.k3s.role;
+        };
       };
-    };
   };
 }
 ```
@@ -134,7 +142,7 @@ Lists and attrsets for aspect keys are elements, not leaves: see [Aspects](/conc
 Every block on this page is a file of the template `queried-not-merged`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#queried-not-merged'
+nix flake init -t github:vic/sven#queried-not-merged
 ```
 
 <FileTree>

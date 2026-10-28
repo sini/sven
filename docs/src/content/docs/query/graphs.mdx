@@ -35,9 +35,18 @@ Hosts depend on hosts:
   sven.fleet.main = { };
   sven.host.db = { };
   sven.host.cache = { };
-  sven.host.api = { dependsOn = [ sven.host.db sven.host.cache ]; };
-  sven.host.web = { dependsOn = [ sven.host.api ]; };
-  sven.host.lb = { dependsOn = [ sven.host.web ]; };
+  sven.host.api = {
+    dependsOn = [
+      sven.host.db
+      sven.host.cache
+    ];
+  };
+  sven.host.web = {
+    dependsOn = [ sven.host.api ];
+  };
+  sven.host.lb = {
+    dependsOn = [ sven.host.web ];
+  };
   sven.flake = { out, ... }: out;
 }
 ```
@@ -57,7 +66,9 @@ in
       impact = lib.genAttrs (lib.attrNames sven.host) (G.reachers dependsOn); # who breaks if this host is down
       path = G.shortest dependsOn "lb" "db";
     };
-    errors = map (c: "deploy: a dependency cycle: ${lib.concatStringsSep " -> " c}") (lib.filter (c: lib.length c > 1) (G.sccs dependsOn));
+    errors = map (c: "deploy: a dependency cycle: ${lib.concatStringsSep " -> " c}") (
+      lib.filter (c: lib.length c > 1) (G.sccs dependsOn)
+    );
   };
 }
 ```
@@ -143,7 +154,7 @@ A cycle is data, not a hang. `sccs` finds it, and the aspect gives an error reco
 Every block on this page is a file of the template `graphs`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#graphs'
+nix flake init -t github:vic/sven#graphs
 ```
 
 <FileTree>

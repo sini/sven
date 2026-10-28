@@ -9,8 +9,17 @@
   sven.fleet.main = { };
   sven.host.db = { };
   sven.host.cache = { };
-  sven.host.api = { dependsOn = [ sven.host.db sven.host.cache ]; };
-  sven.host.web = { dependsOn = [ sven.host.api ]; };
-  sven.host.lb = { dependsOn = [ sven.host.web ]; };
+  sven.host.api = {
+    dependsOn = [
+      sven.host.db
+      sven.host.cache
+    ];
+  };
+  sven.host.web = {
+    dependsOn = [ sven.host.api ];
+  };
+  sven.host.lb = {
+    dependsOn = [ sven.host.web ];
+  };
   sven.flake = { out, ... }: out;
 }

@@ -4,15 +4,38 @@
   section = "reference";
   order = 1;
 
-  body = { docs, engine, ... }:
+  body =
+    { docs, engine, ... }:
     let
       code = xs: builtins.concatStringsSep ", " (map (x: "`${x}`") xs);
       # sven.lib as modules see it. A root kind needs `spawns`: `top` spawns `leaf`
-      inner = (engine.eval ({ sven, ... }: { sven.kinds.top.spawns.leaf = _: { }; sven.kinds.leaf = { }; sven.top.t = { }; sven.flake = { ... }: builtins.attrNames sven.lib; })).flake;
-      r = engine.eval { sven.kinds.top = { }; sven.top.t = { }; };
+      inner =
+        (engine.eval (
+          { sven, ... }:
+          {
+            sven.kinds.top.spawns.leaf = _: { };
+            sven.kinds.leaf = { };
+            sven.top.t = { };
+            sven.flake = { ... }: builtins.attrNames sven.lib;
+          }
+        )).flake;
+      r = engine.eval {
+        sven.kinds.top = { };
+        sven.top.t = { };
+      };
       outer = builtins.attrNames engine;
-      sub = [ "reduce" "graphs" "datalog" "krn" "rdf" "program" "grants" "change" ];
-    in [
+      sub = [
+        "reduce"
+        "graphs"
+        "datalog"
+        "krn"
+        "rdf"
+        "program"
+        "grants"
+        "change"
+      ];
+    in
+    [
       ''
         This page is computed from the engine when the docs are written. A function added to sven appears here
         without a docs edit.
@@ -29,19 +52,44 @@
       ''
         ## Libraries
       ''
-      (docs.table [ "Library" "Functions" ] (map (n: [ "`sven.lib.${n}`" (code (builtins.attrNames engine.${n})) ]) sub))
+      (docs.table [ "Library" "Functions" ] (
+        map (n: [
+          "`sven.lib.${n}`"
+          (code (builtins.attrNames engine.${n}))
+        ]) sub
+      ))
       ''
         ## Queries of an eval result: `r = sven.lib.eval module`
       ''
       (code (builtins.attrNames r))
       (docs.links [
-        { title = "Queries"; href = "/query/queries/"; description = "What each query answers."; }
-        { title = "Error codes"; href = "/reference/errors/"; description = "Every error record sven can give."; }
+        {
+          title = "Queries";
+          href = "/query/queries/";
+          description = "What each query answers.";
+        }
+        {
+          title = "Error codes";
+          href = "/reference/errors/";
+          description = "Every error record sven can give.";
+        }
       ])
     ];
 
-  checks = { engine, ... }: {
-    has-eval = engine ? eval && engine ? stage && engine.reduce ? entries;
-    inner = builtins.elem "holds" (engine.eval ({ sven, ... }: { sven.kinds.top.spawns.leaf = _: { }; sven.kinds.leaf = { }; sven.top.t = { }; sven.flake = { ... }: builtins.attrNames sven.lib; })).flake;
-  };
+  checks =
+    { engine, ... }:
+    {
+      has-eval = engine ? eval && engine ? stage && engine.reduce ? entries;
+      inner =
+        builtins.elem "holds"
+          (engine.eval (
+            { sven, ... }:
+            {
+              sven.kinds.top.spawns.leaf = _: { };
+              sven.kinds.leaf = { };
+              sven.top.t = { };
+              sven.flake = { ... }: builtins.attrNames sven.lib;
+            }
+          )).flake;
+    };
 }

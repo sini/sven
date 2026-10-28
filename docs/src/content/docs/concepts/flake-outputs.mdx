@@ -16,7 +16,11 @@ gives the flake's outputs. Each sink with an `out` key gives its part.
     spawns.host = _: sven.host;
     sinks.out.reduce = sven.lib.reduce.merge;
   };
-  sven.kinds.host.sinks.services.out = { host, services, ... }: { services.${host.name} = services; };
+  sven.kinds.host.sinks.services.out =
+    { host, services, ... }:
+    {
+      services.${host.name} = services;
+    };
   sven.fleet.main = { };
   sven.host.web = { };
   sven.host.db = { };
@@ -32,12 +36,22 @@ The `out` arg is the flake itself, read lazily. An element can build on other ou
 ```nix title="modules/aspects.nix" {7}
 { sven, lib, ... }:
 {
-  sven.aspects.nginx = { at = sven.host.web; services = "nginx"; };
-  sven.aspects.postgres = { at = sven.host.db; services = "postgres"; };
+  sven.aspects.nginx = {
+    at = sven.host.web;
+    services = "nginx";
+  };
+  sven.aspects.postgres = {
+    at = sven.host.db;
+    services = "postgres";
+  };
   # the `out` arg: an element reads the flake outputs, lazily. No `inputs.self`.
   sven.aspects.inventory = {
     at = sven.kinds.fleet;
-    out = { out, ... }: { inventory = lib.concatLists (lib.attrValues out.services); };
+    out =
+      { out, ... }:
+      {
+        inventory = lib.concatLists (lib.attrValues out.services);
+      };
   };
 }
 ```
@@ -74,7 +88,7 @@ and `inventory` never reads itself.
 Every block on this page is a file of the template `flake-outputs`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#flake-outputs'
+nix flake init -t github:vic/sven#flake-outputs
 ```
 
 <FileTree>

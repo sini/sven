@@ -11,7 +11,12 @@ It is a scope under its host, with its own `nixos` sink. That sink forwards its 
 
 ```nix title="modules/kinds.nix" {16-18}
 # A guest lives under its host. Its own `nixos` sink forwards up, into the host's containers.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 {
   sven.kinds.fleet = {
     spawns.host = _: sven.host;
@@ -19,15 +24,22 @@ It is a scope under its host, with its own `nixos` sink. That sink forwards its 
   };
   sven.kinds.host = {
     spawns.guest = s: lib.filterAttrs (_: g: sven.lib.same g.on s) sven.guest;
-    sinks.nixos.out = { host, nixos, ... }: {
-      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
-    };
+    sinks.nixos.out =
+      { host, nixos, ... }:
+      {
+        nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
+      };
   };
   sven.kinds.guest = {
     fields.on = sven.kinds.host;
-    sinks.nixos.nixos = { guest, nixos, ... }: {
-      containers.${guest.name} = { autoStart = true; config.imports = nixos; };
-    };
+    sinks.nixos.nixos =
+      { guest, nixos, ... }:
+      {
+        containers.${guest.name} = {
+          autoStart = true;
+          config.imports = nixos;
+        };
+      };
   };
 
   sven.fleet.main = { };
@@ -46,7 +58,10 @@ It is a scope under its host, with its own `nixos` sink. That sink forwards its 
     at = sven.host.box;
     nixos = {
       boot.loader.grub.device = "nodev";
-      fileSystems."/" = { device = "/dev/sda1"; fsType = "ext4"; };
+      fileSystems."/" = {
+        device = "/dev/sda1";
+        fsType = "ext4";
+      };
       nixpkgs.hostPlatform = "x86_64-linux";
       system.stateVersion = "25.05";
     };
@@ -60,10 +75,21 @@ It is a scope under its host, with its own `nixos` sink. That sink forwards its 
 {
   sven.aspects.guest-base = {
     at = sven.kinds.guest;
-    nixos = { guest, ... }: { networking.hostName = guest.name; system.stateVersion = "25.05"; };
+    nixos =
+      { guest, ... }:
+      {
+        networking.hostName = guest.name;
+        system.stateVersion = "25.05";
+      };
   };
-  sven.aspects.nginx = { at = sven.guest.web; nixos.services.nginx.enable = true; };
-  sven.aspects.postgres = { at = sven.guest.db; nixos.services.postgresql.enable = true; };
+  sven.aspects.nginx = {
+    at = sven.guest.web;
+    nixos.services.nginx.enable = true;
+  };
+  sven.aspects.postgres = {
+    at = sven.guest.db;
+    nixos.services.postgresql.enable = true;
+  };
 }
 ```
 
@@ -94,7 +120,7 @@ sudo nixos-rebuild switch --flake .#box   # builds box and both containers
 Every block on this page is a file of the template `guests`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#guests'
+nix flake init -t github:vic/sven#guests
 ```
 
 <FileTree>

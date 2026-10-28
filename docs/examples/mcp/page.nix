@@ -4,13 +4,15 @@
   section = "agents";
   order = 5;
 
-  body = { docs, inputs, ... }:
+  body =
+    { docs, inputs, ... }:
     let
       script = builtins.readFile (inputs.sven + "/templates/fleet/mcp/sven-mcp.sh");
       lines = builtins.filter builtins.isString (builtins.split "\n" script);
       tool = l: builtins.match ''.*\{"name":"(sven_[a-z_]+)","description":"([^"]*)".*'' l;
       tools = builtins.filter (x: x != null) (map tool lines);
-    in [
+    in
+    [
       ''
         The reference fleet ships an MCP server: `templates/fleet/mcp/sven-mcp.sh`. It answers agents over stdio
         (JSON-RPC 2.0, one message per line) by running sven queries on the fleet. It serves the fleet in its directory.
@@ -24,7 +26,12 @@
 
         This table is read from the server script itself (${toString (builtins.length tools)} tools):
       ''
-      (docs.table [ "Tool" "What it answers" ] (map (t: [ "`${builtins.elemAt t 0}`" (builtins.elemAt t 1) ]) tools))
+      (docs.table [ "Tool" "What it answers" ] (
+        map (t: [
+          "`${builtins.elemAt t 0}`"
+          (builtins.elemAt t 1)
+        ]) tools
+      ))
       ''
         Each answer is `{ complete; result }`, or `{ complete = false; error }`. A timeout is never an empty answer.
         Arguments reach Nix through a file and `builtins.fromJSON`, never through string interpolation.
@@ -36,20 +43,44 @@
       (docs.code "json" ''
         { "mcpServers": { "sven": { "command": "nix", "args": [ "run", "/path/to/fleet#sven-mcp" ] } } }
       '')
-      (docs.table [ "Variable" "Meaning" ] [
-        [ "`SVEN_FLEET`" "the fleet directory (default: the parent of `mcp/`)" ]
-        [ "`SVEN_FLAKE`" "its flake ref (default: from the git top)" ]
-        [ "`SVEN_TIMEOUT`" "seconds per nix call (default 120)" ]
-      ])
+      (docs.table
+        [ "Variable" "Meaning" ]
+        [
+          [
+            "`SVEN_FLEET`"
+            "the fleet directory (default: the parent of `mcp/`)"
+          ]
+          [
+            "`SVEN_FLAKE`"
+            "its flake ref (default: from the git top)"
+          ]
+          [
+            "`SVEN_TIMEOUT`"
+            "seconds per nix call (default 120)"
+          ]
+        ]
+      )
       (docs.tip "Your own fleet" ''
-        Copy `mcp/` and ${docs.fleet "modules/agent/mcp.nix" null "agent/mcp.nix"} into your fleet. The server needs only
+        Copy `mcp/` and ${
+          docs.fleet "modules/agent/mcp.nix" null "agent/mcp.nix"
+        } into your fleet. The server needs only
         the queries of the other agent pages: `schema`, `check`, `context`, `explain`, stored queries, `stage` and `program`.
         `mcp/test.sh` drives every tool.
       '')
     ];
 
-  checks = { inputs, ... }: {
-    tools = builtins.length (builtins.filter (x: x != null) (map (l: builtins.match ''.*\{"name":"(sven_[a-z_]+)".*'' l)
-      (builtins.filter builtins.isString (builtins.split "\n" (builtins.readFile (inputs.sven + "/templates/fleet/mcp/sven-mcp.sh")))))) == 14;
-  };
+  checks =
+    { inputs, ... }:
+    {
+      tools =
+        builtins.length (
+          builtins.filter (x: x != null) (
+            map (l: builtins.match ''.*\{"name":"(sven_[a-z_]+)".*'' l) (
+              builtins.filter builtins.isString (
+                builtins.split "\n" (builtins.readFile (inputs.sven + "/templates/fleet/mcp/sven-mcp.sh"))
+              )
+            )
+          )
+        ) == 14;
+    };
 }

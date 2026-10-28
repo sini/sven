@@ -1,4 +1,11 @@
 { sven, ... }:
 {
-  sven.aspects.primary-user.nixos = { user, ... }: { users.users.${user.name}.extraGroups = [ "wheel" "networkmanager" ]; };
+  sven.aspects.primary-user.nixos =
+    { user, ... }:
+    {
+      users.users.${user.name}.extraGroups = [
+        "wheel"
+        "networkmanager"
+      ];
+    };
 }

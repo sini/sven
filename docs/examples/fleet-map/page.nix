@@ -4,16 +4,33 @@
   section = "reference";
   order = 4;
 
-  body = { docs, inputs, ... }:
+  body =
+    { docs, inputs, ... }:
     let
       root = inputs.sven + "/templates/fleet/modules";
       repo = "https://github.com/vic/sven/blob/main/templates/fleet/modules";
       # the first comment line of a file: what it shows
-      about = f: let l = builtins.head (builtins.filter builtins.isString (builtins.split "\n" (builtins.readFile f))); m = builtins.match "# (.*)" l; in if m == null then "" else builtins.head m;
-      nixIn = d: builtins.filter (n: builtins.match "[^_].*\\.nix" n != null) (builtins.attrNames (builtins.readDir d));
-      dirs = builtins.filter (d: (builtins.readDir root).${d} == "directory") (builtins.attrNames (builtins.readDir root));
-      row = d: n: [ "[`${d}/${n}`](${repo}/${d}/${n})" (builtins.replaceStrings [ "|" ] [ "\\|" ] (about (root + "/${d}/${n}"))) ];
-    in [
+      about =
+        f:
+        let
+          l = builtins.head (builtins.filter builtins.isString (builtins.split "\n" (builtins.readFile f)));
+          m = builtins.match "# (.*)" l;
+        in
+        if m == null then "" else builtins.head m;
+      nixIn =
+        d:
+        builtins.filter (n: builtins.match "[^_].*\\.nix" n != null) (
+          builtins.attrNames (builtins.readDir d)
+        );
+      dirs = builtins.filter (d: (builtins.readDir root).${d} == "directory") (
+        builtins.attrNames (builtins.readDir root)
+      );
+      row = d: n: [
+        "[`${d}/${n}`](${repo}/${d}/${n})"
+        (builtins.replaceStrings [ "|" ] [ "\\|" ] (about (root + "/${d}/${n}")))
+      ];
+    in
+    [
       ''
         [`templates/fleet`](https://github.com/vic/sven/tree/main/templates/fleet) is a complete running specification of sven.
         It models every capability of Den, den-hoag and clan, and the advanced cases of several real fleets. Each pattern has a check.
@@ -25,7 +42,14 @@
         git clone https://github.com/vic/sven && cd sven/templates/fleet
         nix eval --impure --file tests.nix failed   # [ ]: a check for each pattern
       '')
-    ] ++ map (d: "## ${d}\n\n" + docs.table [ "Module" "What it shows" ] (map (row d) (nixIn (root + "/${d}")))) dirs;
+    ]
+    ++ map (
+      d: "## ${d}\n\n" + docs.table [ "Module" "What it shows" ] (map (row d) (nixIn (root + "/${d}")))
+    ) dirs;
 
-  checks = { inputs, ... }: { has-modules = builtins.pathExists (inputs.sven + "/templates/fleet/modules/topology/fleet.nix"); };
+  checks =
+    { inputs, ... }:
+    {
+      has-modules = builtins.pathExists (inputs.sven + "/templates/fleet/modules/topology/fleet.nix");
+    };
 }

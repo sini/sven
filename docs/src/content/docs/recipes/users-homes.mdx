@@ -10,37 +10,59 @@ and their home is one aspect that is active in both places.
 
 ```nix title="modules/fleet.nix" {17-20,22-28}
 # Hosts build NixOS and hold their users. Homes are standalone home-manager configurations.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 let
   inherit (sven.lib) same is;
 in
 {
   sven.kinds.fleet = {
-    spawns = { host = _: sven.host; home = _: sven.home; };
+    spawns = {
+      host = _: sven.host;
+      home = _: sven.home;
+    };
     sinks.out.reduce = sven.lib.reduce.merge;
   };
   sven.kinds.host = {
     spawns.user = s: lib.filterAttrs (_: u: lib.any (same s) u.hosts) sven.user;
-    sinks.nixos.out = { host, nixos, ... }: {
-      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
-    };
+    sinks.nixos.out =
+      { host, nixos, ... }:
+      {
+        nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
+      };
   };
   sven.kinds.user = {
     fields.hosts = is lib.isList;
-    sinks.homeManager.nixos = { user, homeManager, ... }: { home-manager.users.${user.name}.imports = homeManager; };
+    sinks.homeManager.nixos =
+      { user, homeManager, ... }:
+      {
+        home-manager.users.${user.name}.imports = homeManager;
+      };
   };
   sven.kinds.home = {
-    fields = { user = sven.kinds.user; system = lib.types.str; };
-    sinks.homeManager.out = { home, homeManager, ... }: {
-      homeConfigurations.${home.name} = inputs.home-manager.lib.homeManagerConfiguration {
-        pkgs = inputs.nixpkgs.legacyPackages.${home.system};
-        modules = homeManager;
-      };
+    fields = {
+      user = sven.kinds.user;
+      system = lib.types.str;
     };
+    sinks.homeManager.out =
+      { home, homeManager, ... }:
+      {
+        homeConfigurations.${home.name} = inputs.home-manager.lib.homeManagerConfiguration {
+          pkgs = inputs.nixpkgs.legacyPackages.${home.system};
+          modules = homeManager;
+        };
+      };
   };
   sven.aspects.home-manager = {
     at = sven.lib.has sven.kinds.user;
-    nixos = { imports = [ inputs.home-manager.nixosModules.home-manager ]; home-manager.useGlobalPkgs = true; };
+    nixos = {
+      imports = [ inputs.home-manager.nixosModules.home-manager ];
+      home-manager.useGlobalPkgs = true;
+    };
   };
 
   sven.fleet.main = { };
@@ -58,26 +80,43 @@ in
 let
   alice = sven.user.alice;
   # her own scopes, and every home that belongs to her
-  hers = [ alice (s: s.kind == "home" && sven.lib.same s.user alice) ];
+  hers = [
+    alice
+    (s: s.kind == "home" && sven.lib.same s.user alice)
+  ];
 in
 {
   sven.user.alice.hosts = [ sven.host.server ];
-  sven.home."alice@laptop" = { user = alice; system = "x86_64-linux"; };
+  sven.home."alice@laptop" = {
+    user = alice;
+    system = "x86_64-linux";
+  };
 
   sven.aspects.alice-account = {
     at = alice;
-    nixos.users.users.alice = { isNormalUser = true; extraGroups = [ "wheel" ]; };
+    nixos.users.users.alice = {
+      isNormalUser = true;
+      extraGroups = [ "wheel" ];
+    };
   };
   sven.aspects.alice-home = {
     at = hers; # one home config, in NixOS and standalone
     homeManager = {
-      programs.git = { enable = true; userName = "Alice"; };
+      programs.git = {
+        enable = true;
+        userName = "Alice";
+      };
       home.stateVersion = "25.05";
     };
   };
   sven.aspects.standalone = {
     at = sven.kinds.home;
-    homeManager = { home, ... }: { home.username = home.user.name; home.homeDirectory = "/home/${home.user.name}"; };
+    homeManager =
+      { home, ... }:
+      {
+        home.username = home.user.name;
+        home.homeDirectory = "/home/${home.user.name}";
+      };
   };
 }
 ```
@@ -91,7 +130,10 @@ in
     nixos = {
       networking.hostName = "server";
       boot.loader.grub.device = "nodev";
-      fileSystems."/" = { device = "/dev/sda1"; fsType = "ext4"; };
+      fileSystems."/" = {
+        device = "/dev/sda1";
+        fsType = "ext4";
+      };
       nixpkgs.hostPlatform = "x86_64-linux";
       system.stateVersion = "25.05";
     };
@@ -137,7 +179,7 @@ See [Routing and walls](/concepts/routing/#walls).
 Every block on this page is a file of the template `users-homes`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#users-homes'
+nix flake init -t github:vic/sven#users-homes
 ```
 
 <FileTree>

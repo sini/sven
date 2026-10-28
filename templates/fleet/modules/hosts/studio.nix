@@ -1,4 +1,10 @@
 { sven, ... }:
 {
-  sven.mac.studio = { environment = sven.environment.staging; channel = sven.channel.stable; system = sven.system.aarch64-darwin; addr = "10.0.2.30"; system-owner = sven.user.alice; };
+  sven.mac.studio = {
+    environment = sven.environment.staging;
+    channel = sven.channel.stable;
+    system = sven.system.aarch64-darwin;
+    addr = "10.0.2.30";
+    system-owner = sven.user.alice;
+  };
 }

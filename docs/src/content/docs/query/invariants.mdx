@@ -17,13 +17,25 @@ An invariant is a rule about the whole fleet: "no server runs a desktop", "no tw
   };
   sven.kinds.host.fields = {
     addr = lib.types.str;
-    form = lib.types.enum [ "server" "laptop" ];
+    form = lib.types.enum [
+      "server"
+      "laptop"
+    ];
   };
 
   sven.fleet.main = { };
-  sven.host.web = { addr = "10.0.0.1"; form = "server"; };
-  sven.host.db = { addr = "10.0.0.2"; form = "server"; };
-  sven.host.thinkpad = { addr = "10.0.0.50"; form = "laptop"; };
+  sven.host.web = {
+    addr = "10.0.0.1";
+    form = "server";
+  };
+  sven.host.db = {
+    addr = "10.0.0.2";
+    form = "server";
+  };
+  sven.host.thinkpad = {
+    addr = "10.0.0.50";
+    form = "laptop";
+  };
   sven.aspects.desktop.at = s: (s.form or null) == "laptop";
   sven.aspects.postgres.at = sven.host.db;
   sven.flake = { out, ... }: out;
@@ -35,14 +47,28 @@ An invariant is a rule about the whole fleet: "no server runs a desktop", "no tw
 { sven, lib, ... }:
 {
   # no server runs a desktop
-  sven.invariants.no-desktop-on-servers = { scopes, ... }:
-    map (s: { head = "bad:desktop-on-server:${s.name}"; pos = [ "has:desktop:${s.id}" ]; })
-      (lib.filter (s: s.kind == "host" && s.form == "server") scopes);
+  sven.invariants.no-desktop-on-servers =
+    { scopes, ... }:
+    map (s: {
+      head = "bad:desktop-on-server:${s.name}";
+      pos = [ "has:desktop:${s.id}" ];
+    }) (lib.filter (s: s.kind == "host" && s.form == "server") scopes);
   # no two hosts share an address: a rule across machines
-  sven.invariants.unique-addr = { scopes, ... }:
-    let hosts = lib.filter (s: s.kind == "host") scopes; in
-    lib.concatMap (a: map (b: { head = "bad:same-addr:${a.name}:${b.name}"; pos = [ "val:addr:${a.id}:${a.addr}" "val:addr:${b.id}:${a.addr}" ]; })
-      (lib.filter (b: a.name < b.name) hosts)) hosts;
+  sven.invariants.unique-addr =
+    { scopes, ... }:
+    let
+      hosts = lib.filter (s: s.kind == "host") scopes;
+    in
+    lib.concatMap (
+      a:
+      map (b: {
+        head = "bad:same-addr:${a.name}:${b.name}";
+        pos = [
+          "val:addr:${a.id}:${a.addr}"
+          "val:addr:${b.id}:${a.addr}"
+        ];
+      }) (lib.filter (b: a.name < b.name) hosts)
+    ) hosts;
 }
 ```
 
@@ -81,7 +107,10 @@ This fleet holds:
 { sven, ... }:
 {
   sven.aspects.desktop.at = sven.host.web;
-  sven.host.spare = { addr = "10.0.0.2"; form = "server"; };
+  sven.host.spare = {
+    addr = "10.0.0.2";
+    form = "server";
+  };
 }
 ```
 
@@ -122,7 +151,7 @@ A `bad:` atom on a cycle through `not` is undefined. It goes to `incomplete`, an
 Every block on this page is a file of the template `invariants`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#invariants'
+nix flake init -t github:vic/sven#invariants
 ```
 
 <FileTree>

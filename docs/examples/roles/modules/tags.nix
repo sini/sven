@@ -3,8 +3,18 @@
 {
   sven.aspects.tags = {
     at = sven.kinds.host;
-    out = { host, scope, ... }: {
-      tags.${host.name} = lib.filter (r: sven.lib.holds sven.aspects.${r} scope) [ "server" "workstation" "laptop" "nvidia" "ci-runner" "gaming" "backups" ];
-    };
+    out =
+      { host, scope, ... }:
+      {
+        tags.${host.name} = lib.filter (r: sven.lib.holds sven.aspects.${r} scope) [
+          "server"
+          "workstation"
+          "laptop"
+          "nvidia"
+          "ci-runner"
+          "gaming"
+          "backups"
+        ];
+      };
   };
 }

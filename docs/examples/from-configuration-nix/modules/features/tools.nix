@@ -3,6 +3,13 @@
 {
   sven.aspects.tools = {
     at = sven.kinds.host;
-    nixos = { pkgs, ... }: { environment.systemPackages = with pkgs; [ git vim ]; };
+    nixos =
+      { pkgs, ... }:
+      {
+        environment.systemPackages = with pkgs; [
+          git
+          vim
+        ];
+      };
   };
 }

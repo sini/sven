@@ -35,7 +35,10 @@ in
   sven.host.web.environment = sven.environment.prod;
   sven.host.db.environment = sven.environment.prod;
   sven.host.box.environment = sven.environment.lab;
-  sven.user.alice.hosts = [ sven.host.web sven.host.box ]; # one user, two scopes
+  sven.user.alice.hosts = [
+    sven.host.web
+    sven.host.box
+  ]; # one user, two scopes
   sven.user.bob.hosts = [ sven.host.db ];
 }
 ```
@@ -131,7 +134,7 @@ See [Instances and refs](/concepts/instances-refs/#data-kinds).
 Every block on this page is a file of the template `scopes`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#scopes'
+nix flake init -t github:vic/sven#scopes
 ```
 
 <FileTree>

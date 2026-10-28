@@ -13,6 +13,13 @@ in
   sven.host.web-1.settings.zfs.arcMax = 8589934592;
   sven.aspects.zfs = {
     at = sven.kinds.host;
-    nixos = { host, ... }: let m = setting [ "settings" "zfs" "arcMax" ] host; in { boot.kernelParams = lib.optional (m != null) "zfs.zfs_arc_max=${toString m}"; };
+    nixos =
+      { host, ... }:
+      let
+        m = setting [ "settings" "zfs" "arcMax" ] host;
+      in
+      {
+        boot.kernelParams = lib.optional (m != null) "zfs.zfs_arc_max=${toString m}";
+      };
   };
 }

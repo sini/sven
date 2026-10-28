@@ -4,29 +4,55 @@
   section = "recipes";
   order = 5;
 
-  body = { docs, r, ... }: [
-    ''
-      Host files that list roles drift: someone adds a GPU and forgets the line. Put the facts on the host instead,
-      and let each role test them.
-    ''
-    (docs.fileWith "{12-14}" "modules/kinds.nix")
-    (docs.file "modules/roles.nix")
-    ''
-      Roles combine like any predicate: `gaming` is a workstation with an nvidia GPU that is not a laptop.
-      A role gives content with the usual keys (`nixos`, `homeManager`, …), and other aspects can use it in `at`.
+  body =
+    { docs, r, ... }:
+    [
+      ''
+        Host files that list roles drift: someone adds a GPU and forgets the line. Put the facts on the host instead,
+        and let each role test them.
+      ''
+      (docs.fileWith "{12-14}" "modules/kinds.nix")
+      (docs.file "modules/roles.nix")
+      ''
+        Roles combine like any predicate: `gaming` is a workstation with an nvidia GPU that is not a laptop.
+        A role gives content with the usual keys (`nixos`, `homeManager`, …), and other aspects can use it in `at`.
 
-      ## Tags for deploy tools
+        ## Tags for deploy tools
 
-      `sven.lib.holds` asks a predicate at a scope. One aspect turns the active roles into tags:
-    ''
-    (docs.file "modules/tags.nix")
-    (docs.value r.flake.tags)
-    (docs.tip "Change a fact, not a list" ''
-      Give `rack-2` the label `ci-runner`, and it gets the role, its content and its tag. Nothing else changes.
-    '')
-  ];
+        `sven.lib.holds` asks a predicate at a scope. One aspect turns the active roles into tags:
+      ''
+      (docs.file "modules/tags.nix")
+      (docs.value r.flake.tags)
+      (docs.tip "Change a fact, not a list" ''
+        Give `rack-2` the label `ci-runner`, and it gets the role, its content and its tag. Nothing else changes.
+      '')
+    ];
 
-  checks = { r, ... }: {
-    tags = r.flake.tags == { rack-1 = [ "server" "ci-runner" "backups" ]; rack-2 = [ "server" "backups" ]; thinkpad = [ "workstation" "laptop" "backups" ]; tower = [ "workstation" "nvidia" "gaming" "backups" ]; };
-  };
+  checks =
+    { r, ... }:
+    {
+      tags =
+        r.flake.tags == {
+          rack-1 = [
+            "server"
+            "ci-runner"
+            "backups"
+          ];
+          rack-2 = [
+            "server"
+            "backups"
+          ];
+          thinkpad = [
+            "workstation"
+            "laptop"
+            "backups"
+          ];
+          tower = [
+            "workstation"
+            "nvidia"
+            "gaming"
+            "backups"
+          ];
+        };
+    };
 }

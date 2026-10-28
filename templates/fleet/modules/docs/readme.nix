@@ -6,8 +6,14 @@ let
   code = xs: lib.concatMapStringsSep ", " (x: "`${x}`") xs;
   names = v: if lib.isAttrs v then lib.attrNames v else [ ];
   sorted = xs: lib.sort (a: b: a < b) (lib.unique xs);
-  kindRow = k: let d = sven.kinds.${k}; in
-    "| `${k}` | ${code (names (d.fields or { }))} | ${code (names (d.spawns or { }))} | ${code (names (d.sinks or { }))} | ${toString (lib.length (lib.filter (s: s.kind == k) g.scopes))} |";
+  kindRow =
+    k:
+    let
+      d = sven.kinds.${k};
+    in
+    "| `${k}` | ${code (names (d.fields or { }))} | ${code (names (d.spawns or { }))} | ${code (names (d.sinks or { }))} | ${
+      toString (lib.length (lib.filter (s: s.kind == k) g.scopes))
+    } |";
   kinds = ''
     ## This fleet, live
     Generated from the fleet's queries: ${toString (lib.length g.scopes)} scopes, ${toString (lib.length (lib.attrNames sven.kinds))} kinds, ${toString (lib.length (lib.attrNames sven.aspects))} aspects, ${toString (lib.length g.edges)} routed elements.
@@ -21,101 +27,345 @@ let
   node = id: "n${builtins.substring 0 10 (builtins.hashString "md5" id)}";
   q = l: ''"${lib.replaceStrings [ "\"" ] [ "'" ] l}"'';
   shape = {
-    mac = l: "(${q l})"; guest = l: "[[${q l}]]"; home = l: "[/${q l}/]"; user = l: "((${q l}))";
-    member = l: "{{${q l}}}"; instance = l: "{{${q l}}}"; sink = l: "(${q l})"; output = l: "[(${q l})]";
+    mac = l: "(${q l})";
+    guest = l: "[[${q l}]]";
+    home = l: "[/${q l}/]";
+    user = l: "((${q l}))";
+    member = l: "{{${q l}}}";
+    instance = l: "{{${q l}}}";
+    sink = l: "(${q l})";
+    output = l: "[(${q l})]";
   };
   box = n: node n.id + (shape.${n.kind} or (l: "[${q l}]")) n.label;
-  mermaid = view:
+  mermaid =
+    view:
     let
       inside = p: lib.filter (n: (n.group or null) == p.id) view.nodes;
       isGroup = n: lib.any (m: (m.group or null) == n.id) view.nodes;
-      draw = n: if isGroup n then [ "  subgraph ${node n.id} [${q n.label}]" ] ++ map (m: "    ${box m}") (inside n) ++ [ "  end" ] else [ "  ${box n}" ];
-      edge = e: "  ${node e.from} ${if e.live or true then "-->" else "-.->"}${if (e.label or "") == "" then "" else "|${q e.label}|"} ${node e.to}";
-    in lib.concatStringsSep "\n" ([ "```mermaid" "flowchart LR" ] ++ lib.concatMap draw (lib.filter (n: (n.group or null) == null) view.nodes) ++ map edge view.edges ++ [ "```" ]);
-  short = xs: let s = sorted xs; in lib.concatStringsSep ", " (lib.take 6 s) + lib.optionalString (lib.length s > 6) ", +${toString (lib.length s - 6)}";
+      draw =
+        n:
+        if isGroup n then
+          [ "  subgraph ${node n.id} [${q n.label}]" ] ++ map (m: "    ${box m}") (inside n) ++ [ "  end" ]
+        else
+          [ "  ${box n}" ];
+      edge =
+        e:
+        "  ${node e.from} ${if e.live or true then "-->" else "-.->"}${
+            if (e.label or "") == "" then "" else "|${q e.label}|"
+          } ${node e.to}";
+    in
+    lib.concatStringsSep "\n" (
+      [
+        "```mermaid"
+        "flowchart LR"
+      ]
+      ++ lib.concatMap draw (lib.filter (n: (n.group or null) == null) view.nodes)
+      ++ map edge view.edges
+      ++ [ "```" ]
+    );
+  short =
+    xs:
+    let
+      s = sorted xs;
+    in
+    lib.concatStringsSep ", " (lib.take 6 s)
+    + lib.optionalString (lib.length s > 6) ", +${toString (lib.length s - 6)}";
   kindOf = lib.listToAttrs (map (s: lib.nameValuePair s.id s.kind) g.scopes);
   nameOf = lib.listToAttrs (map (s: lib.nameValuePair s.id s.name) g.scopes);
   parentOf = id: lib.concatStringsSep "/" (lib.init (lib.splitString "/" id));
 
   # fleet map: machines grouped by environment; every scope under its parent
-  envOf = s: lib.findFirst (e: lib.hasPrefix "${e.id}/" s.id) null (lib.filter (e: e.kind == "environment") g.scopes);
+  envOf =
+    s:
+    lib.findFirst (e: lib.hasPrefix "${e.id}/" s.id) null (
+      lib.filter (e: e.kind == "environment") g.scopes
+    );
   fleetMap = {
-    nodes = map (s: { inherit (s) id kind; label = if s.kind == "environment" then "environment ${s.name}" else s.name;
-      group = if s.kind != "environment" && envOf s != null && kindOf.${parentOf s.id} or null == "environment" then (envOf s).id else null; }) g.scopes;
-    edges = map (s: { from = parentOf s.id; to = s.id; }) (lib.filter (s: lib.hasInfix "/" s.id && kindOf.${parentOf s.id} or null != "environment") g.scopes);
+    nodes = map (s: {
+      inherit (s) id kind;
+      label = if s.kind == "environment" then "environment ${s.name}" else s.name;
+      group =
+        if
+          s.kind != "environment" && envOf s != null && kindOf.${parentOf s.id} or null == "environment"
+        then
+          (envOf s).id
+        else
+          null;
+    }) g.scopes;
+    edges =
+      map
+        (s: {
+          from = parentOf s.id;
+          to = s.id;
+        })
+        (
+          lib.filter (s: lib.hasInfix "/" s.id && kindOf.${parentOf s.id} or null != "environment") g.scopes
+        );
   };
 
   # sink forwarding: a sink's key that names another sink feeds it (dashed); `out` reaches flake outputs with live receivers
-  meta = [ "reduce" "of" "at" "out" ];
-  sinkDecls = lib.concatLists (lib.mapAttrsToList (k: d: lib.mapAttrsToList (n: v: { kind = k; name = n; decl = if lib.isAttrs v then v else { }; }) (d.sinks or { })) sven.kinds);
+  meta = [
+    "reduce"
+    "of"
+    "at"
+    "out"
+  ];
+  sinkDecls = lib.concatLists (
+    lib.mapAttrsToList (
+      k: d:
+      lib.mapAttrsToList (n: v: {
+        kind = k;
+        name = n;
+        decl = if lib.isAttrs v then v else { };
+      }) (d.sinks or { })
+    ) sven.kinds
+  );
   receiversOf = sink: sorted (map (e: nameOf.${e.to}) (lib.filter (e: e.sink == sink) g.edges));
   forwards = {
-    nodes = map (n: { id = "sink:${n}"; label = n; kind = "sink"; }) (sorted (map (d: d.name) sinkDecls ++ lib.concatMap (d: lib.subtractLists meta (names d.decl)) sinkDecls))
-      ++ [ { id = "flake"; label = "flake outputs"; kind = "output"; } ];
-    edges = lib.unique (lib.concatMap (d: map (t: { from = "sink:${d.name}"; to = "sink:${t}"; label = d.kind; live = false; }) (lib.subtractLists meta (names d.decl))
-      ++ lib.optional (d.decl ? out) { from = "sink:${d.name}"; to = "flake"; label = short (receiversOf d.name); }) sinkDecls);
+    nodes =
+      map
+        (n: {
+          id = "sink:${n}";
+          label = n;
+          kind = "sink";
+        })
+        (
+          sorted (
+            map (d: d.name) sinkDecls ++ lib.concatMap (d: lib.subtractLists meta (names d.decl)) sinkDecls
+          )
+        )
+      ++ [
+        {
+          id = "flake";
+          label = "flake outputs";
+          kind = "output";
+        }
+      ];
+    edges = lib.unique (
+      lib.concatMap (
+        d:
+        map (t: {
+          from = "sink:${d.name}";
+          to = "sink:${t}";
+          label = d.kind;
+          live = false;
+        }) (lib.subtractLists meta (names d.decl))
+        ++ lib.optional (d.decl ? out) {
+          from = "sink:${d.name}";
+          to = "flake";
+          label = short (receiversOf d.name);
+        }
+      ) sinkDecls
+    );
   };
 
   # pools: an element routed from one kind up to another, one edge per (sink, from kind, to kind)
   routed = lib.filter (e: kindOf.${e.from} != kindOf.${e.to}) g.edges;
   pools = {
-    nodes = map (k: { id = "kind:${k}"; label = k; kind = k; }) (sorted (map (e: kindOf.${e.from}) routed ++ map (e: kindOf.${e.to}) routed));
-    edges = map (x: { from = "kind:${x.f}"; to = "kind:${x.t}"; label = lib.concatStringsSep ", " (sorted x.ss); })
-      (lib.mapAttrsToList (_: es: { inherit (lib.head es) f t; ss = map (e: e.s) es; })
-        (lib.groupBy (x: "${x.f}>${x.t}") (map (e: { f = kindOf.${e.from}; t = kindOf.${e.to}; s = e.sink; }) routed)));
+    nodes = map (k: {
+      id = "kind:${k}";
+      label = k;
+      kind = k;
+    }) (sorted (map (e: kindOf.${e.from}) routed ++ map (e: kindOf.${e.to}) routed));
+    edges =
+      map
+        (x: {
+          from = "kind:${x.f}";
+          to = "kind:${x.t}";
+          label = lib.concatStringsSep ", " (sorted x.ss);
+        })
+        (
+          lib.mapAttrsToList
+            (_: es: {
+              inherit (lib.head es) f t;
+              ss = map (e: e.s) es;
+            })
+            (
+              lib.groupBy (x: "${x.f}>${x.t}") (
+                map (e: {
+                  f = kindOf.${e.from};
+                  t = kindOf.${e.to};
+                  s = e.sink;
+                }) routed
+              )
+            )
+        );
   };
 
   # clan instances: instance (service) to the machines of each role
   members = lib.filter (s: s.kind == "member") g.scopes;
   instanceOf = s: lib.head (lib.splitString "." s.name);
   clan = {
-    nodes = map (i: { id = "inst:${i}"; label = "${i} (${sven.helpers.clan.instances.${i}.module})"; kind = "instance"; }) (sorted (map instanceOf members))
-      ++ map (m: { id = m; label = nameOf.${m}; kind = kindOf.${m}; }) (sorted (map (s: parentOf s.id) members));
-    edges = map (s: { from = "inst:${instanceOf s}"; to = parentOf s.id; label = lib.last (lib.splitString "." s.name); }) members;
+    nodes =
+      map (i: {
+        id = "inst:${i}";
+        label = "${i} (${sven.helpers.clan.instances.${i}.module})";
+        kind = "instance";
+      }) (sorted (map instanceOf members))
+      ++ map (m: {
+        id = m;
+        label = nameOf.${m};
+        kind = kindOf.${m};
+      }) (sorted (map (s: parentOf s.id) members));
+    edges = map (s: {
+      from = "inst:${instanceOf s}";
+      to = parentOf s.id;
+      label = lib.last (lib.splitString "." s.name);
+    }) members;
   };
 
   # vars: generator dependencies; a shared generator is one node for all its machines
   vars = generators: {
-    nodes = lib.mapAttrsToList (k: v: { id = "gen:${k}"; label = "${k} · ${short v.machines}"; kind = if v.share or false then "member" else "gen"; }) generators;
-    edges = lib.concatLists (lib.mapAttrsToList (k: v: lib.concatMap (d:
-      let m = lib.head v.machines; t = if generators ? ${d} then d else "${d}@${m}"; in lib.optional (generators ? ${t}) { from = "gen:${t}"; to = "gen:${k}"; }) (v.dependencies or [ ])) generators);
+    nodes = lib.mapAttrsToList (k: v: {
+      id = "gen:${k}";
+      label = "${k} · ${short v.machines}";
+      kind = if v.share or false then "member" else "gen";
+    }) generators;
+    edges = lib.concatLists (
+      lib.mapAttrsToList (
+        k: v:
+        lib.concatMap (
+          d:
+          let
+            m = lib.head v.machines;
+            t = if generators ? ${d} then d else "${d}@${m}";
+          in
+          lib.optional (generators ? ${t}) {
+            from = "gen:${t}";
+            to = "gen:${k}";
+          }
+        ) (v.dependencies or [ ])
+      ) generators
+    );
   };
 
   # deploy order: a host deploys after what it depends on
   hosts = lib.filterAttrs (_: h: h ? addr) sven.host;
   deploy = {
-    nodes = lib.mapAttrsToList (n: _: { id = "host:${n}"; label = n; kind = "host"; }) (lib.filterAttrs (n: h: h.dependsOn != [ ] || lib.any (o: lib.any (d: d.name == n) o.dependsOn) (lib.attrValues hosts)) hosts);
-    edges = lib.concatLists (lib.mapAttrsToList (n: h: map (d: { from = "host:${d.name}"; to = "host:${n}"; label = "before"; }) h.dependsOn) hosts);
+    nodes =
+      lib.mapAttrsToList
+        (n: _: {
+          id = "host:${n}";
+          label = n;
+          kind = "host";
+        })
+        (
+          lib.filterAttrs (
+            n: h: h.dependsOn != [ ] || lib.any (o: lib.any (d: d.name == n) o.dependsOn) (lib.attrValues hosts)
+          ) hosts
+        );
+    edges = lib.concatLists (
+      lib.mapAttrsToList (
+        n: h:
+        map (d: {
+          from = "host:${d.name}";
+          to = "host:${n}";
+          label = "before";
+        }) h.dependsOn
+      ) hosts
+    );
   };
 
   # kind tree: solid = `spawns` (parent kind to child kind), dotted = a field that is a ref to another kind
   kindTree = {
-    nodes = map (k: { id = "k:${k}"; label = k; kind = "kind"; }) (lib.attrNames sven.kinds);
-    edges = lib.concatLists (lib.mapAttrsToList (k: d: map (c: { from = "k:${k}"; to = "k:${c}"; }) (names (d.spawns or { }))
-      ++ lib.concatLists (lib.mapAttrsToList (f: t: lib.optional (lib.isAttrs t && t ? __kind) { from = "k:${k}"; to = "k:${t.__kind}"; label = f; live = false; }) (d.fields or { }))) sven.kinds);
+    nodes = map (k: {
+      id = "k:${k}";
+      label = k;
+      kind = "kind";
+    }) (lib.attrNames sven.kinds);
+    edges = lib.concatLists (
+      lib.mapAttrsToList (
+        k: d:
+        map (c: {
+          from = "k:${k}";
+          to = "k:${c}";
+        }) (names (d.spawns or { }))
+        ++ lib.concatLists (
+          lib.mapAttrsToList (
+            f: t:
+            lib.optional (lib.isAttrs t && t ? __kind) {
+              from = "k:${k}";
+              to = "k:${t.__kind}";
+              label = f;
+              live = false;
+            }
+          ) (d.fields or { })
+        )
+      ) sven.kinds
+    );
   };
   # pools as a sequence: who sends what to whom
-  sequence = lib.concatStringsSep "\n" ([ "```mermaid" "sequenceDiagram" ]
+  sequence = lib.concatStringsSep "\n" (
+    [
+      "```mermaid"
+      "sequenceDiagram"
+    ]
     ++ map (k: "  participant ${k}") (sorted (map (e: e.label) pools.nodes))
-    ++ map (e: "  ${lib.removePrefix "kind:" e.from}->>${lib.removePrefix "kind:" e.to}: ${e.label}") pools.edges ++ [ "```" ]);
+    ++ map (
+      e: "  ${lib.removePrefix "kind:" e.from}->>${lib.removePrefix "kind:" e.to}: ${e.label}"
+    ) pools.edges
+    ++ [ "```" ]
+  );
 
   # summary tables
-  machineScopes = lib.filter (s: lib.elem s.kind [ "host" "mac" "guest" ]) g.scopes;
-  aspectsAt = s: sorted (map (e: lib.removePrefix "aspect " e.origin) (lib.filter (e: e.from == s.id && lib.hasPrefix "aspect " e.origin) g.edges));   # aspects that gave elements here (projected hasAspect)
+  machineScopes = lib.filter (
+    s:
+    lib.elem s.kind [
+      "host"
+      "mac"
+      "guest"
+    ]
+  ) g.scopes;
+  aspectsAt =
+    s:
+    sorted (
+      map (e: lib.removePrefix "aspect " e.origin) (
+        lib.filter (e: e.from == s.id && lib.hasPrefix "aspect " e.origin) g.edges
+      )
+    ); # aspects that gave elements here (projected hasAspect)
   under = p: k: lib.filter (s: s.kind == k && lib.hasPrefix "${p.id}/" s.id) g.scopes;
   summary = ''
     ### Summary
     | Environment | Machines | Users | Clusters |
     |---|---|---|---|
-    ${lib.concatMapStringsSep "\n" (e: "| `${e.name}` | ${short (map (s: s.name) (lib.concatMap (under e) [ "host" "mac" "guest" ]))} | ${toString (lib.length (sorted (map (s: s.name) (under e "user"))))} | ${short (map (s: s.name) (under e "cluster"))} |") (lib.filter (s: s.kind == "environment") g.scopes)}
+    ${lib.concatMapStringsSep "\n" (
+      e:
+      "| `${e.name}` | ${
+        short (
+          map (s: s.name) (
+            lib.concatMap (under e) [
+              "host"
+              "mac"
+              "guest"
+            ]
+          )
+        )
+      } | ${toString (lib.length (sorted (map (s: s.name) (under e "user"))))} | ${
+        short (map (s: s.name) (under e "cluster"))
+      } |"
+    ) (lib.filter (s: s.kind == "environment") g.scopes)}
 
     | Machine | Kind | Aspects giving elements | Some aspects |
     |---|---|---|---|
-    ${lib.concatMapStringsSep "\n" (s: let as = aspectsAt s; in "| `${s.name}` | ${s.kind} | ${toString (lib.length as)} | ${short as} |") machineScopes}
+    ${lib.concatMapStringsSep "\n" (
+      s:
+      let
+        as = aspectsAt s;
+      in
+      "| `${s.name}` | ${s.kind} | ${toString (lib.length as)} | ${short as} |"
+    ) machineScopes}
 
     | Sink | Given at | Received at | Elements |
     |---|---|---|---|
-    ${lib.concatMapStringsSep "\n" (k: let es = lib.filter (e: e.sink == k) g.edges; in "| `${k}` | ${short (map (e: kindOf.${e.from}) es)} | ${short (map (e: kindOf.${e.to}) es)} | ${toString (lib.length es)} |") (sorted (map (e: e.sink) g.edges))}
+    ${lib.concatMapStringsSep "\n" (
+      k:
+      let
+        es = lib.filter (e: e.sink == k) g.edges;
+      in
+      "| `${k}` | ${short (map (e: kindOf.${e.from}) es)} | ${
+        short (map (e: kindOf.${e.to}) es)
+      } | ${toString (lib.length es)} |"
+    ) (sorted (map (e: e.sink) g.edges))}
   '';
 
   diagrams = generators: ''
@@ -157,41 +407,191 @@ let
     </details>
   '';
   # ── the agent surface and every capability, generated: nothing is listed by hand, so nothing goes missing ──
-  sv = import ../../../../default.nix;   # the engine's own lib, for the index of library functions
+  sv = import ../../../../default.nix; # the engine's own lib, for the index of library functions
   fnList = xs: lib.concatMapStringsSep ", " (n: "`${n}`") (sorted xs);
   hostsWith = f: lib.attrNames (lib.filterAttrs (_: h: h ? addr && (h.${f} or false)) sven.host);
   groupKey = h: "${h.channel.name}/${h.system.name}";
   sharing = lib.filterAttrs (_: h: h ? addr && (h.sharedPkgs or false)) sven.host;
   groups = lib.groupBy (n: groupKey sharing.${n}) (sorted (lib.attrNames sharing));
   sharedView = {
-    nodes = lib.concatLists (lib.mapAttrsToList (g: ns: [ { id = "g:${g}"; label = "pkgs ${g}"; kind = "output"; } ] ++ map (n: { id = "h:${n}"; label = n; kind = "host"; }) ns) groups);
-    edges = lib.concatLists (lib.mapAttrsToList (g: ns: lib.imap0 (i: n: { from = "g:${g}"; to = "h:${n}"; label = if i == 0 then "leader" else "reuses"; live = i == 0; }) ns) groups);
+    nodes = lib.concatLists (
+      lib.mapAttrsToList (
+        g: ns:
+        [
+          {
+            id = "g:${g}";
+            label = "pkgs ${g}";
+            kind = "output";
+          }
+        ]
+        ++ map (n: {
+          id = "h:${n}";
+          label = n;
+          kind = "host";
+        }) ns
+      ) groups
+    );
+    edges = lib.concatLists (
+      lib.mapAttrsToList (
+        g: ns:
+        lib.imap0 (i: n: {
+          from = "g:${g}";
+          to = "h:${n}";
+          label = if i == 0 then "leader" else "reuses";
+          live = i == 0;
+        }) ns
+      ) groups
+    );
   };
-  labelView = let ls = sven.lib.labels; in {
-    nodes = map (p: { id = "p:${p}"; label = "${p} trust ${toString sven.labelTable.${p}.trust}"; kind = "output"; }) (lib.attrNames sven.labelTable)
-      ++ map (a: { id = "a:${a}"; label = a; kind = "aspect"; group = null; }) (lib.attrNames (lib.filterAttrs (_: l: l.prefix == "agent/") ls));
-    edges = map (a: { from = "p:agent/"; to = "a:${a}"; label = "${toString (lib.length (lib.filter (x: x.aspect == a) (sven.lib.floor 3)))} elements"; })
-      (lib.attrNames (lib.filterAttrs (_: l: l.prefix == "agent/") ls));
-  };
+  labelView =
+    let
+      ls = sven.lib.labels;
+    in
+    {
+      nodes =
+        map (p: {
+          id = "p:${p}";
+          label = "${p} trust ${toString sven.labelTable.${p}.trust}";
+          kind = "output";
+        }) (lib.attrNames sven.labelTable)
+        ++ map (a: {
+          id = "a:${a}";
+          label = a;
+          kind = "aspect";
+          group = null;
+        }) (lib.attrNames (lib.filterAttrs (_: l: l.prefix == "agent/") ls));
+      edges = map (a: {
+        from = "p:agent/";
+        to = "a:${a}";
+        label = "${toString (lib.length (lib.filter (x: x.aspect == a) (sven.lib.floor 3)))} elements";
+      }) (lib.attrNames (lib.filterAttrs (_: l: l.prefix == "agent/") ls));
+    };
   invView = {
-    nodes = map (n: { id = "i:${n}"; label = n; kind = "aspect"; }) (lib.attrNames sven.invariants)
-      ++ map (f: { id = "f:${f}"; label = f; kind = "output"; }) (lib.unique (lib.concatMap (n: map baseNameOf (sven.lib.declaredIn [ "invariants" n ])) (lib.attrNames sven.invariants)));   # base names: the same in the working tree and the store
-    edges = lib.concatMap (n: map (f: { from = "f:${baseNameOf f}"; to = "i:${n}"; }) (sven.lib.declaredIn [ "invariants" n ])) (lib.attrNames sven.invariants);
+    nodes =
+      map (n: {
+        id = "i:${n}";
+        label = n;
+        kind = "aspect";
+      }) (lib.attrNames sven.invariants)
+      ++
+        map
+          (f: {
+            id = "f:${f}";
+            label = f;
+            kind = "output";
+          })
+          (
+            lib.unique (
+              lib.concatMap (
+                n:
+                map baseNameOf (
+                  sven.lib.declaredIn [
+                    "invariants"
+                    n
+                  ]
+                )
+              ) (lib.attrNames sven.invariants)
+            )
+          ); # base names: the same in the working tree and the store
+    edges = lib.concatMap (
+      n:
+      map
+        (f: {
+          from = "f:${baseNameOf f}";
+          to = "i:${n}";
+        })
+        (
+          sven.lib.declaredIn [
+            "invariants"
+            n
+          ]
+        )
+    ) (lib.attrNames sven.invariants);
   };
-  mcpTools = sorted (lib.filter lib.isString (lib.flatten (map (l: builtins.match ".*\"name\":\"(sven_[a-z_]+)\".*" l)
-    (lib.splitString "\n" (builtins.replaceStrings [ "{" ] [ "\n{" ] (builtins.readFile ../../mcp/sven-mcp.sh))))));
-  mcpView = { nodes = [ { id = "srv"; label = "sven-mcp (nix run .#sven-mcp)"; kind = "output"; } ] ++ map (t: { id = "t:${t}"; label = t; kind = "sink"; }) mcpTools;
-    edges = map (t: { from = "srv"; to = "t:${t}"; }) mcpTools; };
-  queryRow = n: let fa = builtins.functionArgs sven.queries.${n}; ps = lib.filter (a: a != "r") (lib.attrNames fa); in
-    "| `${n}` | ${fnList (lib.filter (a: !fa.${a}) ps)} | ${fnList (lib.filter (a: fa.${a}) ps)} | ${lib.concatStringsSep ", " (map baseNameOf (sven.lib.declaredIn [ "queries" n ]))} |";
+  mcpTools = sorted (
+    lib.filter lib.isString (
+      lib.flatten (
+        map (l: builtins.match ".*\"name\":\"(sven_[a-z_]+)\".*" l) (
+          lib.splitString "\n" (
+            builtins.replaceStrings [ "{" ] [ "\n{" ] (builtins.readFile ../../mcp/sven-mcp.sh)
+          )
+        )
+      )
+    )
+  );
+  mcpView = {
+    nodes = [
+      {
+        id = "srv";
+        label = "sven-mcp (nix run .#sven-mcp)";
+        kind = "output";
+      }
+    ]
+    ++ map (t: {
+      id = "t:${t}";
+      label = t;
+      kind = "sink";
+    }) mcpTools;
+    edges = map (t: {
+      from = "srv";
+      to = "t:${t}";
+    }) mcpTools;
+  };
+  queryRow =
+    n:
+    let
+      fa = builtins.functionArgs sven.queries.${n};
+      ps = lib.filter (a: a != "r") (lib.attrNames fa);
+    in
+    "| `${n}` | ${fnList (lib.filter (a: !fa.${a}) ps)} | ${fnList (lib.filter (a: fa.${a}) ps)} | ${
+      lib.concatStringsSep ", " (
+        map baseNameOf (
+          sven.lib.declaredIn [
+            "queries"
+            n
+          ]
+        )
+      )
+    } |";
   capabilities = ''
     ## Capability index (generated)
 
     Every list below is computed from the engine and this fleet when the README is written.
 
-    **Queries on an eval result** (`r = sven.lib.eval module`): ${fnList (sven.lib.schema.queries ++ [ "context" "explain" "impact" "labels" "floor" "data" "queries" "ask" "root" ])}.
+    **Queries on an eval result** (`r = sven.lib.eval module`): ${
+      fnList (
+        sven.lib.schema.queries
+        ++ [
+          "context"
+          "explain"
+          "impact"
+          "labels"
+          "floor"
+          "data"
+          "queries"
+          "ask"
+          "root"
+        ]
+      )
+    }.
 
-    **Engine library** (`sven.lib`): ${fnList (lib.filter (n: !lib.elem n [ "graphs" "datalog" "krn" "rdf" "reduce" "program" "grants" "change" ]) (lib.attrNames sv.lib))}.
+    **Engine library** (`sven.lib`): ${
+      fnList (
+        lib.filter (
+          n:
+          !lib.elem n [
+            "graphs"
+            "datalog"
+            "krn"
+            "rdf"
+            "reduce"
+            "program"
+            "grants"
+            "change"
+          ]
+        ) (lib.attrNames sv.lib)
+      )
+    }.
     Reduce strategies: ${fnList (lib.attrNames sv.lib.reduce)}. Change programs (`sven.lib.program`): ${fnList (lib.attrNames sv.lib.program)}. Grants: ${fnList (lib.attrNames sv.lib.grants)}.
 
     | Library | Functions |
@@ -215,7 +615,11 @@ let
 
     ${mermaid mcpView}
 
-    **Labels** (`sven.labels`, by file path): ${lib.concatStringsSep ", " (lib.mapAttrsToList (p: l: "`${p}` trust ${toString l.trust}") sven.labelTable)}. Aspects declared under `agent/` and the elements they give (`r.floor 3`):
+    **Labels** (`sven.labels`, by file path): ${
+      lib.concatStringsSep ", " (
+        lib.mapAttrsToList (p: l: "`${p}` trust ${toString l.trust}") sven.labelTable
+      )
+    }. Aspects declared under `agent/` and the elements they give (`r.floor 3`):
 
     ${mermaid labelView}
 
@@ -223,31 +627,49 @@ let
 
     ${mermaid sharedView}
 
-    **Research and pattern maps** (in `vic/` of the sven repository): ${fnList [ "den-patterns.md" "den-census.md" "sini-patterns.md" "hoag-ci-patterns.txt" "clan-patterns.txt" "gen-query-research.txt" "ai-infra-research.md" "quipu-lessons.md" "evalmodules-research.md" "modlist-research.md" "design.md" ]}.
+    **Research and pattern maps** (in `vic/` of the sven repository): ${
+      fnList [
+        "den-patterns.md"
+        "den-census.md"
+        "sini-patterns.md"
+        "hoag-ci-patterns.txt"
+        "clan-patterns.txt"
+        "gen-query-research.txt"
+        "ai-infra-research.md"
+        "quipu-lessons.md"
+        "evalmodules-research.md"
+        "modlist-research.md"
+        "design.md"
+      ]
+    }.
   '';
   jobs = ci: ''
     ### CI jobs (`ci.json`)
     | Job | System | Builds |
     |---|---|---|
-    ${lib.concatMapStringsSep "\n" (j: "| `${j.name}` | `${j.system}` | `${j.attr}` |") (lib.attrValues ci)}
+    ${lib.concatMapStringsSep "\n" (j: "| `${j.name}` | `${j.system}` | `${j.attr}` |") (
+      lib.attrValues ci
+    )}
   '';
 in
 {
   sven.aspects.readme = {
     at = sven.system.x86_64-linux;
-    files = { ci, generators, ... }: {
-      files.file."README.md".text = lib.concatStringsSep "\n" [
-        "# sven fleet"
-        ""
-        "<!-- Generated by github:sini/files from modules/docs. Edit there, then run `nix run .#write-files`. -->"
-        ""
-        (builtins.readFile ./_guide.md)
-        kinds
-        (diagrams generators)
-        summary
-        capabilities
-        (jobs ci)
-      ];
-    };
+    files =
+      { ci, generators, ... }:
+      {
+        files.file."README.md".text = lib.concatStringsSep "\n" [
+          "# sven fleet"
+          ""
+          "<!-- Generated by github:sini/files from modules/docs. Edit there, then run `nix run .#write-files`. -->"
+          ""
+          (builtins.readFile ./_guide.md)
+          kinds
+          (diagrams generators)
+          summary
+          capabilities
+          (jobs ci)
+        ];
+      };
   };
 }

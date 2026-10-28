@@ -1,7 +1,8 @@
 {
   description = "sven: one NixOS host";
 
-  outputs = inputs:
+  outputs =
+    inputs:
     (import inputs.sven).lib.mkFlake {
       imports = [ (inputs.import-tree ./modules) ];
       _module.args = {

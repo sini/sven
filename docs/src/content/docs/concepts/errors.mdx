@@ -17,7 +17,10 @@ by this author can.
 ```nix title="variants/typo.nix"
 { sven, ... }:
 {
-  sven.host.cache = { addr = "10.0.0.5"; bakup = false; };
+  sven.host.cache = {
+    addr = "10.0.0.5";
+    bakup = false;
+  };
 }
 ```
 
@@ -63,14 +66,24 @@ This fleet has two hosts with one address:
   sven.kinds.fleet = {
     spawns.host = _: sven.host;
     sinks.out.reduce = sven.lib.reduce.merge;
-    sinks.warnings.out = { warnings, ... }: { inherit warnings; }; # messages that do not fail the fleet
+    sinks.warnings.out =
+      { warnings, ... }:
+      {
+        inherit warnings;
+      }; # messages that do not fail the fleet
   };
-  sven.kinds.host.fields = { addr = lib.types.str; backup = sven.lib.opt lib.types.bool true; };
+  sven.kinds.host.fields = {
+    addr = lib.types.str;
+    backup = sven.lib.opt lib.types.bool true;
+  };
 
   sven.fleet.main = { };
   sven.host.web.addr = "10.0.0.1";
   sven.host.db.addr = "10.0.0.1";
-  sven.host.scratch = { addr = "10.0.0.9"; backup = false; };
+  sven.host.scratch = {
+    addr = "10.0.0.9";
+    backup = false;
+  };
   sven.flake = { out, ... }: out;
 }
 ```
@@ -84,16 +97,24 @@ in
 {
   sven.aspects.unique-addr = {
     at = sven.kinds.fleet;
-    errors = lib.concatLists (lib.mapAttrsToList (a: hs: lib.optional (lib.length hs > 1) {
-      code = "duplicate-addr";
-      error = "${a} is the address of ${lib.concatMapStringsSep " and " (h: h.name) hs}";
-      fix = "give each host its own addr";
-      path = [ "addr" ];
-      got = a;
-    }) byAddr);
+    errors = lib.concatLists (
+      lib.mapAttrsToList (
+        a: hs:
+        lib.optional (lib.length hs > 1) {
+          code = "duplicate-addr";
+          error = "${a} is the address of ${lib.concatMapStringsSep " and " (h: h.name) hs}";
+          fix = "give each host its own addr";
+          path = [ "addr" ];
+          got = a;
+        }
+      ) byAddr
+    );
   };
   sven.aspects.no-backup = {
-    at = sven.lib.all [ sven.kinds.host (s: !s.backup) ];
+    at = sven.lib.all [
+      sven.kinds.host
+      (s: !s.backup)
+    ];
     warnings = { host, ... }: "${host.name} has no backup";
   };
 }
@@ -136,7 +157,7 @@ see [Project layout](/start/project-layout/).
 Every block on this page is a file of the template `errors`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#errors'
+nix flake init -t github:vic/sven#errors
 ```
 
 <FileTree>

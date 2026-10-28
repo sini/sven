@@ -3,6 +3,10 @@
 {
   sven.aspects.unstable-overlay = {
     at = sven.fleet.main;
-    overlays = { ... }: final: prev: { inherit (inputs.nixpkgs-unstable.legacyPackages.${prev.stdenv.hostPlatform.system}) helix; };
+    overlays =
+      { ... }:
+      final: prev: {
+        inherit (inputs.nixpkgs-unstable.legacyPackages.${prev.stdenv.hostPlatform.system}) helix;
+      };
   };
 }

@@ -15,7 +15,12 @@ each stage is an aspect, and one job per system comes from the reference fleet's
 
 ```nix title="modules/fleet.nix" {11,12-20}
 # The fleet writes its own repo files. `files` collects github:sini/files modules; `write-files` writes them.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 let
   pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
 in
@@ -25,20 +30,31 @@ in
     sinks = {
       out.reduce = sven.lib.reduce.merge;
       inputs.reduce = sven.lib.reduce.merge; # flake inputs, declared by the aspects that use them
-      files.out = { files, ... }:
+      files.out =
+        { files, ... }:
         let
           e = lib.evalModules {
-            modules = [ inputs.files.module { _module.args.pkgs = pkgs; files.root = inputs.self; } ] ++ files;
+            modules = [
+              inputs.files.module
+              {
+                _module.args.pkgs = pkgs;
+                files.root = inputs.self;
+              }
+            ]
+            ++ files;
           };
-        in {
+        in
+        {
           packages.x86_64-linux.write-files = e.config.files.writer.drv;
           checks.x86_64-linux = e.config.files.checks; # each committed file must match
         };
     };
   };
-  sven.kinds.host.sinks.nixos.out = { host, nixos, ... }: {
-    nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
-  };
+  sven.kinds.host.sinks.nixos.out =
+    { host, nixos, ... }:
+    {
+      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
+    };
 
   sven.fleet.main = { };
   sven.host.web = { };
@@ -58,7 +74,10 @@ Each aspect declares the flake inputs it uses on the `inputs` sink. The host's i
   sven.aspects.core-inputs = {
     at = sven.kinds.fleet;
     inputs = {
-      sven = { url = "github:vic/sven"; flake = false; };
+      sven = {
+        url = "github:vic/sven";
+        flake = false;
+      };
       import-tree.url = "github:denful/import-tree";
       files.url = "github:sini/files";
     };
@@ -69,7 +88,10 @@ Each aspect declares the flake inputs it uses on the `inputs` sink. The host's i
     nixos = {
       services.nginx.enable = true;
       boot.loader.grub.device = "nodev";
-      fileSystems."/" = { device = "/dev/sda1"; fsType = "ext4"; };
+      fileSystems."/" = {
+        device = "/dev/sda1";
+        fsType = "ext4";
+      };
       nixpkgs.hostPlatform = "x86_64-linux";
       system.stateVersion = "25.05";
     };
@@ -81,36 +103,44 @@ Each aspect declares the flake inputs it uses on the `inputs` sink. The host's i
 # flake.nix and README.md, generated from fleet data.
 { sven, lib, ... }:
 let
-  input = n: v: "    ${n} = ${lib.generators.toPretty { multiline = false; } v};";
+  # one input, in nixfmt's layout: the generated file passes `nixfmt --check` unchanged
+  input =
+    n: v:
+    "    ${n} = {\n"
+    + lib.concatStrings (lib.mapAttrsToList (k: x: "      ${k} = ${builtins.toJSON x};\n") v)
+    + "    };";
   hosts = lib.filter (s: s.kind == "host") sven.lib.graph.scopes;
 in
 {
   sven.aspects.write = {
     at = sven.kinds.fleet;
-    files = { inputs, ... }: {
-      files.file."flake.nix".text = ''
-        # Generated from the `inputs` sink. Edit modules/, then run: nix run .#write-files
-        {
-          outputs = inputs:
-            (import inputs.sven).lib.mkFlake {
-              imports = [ (inputs.import-tree ./modules) ];
-              _module.args = {
-                inherit inputs;
-                inherit (inputs.nixpkgs) lib;
+    files =
+      { inputs, ... }:
+      {
+        files.file."flake.nix".text = ''
+          # Generated from the `inputs` sink. Edit modules/, then run: nix run .#write-files
+          {
+            outputs =
+              inputs:
+              (import inputs.sven).lib.mkFlake {
+                imports = [ (inputs.import-tree ./modules) ];
+                _module.args = {
+                  inherit inputs;
+                  inherit (inputs.nixpkgs) lib;
+                };
               };
+
+            inputs = {
+          ${lib.concatStringsSep "\n" (lib.mapAttrsToList input inputs)}
             };
+          }
+        '';
+        files.file."README.md".text = ''
+          # My fleet
 
-          inputs = {
-        ${lib.concatStringsSep "\n" (lib.mapAttrsToList input inputs)}
-          };
-        }
-      '';
-      files.file."README.md".text = ''
-        # My fleet
-
-        Generated from the fleet. Hosts: ${lib.concatMapStringsSep ", " (s: "`${s.name}`") hosts}.
-      '';
-    };
+          Generated from the fleet. Hosts: ${lib.concatMapStringsSep ", " (s: "`${s.name}`") hosts}.
+        '';
+      };
   };
 }
 ```
@@ -121,7 +151,8 @@ The template's own `flake.nix` is that output. Remove the `web` aspect, and `nix
 ```nix title="flake.nix"
 # Generated from the `inputs` sink. Edit modules/, then run: nix run .#write-files
 {
-  outputs = inputs:
+  outputs =
+    inputs:
     (import inputs.sven).lib.mkFlake {
       imports = [ (inputs.import-tree ./modules) ];
       _module.args = {
@@ -131,10 +162,19 @@ The template's own `flake.nix` is that output. Remove the `web` aspect, and `nix
     };
 
   inputs = {
-    files = { url = "github:sini/files"; };
-    import-tree = { url = "github:denful/import-tree"; };
-    nixpkgs = { url = "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz"; };
-    sven = { flake = false; url = "github:vic/sven"; };
+    files = {
+      url = "github:sini/files";
+    };
+    import-tree = {
+      url = "github:denful/import-tree";
+    };
+    nixpkgs = {
+      url = "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz";
+    };
+    sven = {
+      flake = false;
+      url = "github:vic/sven";
+    };
   };
 }
 ```
@@ -153,7 +193,7 @@ The [reference fleet](https://github.com/vic/sven/blob/main/templates/fleet/modu
 Every block on this page is a file of the template `generated-files`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#generated-files'
+nix flake init -t github:vic/sven#generated-files
 ```
 
 <FileTree>

@@ -26,8 +26,14 @@ An instance is `sven.<kind>.<name>`. The attribute name is the instance name. An
 # Instances: `sven.<kind>.<name>`. The name is the attribute name.
 { sven, ... }:
 {
-  sven.host.web = { addr = "10.0.0.1"; cores = 4; };
-  sven.host.db = { addr = "10.0.0.2"; cores = 16; };
+  sven.host.web = {
+    addr = "10.0.0.1";
+    cores = 4;
+  };
+  sven.host.db = {
+    addr = "10.0.0.2";
+    cores = 16;
+  };
 }
 ```
 
@@ -41,7 +47,11 @@ An aspect reads the fields. Here, each host gives one line to a `report` sink on
 {
   sven.aspects.report = {
     at = sven.kinds.host;
-    report = { host, ... }: { ${host.name} = "${host.addr} (${toString host.cores} cores)"; };
+    report =
+      { host, ... }:
+      {
+        ${host.name} = "${host.addr} (${toString host.cores} cores)";
+      };
   };
 }
 ```
@@ -64,7 +74,10 @@ Add this file to the example:
 # A typo in a field name, and a string where an int goes.
 { sven, ... }:
 {
-  sven.host.cache = { adr = "10.0.0.3"; cores = "8"; };
+  sven.host.cache = {
+    adr = "10.0.0.3";
+    cores = "8";
+  };
 }
 ```
 
@@ -132,7 +145,7 @@ Add this file to the example:
 Every block on this page is a file of the template `kinds-fields`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#kinds-fields'
+nix flake init -t github:vic/sven#kinds-fields
 ```
 
 <FileTree>

@@ -1,7 +1,17 @@
 # fleet > environment > host > user. Groups are data: an environment grants groups, a user is in groups.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 let
-  inherit (sven.lib) same maybe opt is;
+  inherit (sven.lib)
+    same
+    maybe
+    opt
+    is
+    ;
   listOf = t: is (v: lib.isList v && lib.all t.check v);
   meets = xs: ys: lib.any (x: lib.any (same x) ys) xs;
 in
@@ -21,11 +31,16 @@ in
     spawns.host = s: lib.filterAttrs (_: h: same h.environment s) sven.host;
   };
   sven.kinds.host = {
-    fields = { environment = sven.kinds.environment; settings.timeZone = maybe lib.types.str; };
-    spawns.user = s: lib.filterAttrs (_: u: meets u.groups s.environment.grants) sven.user; # access from data
-    sinks.nixos.out = { host, nixos, ... }: {
-      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
+    fields = {
+      environment = sven.kinds.environment;
+      settings.timeZone = maybe lib.types.str;
     };
+    spawns.user = s: lib.filterAttrs (_: u: meets u.groups s.environment.grants) sven.user; # access from data
+    sinks.nixos.out =
+      { host, nixos, ... }:
+      {
+        nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
+      };
   };
   sven.kinds.user.fields.groups = listOf sven.kinds.group;
 

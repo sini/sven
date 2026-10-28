@@ -4,30 +4,46 @@
   section = "concepts";
   order = 14;
 
-  body = { docs, r, ... }: [
-    ''
-      sven does not know what a flake is. The root kind declares an `out` sink with `merge`, and `sven.flake`
-      gives the flake's outputs. Each sink with an `out` key gives its part.
-    ''
-    (docs.fileWith "{6,12}" "modules/fleet.nix")
-    ''
-      ## Read the outputs
+  body =
+    { docs, r, ... }:
+    [
+      ''
+        sven does not know what a flake is. The root kind declares an `out` sink with `merge`, and `sven.flake`
+        gives the flake's outputs. Each sink with an `out` key gives its part.
+      ''
+      (docs.fileWith "{6,12}" "modules/fleet.nix")
+      ''
+        ## Read the outputs
 
-      The `out` arg is the flake itself, read lazily. An element can build on other outputs without `inputs.self`:
-    ''
-    (docs.fileWith "{7}" "modules/aspects.nix")
-    (docs.value r.flake)
-    ''
-      ## With or without flakes
+        The `out` arg is the flake itself, read lazily. An element can build on other outputs without `inputs.self`:
+      ''
+      (docs.fileWith "{7}" "modules/aspects.nix")
+      (docs.value r.flake)
+      ''
+        ## With or without flakes
 
-      `(import sven).lib.mkFlake module` gives the flake outputs. `(import sven).lib.eval module` gives every query,
-      and `flake` is one of them. `mkFlake m` is `(eval m).flake`.
-    ''
-    (docs.note "Laziness closes the loop" ''
-      `inventory` reads `out` and gives to `out`. There is no fixpoint to run: Nix computes a value only when something reads it,
-      and `inventory` never reads itself.
-    '')
-  ];
+        `(import sven).lib.mkFlake module` gives the flake outputs. `(import sven).lib.eval module` gives every query,
+        and `flake` is one of them. `mkFlake m` is `(eval m).flake`.
+      ''
+      (docs.note "Laziness closes the loop" ''
+        `inventory` reads `out` and gives to `out`. There is no fixpoint to run: Nix computes a value only when something reads it,
+        and `inventory` never reads itself.
+      '')
+    ];
 
-  checks = { r, ... }: { flake = r.flake == { inventory = [ "postgres" "nginx" ]; services = { db = [ "postgres" ]; web = [ "nginx" ]; }; }; };
+  checks =
+    { r, ... }:
+    {
+      flake =
+        r.flake == {
+          inventory = [
+            "postgres"
+            "nginx"
+          ];
+          services = {
+            db = [ "postgres" ];
+            web = [ "nginx" ];
+          };
+        };
+    };
 }

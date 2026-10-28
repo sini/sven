@@ -1,7 +1,8 @@
 {
   description = "sven: the four words, no NixOS";
 
-  outputs = inputs:
+  outputs =
+    inputs:
     (import inputs.sven).lib.mkFlake {
       imports = [ (inputs.import-tree ./modules) ];
       _module.args = {

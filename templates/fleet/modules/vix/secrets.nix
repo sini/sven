@@ -7,8 +7,18 @@
   sven.kinds.user.sinks.secrets = {
     of = sven.kinds.secret;
     reduce = sven.lib.reduce.set;
-    homeManager = { secrets, ... }: { home.file.".secrets".text = lib.concatMapStringsSep "\n" (s: s.sopsKey) secrets; };
+    homeManager =
+      { secrets, ... }:
+      {
+        home.file.".secrets".text = lib.concatMapStringsSep "\n" (s: s.sopsKey) secrets;
+      };
   };
-  sven.aspects.gh = { at = sven.kinds.user; secrets = sven.secret.gh-token; };
-  sven.aspects.gpg = { at = sven.user.bob; secrets = sven.secret.gpg-key; };
+  sven.aspects.gh = {
+    at = sven.kinds.user;
+    secrets = sven.secret.gh-token;
+  };
+  sven.aspects.gpg = {
+    at = sven.user.bob;
+    secrets = sven.secret.gpg-key;
+  };
 }

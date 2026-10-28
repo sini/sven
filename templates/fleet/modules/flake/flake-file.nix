@@ -1,17 +1,31 @@
 # flake.nix is generated: each aspect declares the inputs it uses on the `flake-file` sink (github:vic/flake-file).
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 let
   pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-  follows = url: { inherit url; inputs.nixpkgs.follows = "nixpkgs"; };
+  follows = url: {
+    inherit url;
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
 in
 {
   sven.kinds.fleet.sinks.flake-file = {
     reduce = sven.lib.reduce.merge;
-    out = { flake-file, ... }:
+    out =
+      { flake-file, ... }:
       let
-        e = inputs.nixpkgs-unstable.lib.evalModules { # flake-file needs `valueMeta` on submodule options: nixos-25.05 lib lacks it
+        e = inputs.nixpkgs-unstable.lib.evalModules {
+          # flake-file needs `valueMeta` on submodule options: nixos-25.05 lib lacks it
           specialArgs = { inherit inputs; }; # flake-file reads `inputs.self` (the files it checks)
-          modules = [ inputs.flake-file.flakeModules.flake { inherit flake-file; } ];
+          modules = [
+            inputs.flake-file.flakeModules.flake
+            { inherit flake-file; }
+            { flake-file.formatter = p: p.nixfmt-rfc-style; } # the formatter of fmt-check: one layout for every nix file
+          ];
         };
       in
       {
@@ -38,7 +52,10 @@ in
         # Regenerate: nix run .#write-flake
       '';
       inputs = {
-        sven = { url = "path:../.."; flake = false; };
+        sven = {
+          url = "path:../..";
+          flake = false;
+        };
         import-tree.url = "github:denful/import-tree";
         flake-file.url = "github:vic/flake-file";
         nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
@@ -51,7 +68,10 @@ in
     flake-file.inputs = {
       nixpkgs-unstable.url = "github:nixos/nixpkgs/nixpkgs-unstable";
       home-manager = follows "github:nix-community/home-manager/release-25.05";
-      home-manager-unstable = { url = "github:nix-community/home-manager"; inputs.nixpkgs.follows = "nixpkgs-unstable"; };
+      home-manager-unstable = {
+        url = "github:nix-community/home-manager";
+        inputs.nixpkgs.follows = "nixpkgs-unstable";
+      };
       nix-darwin = follows "github:nix-darwin/nix-darwin/nix-darwin-25.05";
     };
   };

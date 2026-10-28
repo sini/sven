@@ -45,7 +45,12 @@ account, groups, home, packages and state versions.
 
 ```nix title="modules/fleet.nix"
 # What Den gives you built in, declared: hosts build NixOS, users live on hosts, a user's home goes into its host.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 {
   sven.kinds.fleet = {
     spawns.host = _: sven.host;
@@ -54,13 +59,22 @@ account, groups, home, packages and state versions.
   sven.kinds.host = {
     fields.system = lib.types.str;
     spawns.user = s: lib.filterAttrs (_: u: lib.any (sven.lib.same s) u.hosts) sven.user;
-    sinks.nixos.out = { host, nixos, ... }: {
-      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { inherit (host) system; modules = nixos; };
-    };
+    sinks.nixos.out =
+      { host, nixos, ... }:
+      {
+        nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem {
+          inherit (host) system;
+          modules = nixos;
+        };
+      };
   };
   sven.kinds.user = {
     fields.hosts = sven.lib.is lib.isList;
-    sinks.homeManager.nixos = { user, homeManager, ... }: { home-manager.users.${user.name}.imports = homeManager; };
+    sinks.homeManager.nixos =
+      { user, homeManager, ... }:
+      {
+        home-manager.users.${user.name}.imports = homeManager;
+      };
   };
   sven.aspects.home-manager = {
     at = sven.lib.has sven.kinds.user;
@@ -85,12 +99,21 @@ hosts, a user's `homeManager` content goes into the host, and home-manager is ac
 ```nix title="before/modules/igloo.nix"
 {
   den.aspects.igloo = {
-    nixos = { pkgs, ... }: {
-      environment.systemPackages = [ pkgs.hello ];
-      boot.loader.grub.enable = false;
-      fileSystems."/" = { device = "/dev/fake"; fsType = "auto"; };
-    };
-    provides.to-users.homeManager = { pkgs, ... }: { home.packages = [ pkgs.vim ]; };
+    nixos =
+      { pkgs, ... }:
+      {
+        environment.systemPackages = [ pkgs.hello ];
+        boot.loader.grub.enable = false;
+        fileSystems."/" = {
+          device = "/dev/fake";
+          fsType = "auto";
+        };
+      };
+    provides.to-users.homeManager =
+      { pkgs, ... }:
+      {
+        home.packages = [ pkgs.vim ];
+      };
   };
 }
 ```
@@ -105,16 +128,28 @@ hosts, a user's `homeManager` content goes into the host, and home-manager is ac
   sven.host.igloo.system = "x86_64-linux";
   sven.aspects.igloo = {
     at = sven.host.igloo;
-    nixos = { pkgs, ... }: {
-      environment.systemPackages = [ pkgs.hello ];
-      boot.loader.grub.enable = false;
-      fileSystems."/" = { device = "/dev/fake"; fsType = "auto"; };
-    };
+    nixos =
+      { pkgs, ... }:
+      {
+        environment.systemPackages = [ pkgs.hello ];
+        boot.loader.grub.enable = false;
+        fileSystems."/" = {
+          device = "/dev/fake";
+          fsType = "auto";
+        };
+      };
   };
   # provides.to-users: content for the users of igloo, given at each user
   sven.aspects.igloo-users = {
-    at = sven.lib.all [ sven.kinds.user (sven.lib.within sven.host.igloo) ];
-    homeManager = { pkgs, ... }: { home.packages = [ pkgs.vim ]; };
+    at = sven.lib.all [
+      sven.kinds.user
+      (sven.lib.within sven.host.igloo)
+    ];
+    homeManager =
+      { pkgs, ... }:
+      {
+        home.packages = [ pkgs.vim ];
+      };
   };
 }
 ```
@@ -129,8 +164,15 @@ hosts, a user's `homeManager` content goes into the host, and home-manager is ac
 { den, ... }:
 {
   den.aspects.tux = {
-    includes = [ den.batteries.define-user den.batteries.primary-user ];
-    homeManager = { pkgs, ... }: { home.packages = [ pkgs.htop ]; };
+    includes = [
+      den.batteries.define-user
+      den.batteries.primary-user
+    ];
+    homeManager =
+      { pkgs, ... }:
+      {
+        home.packages = [ pkgs.htop ];
+      };
   };
 }
 ```
@@ -147,7 +189,11 @@ hosts, a user's `homeManager` content goes into the host, and home-manager is ac
   sven.aspects.primary-user.at = sven.user.tux;
   sven.aspects.tux = {
     at = sven.user.tux;
-    homeManager = { pkgs, ... }: { home.packages = [ pkgs.htop ]; };
+    homeManager =
+      { pkgs, ... }:
+      {
+        home.packages = [ pkgs.htop ];
+      };
   };
 }
 ```
@@ -169,8 +215,21 @@ adds itself to `at`. `at` from several files is a union.
 { sven, ... }:
 {
   sven.aspects.define-user = {
-    nixos = { user, ... }: { users.users.${user.name} = { name = user.name; home = "/home/${user.name}"; isNormalUser = true; }; };
-    homeManager = { user, ... }: { home.username = user.name; home.homeDirectory = "/home/${user.name}"; };
+    nixos =
+      { user, ... }:
+      {
+        users.users.${user.name} = {
+          name = user.name;
+          home = "/home/${user.name}";
+          isNormalUser = true;
+        };
+      };
+    homeManager =
+      { user, ... }:
+      {
+        home.username = user.name;
+        home.homeDirectory = "/home/${user.name}";
+      };
   };
 }
 ```
@@ -181,7 +240,14 @@ adds itself to `at`. `at` from several files is a union.
 ```nix title="modules/batteries/primary-user.nix"
 { sven, ... }:
 {
-  sven.aspects.primary-user.nixos = { user, ... }: { users.users.${user.name}.extraGroups = [ "wheel" "networkmanager" ]; };
+  sven.aspects.primary-user.nixos =
+    { user, ... }:
+    {
+      users.users.${user.name}.extraGroups = [
+        "wheel"
+        "networkmanager"
+      ];
+    };
 }
 ```
 
@@ -221,7 +287,7 @@ The [reference fleet](https://github.com/vic/sven/tree/main/templates/fleet) sho
 Every block on this page is a file of the template `from-den`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#from-den'
+nix flake init -t github:vic/sven#from-den
 ```
 
 <FileTree>

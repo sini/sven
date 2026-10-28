@@ -2,11 +2,25 @@
 { sven, lib, ... }:
 {
   sven.kinds.guest = {
-    fields = sven.kinds.machine.fields // { on = sven.kinds.host; };
+    fields = sven.kinds.machine.fields // {
+      on = sven.kinds.host;
+    };
     spawns.user = sven.helpers.usersOn; # no spawns.guest: no guest in a guest
     sinks = {
-      nixos.nixos = { guest, nixos, ... }: { microvm.vms.${guest.name} = { pkgs = sven.helpers.pkgsOf guest; config.imports = nixos; }; };
-      inherit (sven.kinds.host.sinks) os persist age-secrets unfree;
+      nixos.nixos =
+        { guest, nixos, ... }:
+        {
+          microvm.vms.${guest.name} = {
+            pkgs = sven.helpers.pkgsOf guest;
+            config.imports = nixos;
+          };
+        };
+      inherit (sven.kinds.host.sinks)
+        os
+        persist
+        age-secrets
+        unfree
+        ;
     };
   };
 }

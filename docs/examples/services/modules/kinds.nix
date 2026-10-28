@@ -2,9 +2,24 @@
 { sven, lib, ... }:
 let
   inherit (sven.lib) same is;
-  membersOf = m: lib.listToAttrs (lib.concatLists (lib.mapAttrsToList (n: i:
-    lib.concatMap (role: lib.optional (lib.any (same m) i.roles.${role}) (lib.nameValuePair "${n}.${role}" { instance = n; inherit role; }))
-      (lib.attrNames i.roles)) sven.instance));
+  membersOf =
+    m:
+    lib.listToAttrs (
+      lib.concatLists (
+        lib.mapAttrsToList (
+          n: i:
+          lib.concatMap (
+            role:
+            lib.optional (lib.any (same m) i.roles.${role}) (
+              lib.nameValuePair "${n}.${role}" {
+                instance = n;
+                inherit role;
+              }
+            )
+          ) (lib.attrNames i.roles)
+        ) sven.instance
+      )
+    );
 in
 {
   sven.kinds.fleet = {
@@ -18,7 +33,14 @@ in
   sven.kinds.host = {
     fields.addr = lib.types.str;
     spawns.member = membersOf;
-    sinks.config = { reduce = sven.lib.reduce.merge; out = { host, config, ... }: { config.${host.name} = config; }; };
+    sinks.config = {
+      reduce = sven.lib.reduce.merge;
+      out =
+        { host, config, ... }:
+        {
+          config.${host.name} = config;
+        };
+    };
   };
   sven.kinds.member = { }; # its elements go up to its machine
 

@@ -4,7 +4,10 @@
   sven.aspects.core-inputs = {
     at = sven.kinds.fleet;
     inputs = {
-      sven = { url = "github:vic/sven"; flake = false; };
+      sven = {
+        url = "github:vic/sven";
+        flake = false;
+      };
       import-tree.url = "github:denful/import-tree";
       files.url = "github:sini/files";
     };
@@ -15,7 +18,10 @@
     nixos = {
       services.nginx.enable = true;
       boot.loader.grub.device = "nodev";
-      fileSystems."/" = { device = "/dev/sda1"; fsType = "ext4"; };
+      fileSystems."/" = {
+        device = "/dev/sda1";
+        fsType = "ext4";
+      };
       nixpkgs.hostPlatform = "x86_64-linux";
       system.stateVersion = "25.05";
     };

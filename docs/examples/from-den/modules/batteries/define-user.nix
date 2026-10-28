@@ -2,7 +2,20 @@
 { sven, ... }:
 {
   sven.aspects.define-user = {
-    nixos = { user, ... }: { users.users.${user.name} = { name = user.name; home = "/home/${user.name}"; isNormalUser = true; }; };
-    homeManager = { user, ... }: { home.username = user.name; home.homeDirectory = "/home/${user.name}"; };
+    nixos =
+      { user, ... }:
+      {
+        users.users.${user.name} = {
+          name = user.name;
+          home = "/home/${user.name}";
+          isNormalUser = true;
+        };
+      };
+    homeManager =
+      { user, ... }:
+      {
+        home.username = user.name;
+        home.homeDirectory = "/home/${user.name}";
+      };
   };
 }

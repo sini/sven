@@ -13,7 +13,12 @@ through nixpkgs' `readOnlyPkgs` module. The `out` arg gives the leader's built `
 
 ```nix title="modules/fleet.nix" {15-23}
 # Hosts with `sharedPkgs` reuse the pkgs of the first sharing host (the leader): nixpkgs is imported once.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 let
   np = inputs.nixpkgs;
 in
@@ -23,10 +28,21 @@ in
     sinks.out.reduce = sven.lib.reduce.merge;
   };
   sven.kinds.host = {
-    fields = { system = sven.lib.opt lib.types.str "x86_64-linux"; sharedPkgs = sven.lib.opt lib.types.bool false; };
-    sinks.nixos.out = { host, nixos, out, ... }:
+    fields = {
+      system = sven.lib.opt lib.types.str "x86_64-linux";
+      sharedPkgs = sven.lib.opt lib.types.bool false;
+    };
+    sinks.nixos.out =
+      {
+        host,
+        nixos,
+        out,
+        ...
+      }:
       let
-        group = lib.sort (a: b: a < b) (lib.attrNames (lib.filterAttrs (_: h: h.sharedPkgs && h.system == host.system) sven.host)); # one group per system
+        group = lib.sort (a: b: a < b) (
+          lib.attrNames (lib.filterAttrs (_: h: h.sharedPkgs && h.system == host.system) sven.host)
+        ); # one group per system
         leader = lib.head group;
         follower = host.sharedPkgs && leader != host.name;
         shared = out.nixosConfigurations.${leader}.pkgs; # the `out` arg: the leader's built pkgs, lazily
@@ -35,9 +51,16 @@ in
           { options.nixpkgs.system = lib.mkOption { internal = true; }; }
           { nixpkgs.pkgs = shared; }
         ];
-      in {
-        nixosConfigurations.${host.name} = np.lib.nixosSystem { inherit (host) system; modules = nixos ++ lib.optionals follower readOnly; };
-        ownPkgs.${host.name} = np.lib.nixosSystem { inherit (host) system; modules = nixos; }; # the oracle: the same host with its own pkgs
+      in
+      {
+        nixosConfigurations.${host.name} = np.lib.nixosSystem {
+          inherit (host) system;
+          modules = nixos ++ lib.optionals follower readOnly;
+        };
+        ownPkgs.${host.name} = np.lib.nixosSystem {
+          inherit (host) system;
+          modules = nixos;
+        }; # the oracle: the same host with its own pkgs
       };
   };
 
@@ -49,21 +72,35 @@ in
 ```nix title="modules/hosts.nix"
 { sven, lib, ... }:
 {
-  sven.host = lib.genAttrs [ "app-1" "app-2" "app-3" ] (_: { sharedPkgs = true; });
+  sven.host = lib.genAttrs [ "app-1" "app-2" "app-3" ] (_: {
+    sharedPkgs = true;
+  });
   sven.aspects.app = {
     at = sven.kinds.host;
-    nixos = { host, pkgs, ... }: {
-      networking.hostName = host.name;
-      environment.systemPackages = [ pkgs.htop ];
-      boot.loader.grub.device = "nodev";
-      fileSystems."/" = { device = "/dev/sda1"; fsType = "ext4"; };
-      system.stateVersion = "25.05";
-    };
+    nixos =
+      { host, pkgs, ... }:
+      {
+        networking.hostName = host.name;
+        environment.systemPackages = [ pkgs.htop ];
+        boot.loader.grub.device = "nodev";
+        fileSystems."/" = {
+          device = "/dev/sda1";
+          fsType = "ext4";
+        };
+        system.stateVersion = "25.05";
+      };
   };
   # docs differ when pkgs is shared: keep them off on sharing hosts
   sven.aspects.shared-no-docs = {
-    at = sven.lib.all [ sven.kinds.host (s: s.sharedPkgs) ];
-    nixos.documentation = { enable = false; nixos.enable = false; man.enable = false; };
+    at = sven.lib.all [
+      sven.kinds.host
+      (s: s.sharedPkgs)
+    ];
+    nixos.documentation = {
+      enable = false;
+      nixos.enable = false;
+      man.enable = false;
+    };
   };
 }
 ```
@@ -93,7 +130,7 @@ Measured on the reference fleet, with the same `drvPath`s both ways
 Every block on this page is a file of the template `shared-pkgs`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#shared-pkgs'
+nix flake init -t github:vic/sven#shared-pkgs
 ```
 
 <FileTree>

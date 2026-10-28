@@ -1,8 +1,28 @@
 let
   # every code the engine can give, read from its source: `code = "x"` and `code = if … then "x" else "y"`
-  codesOf = src: builtins.sort builtins.lessThan (builtins.attrNames (builtins.listToAttrs (map (c: { name = c; value = null; })
-    (builtins.concatMap (m: builtins.filter builtins.isString (builtins.concatMap (x: if builtins.isList x then x else [ ]) (builtins.split ''"([a-z-]+)"'' (builtins.head m))))
-      (builtins.filter builtins.isList (builtins.split "code = ([^;]*);" src))))));
+  codesOf =
+    src:
+    builtins.sort builtins.lessThan (
+      builtins.attrNames (
+        builtins.listToAttrs (
+          map
+            (c: {
+              name = c;
+              value = null;
+            })
+            (
+              builtins.concatMap (
+                m:
+                builtins.filter builtins.isString (
+                  builtins.concatMap (x: if builtins.isList x then x else [ ]) (
+                    builtins.split ''"([a-z-]+)"'' (builtins.head m)
+                  )
+                )
+              ) (builtins.filter builtins.isList (builtins.split "code = ([^;]*);" src))
+            )
+        )
+      )
+    );
   meaning = {
     arg = "an element asks for an arg that has no answer";
     at = "`at` holds a value that is not a predicate";
@@ -34,16 +54,38 @@ in
   order = 2;
   route = "reference/errors";
 
-  body = { docs, inputs, ... }: let codes = codesOf (builtins.readFile (inputs.sven + "/default.nix")); in [
-    ''
-      An error record has `error` and `from` for people, and `code`, `path`, `got`, `want`, `fix`, `class` and `near`
-      for tools. `class` is `fixable` (an edit to the data fixes it) or `authority` (no edit by this author can).
-      The codes below are read from the engine source when the docs are written.
-    ''
-    (docs.table [ "Code" "Meaning" ] (map (c: [ "`${c}`" (meaning.${c} or "") ]) codes))
-    (docs.links [ { title = "Errors as data"; href = "/concepts/errors/"; description = "Records, your own checks, and warnings."; } ])
-  ];
+  body =
+    { docs, inputs, ... }:
+    let
+      codes = codesOf (builtins.readFile (inputs.sven + "/default.nix"));
+    in
+    [
+      ''
+        An error record has `error` and `from` for people, and `code`, `path`, `got`, `want`, `fix`, `class` and `near`
+        for tools. `class` is `fixable` (an edit to the data fixes it) or `authority` (no edit by this author can).
+        The codes below are read from the engine source when the docs are written.
+      ''
+      (docs.table [ "Code" "Meaning" ] (
+        map (c: [
+          "`${c}`"
+          (meaning.${c} or "")
+        ]) codes
+      ))
+      (docs.links [
+        {
+          title = "Errors as data";
+          href = "/concepts/errors/";
+          description = "Records, your own checks, and warnings.";
+        }
+      ])
+    ];
 
   # a new code in the engine fails this check until it has a meaning here
-  checks = { inputs, ... }: { every-code-explained = builtins.all (c: meaning ? ${c}) (codesOf (builtins.readFile (inputs.sven + "/default.nix"))); };
+  checks =
+    { inputs, ... }:
+    {
+      every-code-explained = builtins.all (c: meaning ? ${c}) (
+        codesOf (builtins.readFile (inputs.sven + "/default.nix"))
+      );
+    };
 }

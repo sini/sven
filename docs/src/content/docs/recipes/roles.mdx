@@ -20,16 +20,30 @@ in
     sinks.out.reduce = sven.lib.reduce.merge;
   };
   sven.kinds.host.fields = {
-    form = lib.types.enum [ "server" "laptop" "desktop" ];
-    gpu = opt (lib.types.enum [ "none" "nvidia" "amd" ]) "none";
+    form = lib.types.enum [
+      "server"
+      "laptop"
+      "desktop"
+    ];
+    gpu = opt (lib.types.enum [
+      "none"
+      "nvidia"
+      "amd"
+    ]) "none";
     labels = opt (is (v: lib.isList v && lib.all lib.isString v)) [ ];
   };
 
   sven.fleet.main = { };
-  sven.host.rack-1 = { form = "server"; labels = [ "ci-runner" ]; };
+  sven.host.rack-1 = {
+    form = "server";
+    labels = [ "ci-runner" ];
+  };
   sven.host.rack-2.form = "server";
   sven.host.thinkpad.form = "laptop";
-  sven.host.tower = { form = "desktop"; gpu = "nvidia"; };
+  sven.host.tower = {
+    form = "desktop";
+    gpu = "nvidia";
+  };
   sven.flake = { out, ... }: out;
 }
 ```
@@ -43,12 +57,24 @@ in
 {
   sven.aspects = {
     server.at = s: (s.form or null) == "server";
-    workstation.at = s: lib.elem (s.form or null) [ "laptop" "desktop" ];
+    workstation.at =
+      s:
+      lib.elem (s.form or null) [
+        "laptop"
+        "desktop"
+      ];
     laptop.at = s: (s.form or null) == "laptop";
     nvidia.at = s: (s.gpu or null) == "nvidia";
     ci-runner.at = s: lib.elem "ci-runner" (s.labels or [ ]);
-    gaming.at = all [ sven.aspects.workstation sven.aspects.nvidia (not sven.aspects.laptop) ];
-    backups.at = [ sven.aspects.server sven.aspects.workstation ];
+    gaming.at = all [
+      sven.aspects.workstation
+      sven.aspects.nvidia
+      (not sven.aspects.laptop)
+    ];
+    backups.at = [
+      sven.aspects.server
+      sven.aspects.workstation
+    ];
   };
 }
 ```
@@ -67,9 +93,19 @@ A role gives content with the usual keys (`nixos`, `homeManager`, …), and othe
 {
   sven.aspects.tags = {
     at = sven.kinds.host;
-    out = { host, scope, ... }: {
-      tags.${host.name} = lib.filter (r: sven.lib.holds sven.aspects.${r} scope) [ "server" "workstation" "laptop" "nvidia" "ci-runner" "gaming" "backups" ];
-    };
+    out =
+      { host, scope, ... }:
+      {
+        tags.${host.name} = lib.filter (r: sven.lib.holds sven.aspects.${r} scope) [
+          "server"
+          "workstation"
+          "laptop"
+          "nvidia"
+          "ci-runner"
+          "gaming"
+          "backups"
+        ];
+      };
   };
 }
 ```
@@ -107,7 +143,7 @@ Give `rack-2` the label `ci-runner`, and it gets the role, its content and its t
 Every block on this page is a file of the template `roles`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#roles'
+nix flake init -t github:vic/sven#roles
 ```
 
 <FileTree>

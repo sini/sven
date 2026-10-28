@@ -34,7 +34,8 @@ and move files freely. File order never changes a result.
 {
   description = "sven: flake and no-flake entry points";
 
-  outputs = inputs:
+  outputs =
+    inputs:
     (import inputs.sven).lib.mkFlake {
       imports = [ (inputs.import-tree ./modules) ];
       _module.args = {
@@ -62,7 +63,9 @@ and move files freely. File order never changes a result.
 {
   sven ? builtins.fetchTarball "https://github.com/vic/sven/archive/main.tar.gz",
   nixpkgs ? builtins.fetchTarball "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz",
-  import-tree ? import (builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"),
+  import-tree ? import (
+    builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"
+  ),
 }:
 (import sven).lib.eval {
   imports = [ (import-tree ./modules) ];
@@ -100,16 +103,23 @@ and with a plain path, so one host file serves both entry points:
 
 ```nix title="modules/host.nix" {7}
 # eval-config.nix works with a flake input and with a plain nixpkgs path.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 {
   sven.kinds.host = {
     fields.system = lib.types.str;
-    sinks.nixos.out = { host, nixos, ... }: {
-      nixosConfigurations.${host.name} = import "${inputs.nixpkgs}/nixos/lib/eval-config.nix" {
-        inherit (host) system;
-        modules = nixos;
+    sinks.nixos.out =
+      { host, nixos, ... }:
+      {
+        nixosConfigurations.${host.name} = import "${inputs.nixpkgs}/nixos/lib/eval-config.nix" {
+          inherit (host) system;
+          modules = nixos;
+        };
       };
-    };
   };
 
   sven.host.laptop.system = "x86_64-linux";
@@ -125,7 +135,7 @@ sven gives a module only `sven` and the `_module.args` above it. A file that ask
 Every block on this page is a file of the template `project-layout`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#project-layout'
+nix flake init -t github:vic/sven#project-layout
 ```
 
 <FileTree>

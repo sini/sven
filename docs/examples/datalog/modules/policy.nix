@@ -3,13 +3,37 @@
 let
   D = sven.lib.datalog;
   hosts = lib.attrValues sven.host;
-  rules = lib.concatMap (h: let n = h.name; in
-    lib.optional h.web { head = "web:${n}"; }
-    ++ lib.optional (!h.maintenance) { head = "up:${n}"; }
-    ++ [ { head = "serves:${n}"; pos = [ "web:${n}" ]; neg = [ "drained:${n}" ]; } ]
-    ++ map (d: { head = "drained:${n}"; neg = [ "up:${d.name}" ]; }) h.dependsOn) hosts
+  rules =
+    lib.concatMap (
+      h:
+      let
+        n = h.name;
+      in
+      lib.optional h.web { head = "web:${n}"; }
+      ++ lib.optional (!h.maintenance) { head = "up:${n}"; }
+      ++ [
+        {
+          head = "serves:${n}";
+          pos = [ "web:${n}" ];
+          neg = [ "drained:${n}" ];
+        }
+      ]
+      ++ map (d: {
+        head = "drained:${n}";
+        neg = [ "up:${d.name}" ];
+      }) h.dependsOn
+    ) hosts
     # a choice: exactly one primary database, and the policy does not say which
-    ++ [ { head = "primary:db-1"; neg = [ "primary:db-2" ]; } { head = "primary:db-2"; neg = [ "primary:db-1" ]; } ];
+    ++ [
+      {
+        head = "primary:db-1";
+        neg = [ "primary:db-2" ];
+      }
+      {
+        head = "primary:db-2";
+        neg = [ "primary:db-1" ];
+      }
+    ];
   model = D.wfs rules;
 in
 {

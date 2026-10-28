@@ -8,7 +8,11 @@
   sven.kinds.machine = {
     fields.owner = lib.types.str;
     sinks.packages.reduce = sven.lib.reduce.set; # sinks: where elements go
-    sinks.packages.out = { machine, packages, ... }: { inventory.${machine.name} = packages; };
+    sinks.packages.out =
+      { machine, packages, ... }:
+      {
+        inventory.${machine.name} = packages;
+      };
   };
 
   sven.office.main = { };

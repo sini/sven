@@ -29,7 +29,7 @@
         "run": "nix flake check -L \"git+file://${{ github.workspace }}?dir=docs\""
       -
         "name": "site build"
-        "run": "nix shell nixpkgs#nodejs nixpkgs#pnpm -c sh -c 'pnpm install --frozen-lockfile && pnpm build'"
+        "run": "nix shell nixpkgs#nodejs nixpkgs#pnpm -c sh -c 'CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false && pnpm build'"
         "working-directory": "docs"
     "timeout-minutes": 60
   "engine":
@@ -268,7 +268,7 @@
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
         "name": "every nix file is formatted (nixfmt)"
-        "run": "git ls-files -z '*.nix' | xargs -0 nix run nixpkgs#nixfmt-rfc-style -- --check"
+        "run": "nix develop ./docs -c fmt-check"
       -
         "name": "the generated workflows are valid (actionlint)"
         "run": "nix run nixpkgs#actionlint -- .github/workflows/*.yml"

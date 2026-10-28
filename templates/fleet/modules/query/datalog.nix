@@ -7,15 +7,40 @@
 let
   D = sven.lib.datalog;
   hosts = lib.filterAttrs (_: h: h ? addr && !(h.minimal or false)) sven.host;
-  candidates = [ "lb" "web-1" ];
-  rules = lib.concatLists (lib.mapAttrsToList (n: h:
-    [ { head = "serves:${n}"; pos = [ "web:${n}" ]; neg = [ "drained:${n}" ]; }
-      { head = "drained:${n}"; pos = [ "maintenance:${n}" ]; } ]
-    ++ map (d: { head = "drained:${n}"; neg = [ "up:${d.name}" ]; }) (h.dependsOn or [ ])
-    ++ lib.optional (!h.maintenance) { head = "up:${n}"; }
-    ++ lib.optional h.maintenance { head = "maintenance:${n}"; }
-    ++ lib.optional (lib.any (sven.lib.holds sven.aspects.nginx) (sven.lib.scopesOf h)) { head = "web:${n}"; }) hosts)   # a host with no scope (bad data) runs nothing
-    ++ map (c: { head = "primary:${c}"; neg = map (o: "primary:${o}") (lib.remove c candidates); }) candidates;
+  candidates = [
+    "lb"
+    "web-1"
+  ];
+  rules =
+    lib.concatLists (
+      lib.mapAttrsToList (
+        n: h:
+        [
+          {
+            head = "serves:${n}";
+            pos = [ "web:${n}" ];
+            neg = [ "drained:${n}" ];
+          }
+          {
+            head = "drained:${n}";
+            pos = [ "maintenance:${n}" ];
+          }
+        ]
+        ++ map (d: {
+          head = "drained:${n}";
+          neg = [ "up:${d.name}" ];
+        }) (h.dependsOn or [ ])
+        ++ lib.optional (!h.maintenance) { head = "up:${n}"; }
+        ++ lib.optional h.maintenance { head = "maintenance:${n}"; }
+        ++ lib.optional (lib.any (sven.lib.holds sven.aspects.nginx) (sven.lib.scopesOf h)) {
+          head = "web:${n}";
+        }
+      ) hosts
+    ) # a host with no scope (bad data) runs nothing
+    ++ map (c: {
+      head = "primary:${c}";
+      neg = map (o: "primary:${o}") (lib.remove c candidates);
+    }) candidates;
   model = D.wfs rules;
   models = D.stable rules;
   choice = if models == [ ] then [ ] else lib.head models;
@@ -26,12 +51,14 @@ in
   # for agents: why a host does not serve, and whether the db primary is decided (judge: supported, refuted, both, neither, unknown)
   sven.aspects.serving-explain = {
     at = sven.fleet.main;
-    out = { ... }: {
-      serving = {
-        whyNot = lib.genAttrs (lib.attrNames hosts) (n: D.whyNot rules model "serves:${n}");
-        primary = D.judge rules "primary:lb" "primary:web-1";
+    out =
+      { ... }:
+      {
+        serving = {
+          whyNot = lib.genAttrs (lib.attrNames hosts) (n: D.whyNot rules model "serves:${n}");
+          primary = D.judge rules "primary:lb" "primary:web-1";
+        };
       };
-    };
   };
   sven.aspects.serving-policy = {
     at = sven.host.lb;
@@ -41,7 +68,11 @@ in
       "lb/why-web-1".text = builtins.toJSON (D.why rules model "serves:web-1");
       "lb/proof-web-1".text = builtins.toJSON (D.proof rules model "serves:web-1");
     };
-    errors = { ... }: map (a: "serving policy: ${a} is undefined") (lib.filter (a: !lib.hasPrefix "primary:" a) model.undefined)
+    errors =
+      { ... }:
+      map (a: "serving policy: ${a} is undefined") (
+        lib.filter (a: !lib.hasPrefix "primary:" a) model.undefined
+      )
       ++ lib.optional (models == [ ]) "serving policy: no stable model (an odd cycle through not)";
   };
 }

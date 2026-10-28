@@ -1,11 +1,24 @@
 # The nix blocks of an issue, evaluated as one sven fleet: each block-N.nix in `blocks` is one module.
 # CI: nix-instantiate --eval --strict --json --restrict-eval -I sven=… -I nixpkgs=… -I blocks=… \
 #       --expr 'import ./docs/issue/eval.nix { sven = <sven>; nixpkgs = <nixpkgs>; blocks = <blocks>; }'
-{ sven, nixpkgs, blocks }:
+{
+  sven,
+  nixpkgs,
+  blocks,
+}:
 let
   S = (import sven).lib;
-  files = map (f: blocks + "/${f}") (builtins.sort builtins.lessThan (builtins.filter (f: builtins.match "block-[0-9]+\\.nix" f != null) (builtins.attrNames (builtins.readDir blocks))));
-  r = S.eval { imports = files; _module.args.lib = import (nixpkgs + "/lib"); };
+  files = map (f: blocks + "/${f}") (
+    builtins.sort builtins.lessThan (
+      builtins.filter (f: builtins.match "block-[0-9]+\\.nix" f != null) (
+        builtins.attrNames (builtins.readDir blocks)
+      )
+    )
+  );
+  r = S.eval {
+    imports = files;
+    _module.args.lib = import (nixpkgs + "/lib");
+  };
 in
 S.jsonSafe {
   modules = builtins.length files;

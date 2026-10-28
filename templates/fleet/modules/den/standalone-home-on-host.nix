@@ -11,14 +11,43 @@ in
   sven.kinds.host.spawns.home = s: lib.filterAttrs (_: h: same h.on s) sven.home;
   sven.kinds.host.sinks.monitor.reduce = sven.lib.reduce.merge;
   sven.kinds.home.sinks.os = { }; # a wall: the home's users give `os` here, and nothing reads it, so stage's NixOS stays untouched
-  sven.home."alice@stage" = { user = sven.user.alice; channel = sven.channel.edge; system = sven.system.x86_64-linux; on = sven.host.stage; };
-  sven.aspects.stage-monitor = { at = sven.host.stage; monitor = { resolution = "2560x1440"; scale = 1.5; }; };
-  sven.aspects.host-config-env = { # Den #713 / osConfig: a home reads its host's REALIZED config through `out`, lazily
-    at = sven.lib.all [ sven.kinds.user (sven.lib.within sven.kinds.home) (sven.lib.within sven.kinds.host) ];
-    homeManager = { host, out, ... }: { home.sessionVariables.HOST_DESKTOP = if out.nixosConfigurations.${host.name}.config.services.xserver.enable then "yes" else "no"; };
+  sven.home."alice@stage" = {
+    user = sven.user.alice;
+    channel = sven.channel.edge;
+    system = sven.system.x86_64-linux;
+    on = sven.host.stage;
+  };
+  sven.aspects.stage-monitor = {
+    at = sven.host.stage;
+    monitor = {
+      resolution = "2560x1440";
+      scale = 1.5;
+    };
+  };
+  sven.aspects.host-config-env = {
+    # Den #713 / osConfig: a home reads its host's REALIZED config through `out`, lazily
+    at = sven.lib.all [
+      sven.kinds.user
+      (sven.lib.within sven.kinds.home)
+      (sven.lib.within sven.kinds.host)
+    ];
+    homeManager =
+      { host, out, ... }:
+      {
+        home.sessionVariables.HOST_DESKTOP =
+          if out.nixosConfigurations.${host.name}.config.services.xserver.enable then "yes" else "no";
+      };
   };
   sven.aspects.monitor-env = {
-    at = sven.lib.all [ sven.kinds.user (sven.lib.within sven.kinds.home) ];
-    homeManager = { monitor ? null, ... }: lib.optionalAttrs (monitor != null) { home.sessionVariables.MONITORRES = monitor.resolution; };
+    at = sven.lib.all [
+      sven.kinds.user
+      (sven.lib.within sven.kinds.home)
+    ];
+    homeManager =
+      {
+        monitor ? null,
+        ...
+      }:
+      lib.optionalAttrs (monitor != null) { home.sessionVariables.MONITORRES = monitor.resolution; };
   };
 }

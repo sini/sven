@@ -15,11 +15,18 @@ Its sources are `tree`, `scope` and one source for each sink. It returns sinks b
 {
   sven.aspects.vm-network = {
     at = sven.lib.has sven.kinds.guest; # every host with a guest
-    cycle = { tree, ... }: {
-      tree = [ { category = "vms"; children = sven.kinds.guest; } ]; # a request: the guest children
-      bridges = map (g: "br-${g.name}") (builtins.head (tree.select "vms")); # one element per guest
-      errors = [ ];
-    };
+    cycle =
+      { tree, ... }:
+      {
+        tree = [
+          {
+            category = "vms";
+            children = sven.kinds.guest;
+          }
+        ]; # a request: the guest children
+        bridges = map (g: "br-${g.name}") (builtins.head (tree.select "vms")); # one element per guest
+        errors = [ ];
+      };
   };
 }
 ```
@@ -58,7 +65,7 @@ reports its own `errors`.
 Every block on this page is a file of the template `cycle`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#cycle'
+nix flake init -t github:vic/sven#cycle
 ```
 
 <FileTree>

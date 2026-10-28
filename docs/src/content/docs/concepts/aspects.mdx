@@ -22,7 +22,11 @@ so the packages of a user go up to its host.
   };
   sven.kinds.host = {
     spawns.user = s: lib.filterAttrs (_: u: lib.any (sven.lib.same s) u.hosts) sven.user;
-    sinks.packages.out = { host, packages, ... }: { packages.${host.name} = packages; };
+    sinks.packages.out =
+      { host, packages, ... }:
+      {
+        packages.${host.name} = packages;
+      };
   };
   sven.kinds.user.fields.hosts = sven.lib.is lib.isList;
 
@@ -31,7 +35,10 @@ so the packages of a user go up to its host.
   sven.host.web = { };
   sven.host.db = { };
   sven.user.alice.hosts = [ sven.host.web ];
-  sven.user.bob.hosts = [ sven.host.web sven.host.db ];
+  sven.user.bob.hosts = [
+    sven.host.web
+    sven.host.db
+  ];
 }
 ```
 
@@ -95,7 +102,10 @@ Content that names the scope (`{ user, ... }:`) lands once per scope: each user 
 {
   # active at hosts and at users; static content lands once at each receiver
   sven.aspects.zsh = {
-    at = [ sven.kinds.host sven.kinds.user ];
+    at = [
+      sven.kinds.host
+      sven.kinds.user
+    ];
     packages = "zsh";
   };
   # content that names the scope lands once per scope
@@ -137,7 +147,7 @@ Use a static value for data that all receivers share. Use a function value for d
 Every block on this page is a file of the template `aspects`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#aspects'
+nix flake init -t github:vic/sven#aspects
 ```
 
 <FileTree>

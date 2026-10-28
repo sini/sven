@@ -1,6 +1,7 @@
 # Generated from the `inputs` sink. Edit modules/, then run: nix run .#write-files
 {
-  outputs = inputs:
+  outputs =
+    inputs:
     (import inputs.sven).lib.mkFlake {
       imports = [ (inputs.import-tree ./modules) ];
       _module.args = {
@@ -10,9 +11,18 @@
     };
 
   inputs = {
-    files = { url = "github:sini/files"; };
-    import-tree = { url = "github:denful/import-tree"; };
-    nixpkgs = { url = "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz"; };
-    sven = { flake = false; url = "github:vic/sven"; };
+    files = {
+      url = "github:sini/files";
+    };
+    import-tree = {
+      url = "github:denful/import-tree";
+    };
+    nixpkgs = {
+      url = "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz";
+    };
+    sven = {
+      flake = false;
+      url = "github:vic/sven";
+    };
   };
 }

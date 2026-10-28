@@ -1,4 +1,7 @@
 {
-  programs.git = { enable = true; userName = "Alice"; };
+  programs.git = {
+    enable = true;
+    userName = "Alice";
+  };
   home.stateVersion = "25.05";
 }

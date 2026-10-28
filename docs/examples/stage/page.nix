@@ -4,12 +4,28 @@
   section = "agents";
   order = 2;
 
-  body = { docs, inputs, dir, engine, ... }:
+  body =
+    {
+      docs,
+      inputs,
+      dir,
+      engine,
+      ...
+    }:
     let
-      S = args: import (dir + "/stage.nix") ({ sven = inputs.sven; inherit (inputs) nixpkgs import-tree; } // args);
+      S =
+        args:
+        import (dir + "/stage.nix") (
+          {
+            sven = inputs.sven;
+            inherit (inputs) nixpkgs import-tree;
+          }
+          // args
+        );
       desktop = S { change = "changes/desktop-on-web.json"; };
       grant = engine.grant { scopes = [ "fleet:main/host:db" ]; };
-    in [
+    in
+    [
       ''
         Before you apply a change, stage it. `sven.lib.stage { base; change; rejected; grant; }` evaluates the fleet
         without and with the change. Nothing is applied. `ok` is true only when nothing new is wrong.
@@ -31,24 +47,64 @@
         with `class = "authority"`: no edit by this author can fix it.
       ''
       (docs.file "changes/postgres-on-thinkpad.json")
-      (docs.value (S { change = "changes/postgres-on-thinkpad.json"; inherit grant; }).refused)
+      (docs.value
+        (S {
+          change = "changes/postgres-on-thinkpad.json";
+          inherit grant;
+        }).refused
+      )
       ''
         ## Rejected before
 
         Pass the `sha` of changes refused before in `rejected`. The same change is refused again, whoever sends it:
       ''
-      (docs.value (S { change = "changes/desktop-on-web.json"; rejected = [ desktop.sha ]; }).refused)
+      (docs.value
+        (S {
+          change = "changes/desktop-on-web.json";
+          rejected = [ desktop.sha ];
+        }).refused
+      )
       (docs.tip "Safe places for an aspect" ''
         A stored query can stage an aspect on each machine and return where it is safe, and why the others are refused.
-        See `safeHostsFor` in the reference fleet's ${docs.fleet "modules/agent/synthesis.nix" null "agent/synthesis.nix"}.
+        See `safeHostsFor` in the reference fleet's ${
+          docs.fleet "modules/agent/synthesis.nix" null "agent/synthesis.nix"
+        }.
       '')
     ];
 
-  checks = { inputs, dir, engine, ... }:
-    let S = args: import (dir + "/stage.nix") ({ sven = inputs.sven; inherit (inputs) nixpkgs import-tree; } // args); d = S { change = "changes/desktop-on-web.json"; }; in {
+  checks =
+    {
+      inputs,
+      dir,
+      engine,
+      ...
+    }:
+    let
+      S =
+        args:
+        import (dir + "/stage.nix") (
+          {
+            sven = inputs.sven;
+            inherit (inputs) nixpkgs import-tree;
+          }
+          // args
+        );
+      d = S { change = "changes/desktop-on-web.json"; };
+    in
+    {
       violation = !d.ok && d.violations == [ "bad:desktop-on-server:web" ];
       clean = (S { change = "changes/postgres-on-thinkpad.json"; }).ok;
-      grant = map (e: e.code) (S { change = "changes/postgres-on-thinkpad.json"; grant = engine.grant { scopes = [ "fleet:main/host:db" ]; }; }).refused == [ "outside-grant" ];
-      rejected = map (e: e.code) (S { change = "changes/desktop-on-web.json"; rejected = [ d.sha ]; }).refused == [ "rejected" ];
+      grant =
+        map (e: e.code)
+          (S {
+            change = "changes/postgres-on-thinkpad.json";
+            grant = engine.grant { scopes = [ "fleet:main/host:db" ]; };
+          }).refused == [ "outside-grant" ];
+      rejected =
+        map (e: e.code)
+          (S {
+            change = "changes/desktop-on-web.json";
+            rejected = [ d.sha ];
+          }).refused == [ "rejected" ];
     };
 }

@@ -3,6 +3,11 @@
 {
   sven.aspects.open = {
     at = sven.host.lb;
-    proxy = { host, pkgs, ... }: { name = host.name; shell = pkgs.bash; };
+    proxy =
+      { host, pkgs, ... }:
+      {
+        name = host.name;
+        shell = pkgs.bash;
+      };
   };
 }

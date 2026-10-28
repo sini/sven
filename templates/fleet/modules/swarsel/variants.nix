@@ -4,7 +4,21 @@
 { sven, lib, ... }:
 {
   sven.kinds.machine.fields.minimal = sven.lib.opt lib.types.bool false;
-  sven.kinds.host.spawns.host = s: lib.optionalAttrs (s.name == "lb") {
-    lb-minimal = removeAttrs s [ "kind" "name" "key" "parent" "path" "id" "up" ] // { minimal = true; };
-  };
+  sven.kinds.host.spawns.host =
+    s:
+    lib.optionalAttrs (s.name == "lb") {
+      lb-minimal =
+        removeAttrs s [
+          "kind"
+          "name"
+          "key"
+          "parent"
+          "path"
+          "id"
+          "up"
+        ]
+        // {
+          minimal = true;
+        };
+    };
 }

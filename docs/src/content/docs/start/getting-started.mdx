@@ -13,7 +13,7 @@ This page builds one NixOS host with sven. You write four small files. At the en
 1. Get the template. It has a `flake.nix` and a `modules/` directory.
 
    ```sh frame="terminal"
-   nix flake init -t 'github:vic/sven?dir=docs#getting-started'
+   nix flake init -t github:vic/sven#getting-started
    ```
 
 2. Read `flake.nix`. sven is a plain Nix file, so the input has `flake = false`.
@@ -23,7 +23,8 @@ This page builds one NixOS host with sven. You write four small files. At the en
    {
      description = "sven: one NixOS host";
 
-     outputs = inputs:
+     outputs =
+       inputs:
        (import inputs.sven).lib.mkFlake {
          imports = [ (inputs.import-tree ./modules) ];
          _module.args = {
@@ -78,16 +79,23 @@ The `nixos` sink collects NixOS modules. Its `out` key gives the built system to
 
 ```nix title="modules/host.nix" {13}
 # A host has a system. Its `nixos` sink collects NixOS modules and builds the host.
-{ sven, lib, inputs, ... }:
+{
+  sven,
+  lib,
+  inputs,
+  ...
+}:
 {
   sven.kinds.host = {
     fields.system = lib.types.str;
-    sinks.nixos.out = { host, nixos, ... }: {
-      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem {
-        inherit (host) system;
-        modules = nixos;
+    sinks.nixos.out =
+      { host, nixos, ... }:
+      {
+        nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem {
+          inherit (host) system;
+          modules = nixos;
+        };
       };
-    };
   };
 
   sven.host.laptop.system = "x86_64-linux";
@@ -106,12 +114,17 @@ of that name. `base` is active at every host. `motd` is active at `laptop` only.
 {
   sven.aspects.base = {
     at = sven.kinds.host;
-    nixos = { host, ... }: {
-      networking.hostName = host.name;
-      boot.loader.grub.device = "nodev";
-      fileSystems."/" = { device = "/dev/disk/by-label/nixos"; fsType = "ext4"; };
-      system.stateVersion = "25.05";
-    };
+    nixos =
+      { host, ... }:
+      {
+        networking.hostName = host.name;
+        boot.loader.grub.device = "nodev";
+        fileSystems."/" = {
+          device = "/dev/disk/by-label/nixos";
+          fsType = "ext4";
+        };
+        system.stateVersion = "25.05";
+      };
   };
 
   sven.aspects.motd = {
@@ -162,7 +175,7 @@ And `r.active`: which aspect is active at which scope.
 Every block on this page is a file of the template `getting-started`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#getting-started'
+nix flake init -t github:vic/sven#getting-started
 ```
 
 <FileTree>

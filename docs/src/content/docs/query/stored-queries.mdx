@@ -13,8 +13,18 @@ required, unless they have a default.
 { sven, lib, ... }:
 {
   sven.queries = {
-    aspectsOn = { r, host }: lib.sort (a: b: a < b) (lib.filter (a: r.active.${a}."fleet:main/host:${host}" or false) (lib.attrNames r.active));
-    hostsWith = { r, aspect, kind ? "host" }: map (s: s.name) (lib.filter (s: s.kind == kind && r.active.${aspect}.${s.id}) r.scopes);
+    aspectsOn =
+      { r, host }:
+      lib.sort (a: b: a < b) (
+        lib.filter (a: r.active.${a}."fleet:main/host:${host}" or false) (lib.attrNames r.active)
+      );
+    hostsWith =
+      {
+        r,
+        aspect,
+        kind ? "host",
+      }:
+      map (s: s.name) (lib.filter (s: s.kind == kind && r.active.${aspect}.${s.id}) r.scopes);
   };
 }
 ```
@@ -118,7 +128,7 @@ aspect is safe from [Stage](/agents/stage/). The [MCP server](/agents/mcp/) serv
 Every block on this page is a file of the template `stored-queries`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#stored-queries'
+nix flake init -t github:vic/sven#stored-queries
 ```
 
 <FileTree>

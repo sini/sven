@@ -2,9 +2,20 @@
 #   nix eval --impure --file tests.nix failed       # [ ]: sven queries only, fast
 #   nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS and home-manager evaluations
 let
-  inherit (builtins) attrNames concatLists filter getFlake;
+  inherit (builtins)
+    attrNames
+    concatLists
+    filter
+    getFlake
+    ;
   tests = (getFlake "git+file://${toString ../.}?dir=docs").tests; # git: tracked files only, never node_modules
-  failedOf = k: concatLists (map (p: map (c: "${p}/${c}") (filter (c: !tests.${p}.${k}.${c}) (attrNames tests.${p}.${k}))) (attrNames tests));
+  failedOf =
+    k:
+    concatLists (
+      map (p: map (c: "${p}/${c}") (filter (c: !tests.${p}.${k}.${c}) (attrNames tests.${p}.${k}))) (
+        attrNames tests
+      )
+    );
 in
 {
   failed = failedOf "fast";

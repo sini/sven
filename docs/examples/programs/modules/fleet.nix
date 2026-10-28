@@ -6,15 +6,30 @@
   };
   sven.kinds.host.fields = {
     addr = lib.types.str;
-    form = lib.types.enum [ "server" "laptop" ];
+    form = lib.types.enum [
+      "server"
+      "laptop"
+    ];
   };
 
   sven.fleet.main = { };
-  sven.host.web = { addr = "10.0.0.1"; form = "server"; };
-  sven.host.db = { addr = "10.0.0.2"; form = "server"; };
-  sven.host.thinkpad = { addr = "10.0.0.50"; form = "laptop"; };
+  sven.host.web = {
+    addr = "10.0.0.1";
+    form = "server";
+  };
+  sven.host.db = {
+    addr = "10.0.0.2";
+    form = "server";
+  };
+  sven.host.thinkpad = {
+    addr = "10.0.0.50";
+    form = "laptop";
+  };
   sven.aspects.desktop.at = s: (s.form or null) == "laptop";
   sven.kinds.host.sinks.services = { };
-  sven.aspects.postgres = { at = sven.host.db; services = "postgresql"; };
+  sven.aspects.postgres = {
+    at = sven.host.db;
+    services = "postgresql";
+  };
   sven.flake = { out, ... }: out;
 }

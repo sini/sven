@@ -1,11 +1,39 @@
 # n hosts each read one fleet sink (`pool`) of n elements with a costly reduce. One reduction: ~n steps. One per read: ~n*n.
-{ n ? 150 }:
-let b = builtins; sven = (import ../../default.nix).lib; in
-let r = sven.eval ({ sven, ... }: {
-  sven.kinds.top = { spawns.host = _: sven.host; sinks.pool.reduce = es: { value = b.foldl' (a: e: a + e.value) 0 es; errors = [ ]; }; };
-  sven.kinds.host.sinks.out = { };
-  sven.top.t = { };
-  sven.host = b.listToAttrs (b.genList (i: { name = "h${toString i}"; value = { }; }) n);
-  sven.aspects.give = { at = sven.kinds.host; pool = { host, ... }: b.stringLength host.name; };
-  sven.aspects.read = { at = sven.kinds.host; out = { pool, ... }: pool; };
-}); in b.foldl' (a: v: a + b.head v) 0 (b.attrValues r.reduced.out)
+{
+  n ? 150,
+}:
+let
+  b = builtins;
+  sven = (import ../../default.nix).lib;
+in
+let
+  r = sven.eval (
+    { sven, ... }:
+    {
+      sven.kinds.top = {
+        spawns.host = _: sven.host;
+        sinks.pool.reduce = es: {
+          value = b.foldl' (a: e: a + e.value) 0 es;
+          errors = [ ];
+        };
+      };
+      sven.kinds.host.sinks.out = { };
+      sven.top.t = { };
+      sven.host = b.listToAttrs (
+        b.genList (i: {
+          name = "h${toString i}";
+          value = { };
+        }) n
+      );
+      sven.aspects.give = {
+        at = sven.kinds.host;
+        pool = { host, ... }: b.stringLength host.name;
+      };
+      sven.aspects.read = {
+        at = sven.kinds.host;
+        out = { pool, ... }: pool;
+      };
+    }
+  );
+in
+b.foldl' (a: v: a + b.head v) 0 (b.attrValues r.reduced.out)

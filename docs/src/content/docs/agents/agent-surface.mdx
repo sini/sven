@@ -158,7 +158,9 @@ An aspect declared in several files takes the lowest trust of them.
 # Content gets the trust of the files that declare it: files under agent/ are written by agents.
 { ... }:
 {
-  sven.labels."agent/" = { trust = 1; };
+  sven.labels."agent/" = {
+    trust = 1;
+  };
 }
 ```
 
@@ -166,7 +168,10 @@ An aspect declared in several files takes the lowest trust of them.
 # Written by an agent.
 { sven, ... }:
 {
-  sven.aspects.metrics = { at = sven.kinds.host; services = "prometheus-node-exporter"; };
+  sven.aspects.metrics = {
+    at = sven.kinds.host;
+    services = "prometheus-node-exporter";
+  };
 }
 ```
 
@@ -211,7 +216,7 @@ with its file: what a reviewer reads first.
 Every block on this page is a file of the template `agent-surface`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#agent-surface'
+nix flake init -t github:vic/sven#agent-surface
 ```
 
 <FileTree>

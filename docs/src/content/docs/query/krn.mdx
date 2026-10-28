@@ -19,7 +19,11 @@ lists and scalars, and goals that run in both directions.
   sven.kinds.host.fields.apps = sven.lib.is (v: lib.isList v && lib.all lib.isString v);
 
   sven.fleet.main = { };
-  sven.host.lb.apps = [ "grafana" "loki" "prometheus" ];
+  sven.host.lb.apps = [
+    "grafana"
+    "loki"
+    "prometheus"
+  ];
   sven.flake = { out, ... }: out;
 }
 ```
@@ -28,14 +32,26 @@ lists and scalars, and goals that run in both directions.
 # µKanren with finite domains: give each app a port in 8080..8083, all different, prometheus before grafana.
 { sven, lib, ... }:
 let
-  inherit (sven.lib.krn) run runAll freshNamed infd distinctfd ltfd eq label runFuel;
-  ports = apps: q: freshNamed apps (vs: [
-    (infd (lib.attrValues vs) 8080 8083)
-    (distinctfd (lib.attrValues vs))
-    (ltfd vs.prometheus vs.grafana)
-    (eq q vs)
-    (label (lib.attrValues vs))
-  ]);
+  inherit (sven.lib.krn)
+    run
+    runAll
+    freshNamed
+    infd
+    distinctfd
+    ltfd
+    eq
+    label
+    runFuel
+    ;
+  ports =
+    apps: q:
+    freshNamed apps (vs: [
+      (infd (lib.attrValues vs) 8080 8083)
+      (distinctfd (lib.attrValues vs))
+      (ltfd vs.prometheus vs.grafana)
+      (eq q vs)
+      (label (lib.attrValues vs))
+    ]);
   lb = sven.host.lb;
 in
 {
@@ -45,7 +61,9 @@ in
       first = run 1 (ports lb.apps); # one answer
       count = lib.length (runAll (ports lb.apps)); # every answer
       # the same relation, run backward: which app can take 8080?
-      on8080 = lib.unique (lib.concatMap (a: lib.attrNames (lib.filterAttrs (_: p: p == 8080) a)) (runAll (ports lb.apps)));
+      on8080 = lib.unique (
+        lib.concatMap (a: lib.attrNames (lib.filterAttrs (_: p: p == 8080) a)) (runAll (ports lb.apps))
+      );
       # a bounded search: `complete = false` means "stopped", never "no answer"
       bounded = removeAttrs (runFuel 1 5 (ports lb.apps)) [ "answers" ];
     };
@@ -103,7 +121,7 @@ and joins host records to place a database.
 Every block on this page is a file of the template `krn`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#krn'
+nix flake init -t github:vic/sven#krn
 ```
 
 <FileTree>

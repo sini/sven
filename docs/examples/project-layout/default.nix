@@ -2,7 +2,9 @@
 {
   sven ? builtins.fetchTarball "https://github.com/vic/sven/archive/main.tar.gz",
   nixpkgs ? builtins.fetchTarball "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz",
-  import-tree ? import (builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"),
+  import-tree ? import (
+    builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"
+  ),
 }:
 (import sven).lib.eval {
   imports = [ (import-tree ./modules) ];

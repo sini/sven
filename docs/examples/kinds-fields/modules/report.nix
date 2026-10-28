@@ -3,6 +3,10 @@
 {
   sven.aspects.report = {
     at = sven.kinds.host;
-    report = { host, ... }: { ${host.name} = "${host.addr} (${toString host.cores} cores)"; };
+    report =
+      { host, ... }:
+      {
+        ${host.name} = "${host.addr} (${toString host.cores} cores)";
+      };
   };
 }

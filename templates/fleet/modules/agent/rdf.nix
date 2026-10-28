@@ -6,6 +6,18 @@
 {
   sven.aspects.rdf-pack = {
     at = sven.fleet.main;
-    out = { ... }: { rdfPack = removeAttrs (sven.lib.rdf.share { graph = sven.lib.graph; active = { }; errors = [ ]; }) [ "ntriples" ] // { scope = "routing graph"; }; };
+    out =
+      { ... }:
+      {
+        rdfPack =
+          removeAttrs (sven.lib.rdf.share {
+            graph = sven.lib.graph;
+            active = { };
+            errors = [ ];
+          }) [ "ntriples" ]
+          // {
+            scope = "routing graph";
+          };
+      };
   };
 }

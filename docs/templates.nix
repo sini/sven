@@ -3,6 +3,16 @@
 let
   root = ./examples;
   isTemplate = n: t: t == "directory" && builtins.pathExists (root + "/${n}/flake.nix");
-  names = builtins.filter (n: isTemplate n (builtins.readDir root).${n}) (builtins.attrNames (builtins.readDir root));
+  names = builtins.filter (n: isTemplate n (builtins.readDir root).${n}) (
+    builtins.attrNames (builtins.readDir root)
+  );
 in
-builtins.listToAttrs (map (n: { name = n; value = { path = root + "/${n}"; inherit ((import (root + "/${n}/page.nix"))) description; }; }) names)
+builtins.listToAttrs (
+  map (n: {
+    name = n;
+    value = {
+      path = root + "/${n}";
+      inherit ((import (root + "/${n}/page.nix"))) description;
+    };
+  }) names
+)

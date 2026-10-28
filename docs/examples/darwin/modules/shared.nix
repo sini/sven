@@ -2,11 +2,19 @@
 { sven, ... }:
 {
   sven.aspects.shared = {
-    at = [ sven.kinds.host sven.kinds.mac ];
-    os = { scope, pkgs, ... }: {
-      networking.hostName = scope.name;
-      environment.systemPackages = [ pkgs.git ];
-      nix.settings.experimental-features = [ "nix-command" "flakes" ];
-    };
+    at = [
+      sven.kinds.host
+      sven.kinds.mac
+    ];
+    os =
+      { scope, pkgs, ... }:
+      {
+        networking.hostName = scope.name;
+        environment.systemPackages = [ pkgs.git ];
+        nix.settings.experimental-features = [
+          "nix-command"
+          "flakes"
+        ];
+      };
   };
 }

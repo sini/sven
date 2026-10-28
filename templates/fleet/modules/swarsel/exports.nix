@@ -3,7 +3,11 @@
 { sven, ... }:
 {
   sven.kinds.fleet.spawns.export = _: sven.export;
-  sven.kinds.export.sinks.os.out = { export, os, ... }: { nixosModules.${export.name}.imports = os; };
+  sven.kinds.export.sinks.os.out =
+    { export, os, ... }:
+    {
+      nixosModules.${export.name}.imports = os;
+    };
   sven.export.base = { };
   sven.aspects.motd.at = [ sven.export.base ];
   sven.aspects.dev.at = [ sven.export.base ];

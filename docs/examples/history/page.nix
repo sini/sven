@@ -4,11 +4,30 @@
   section = "agents";
   order = 6;
 
-  body = { docs, r, engine, module, dir, ... }:
+  body =
+    {
+      docs,
+      r,
+      engine,
+      module,
+      dir,
+      ...
+    }:
     let
-      files = [ (dir + "/modules/fleet.nix") (dir + "/modules/features/backend.nix") ];
-      w = engine.without { inherit files; path = [ "aspects" "backend" ]; args = module._module.args; };
-    in [
+      files = [
+        (dir + "/modules/fleet.nix")
+        (dir + "/modules/features/backend.nix")
+      ];
+      w = engine.without {
+        inherit files;
+        path = [
+          "aspects"
+          "backend"
+        ];
+        args = module._module.args;
+      };
+    in
+    [
       ''
         Three questions an agent asks before a change: what else does this touch, what if this were gone, and what
         holds on a given day.
@@ -28,7 +47,11 @@
         `sven.lib.without { files; path; args; }` evaluates the fleet without the files that declare `path`.
         A whole file goes: there is no hook to remove part of one.
       ''
-      (docs.value { dropped = map baseNameOf w.dropped; dns = w.r.flake.dns or null; errors = w.r.errors; })
+      (docs.value {
+        dropped = map baseNameOf w.dropped;
+        dns = w.r.flake.dns or null;
+        errors = w.r.errors;
+      })
       ''
         ## Valid time
 
@@ -46,9 +69,36 @@
       ''
     ];
 
-  checks = { r, engine, module, dir, ... }: let w = engine.without { files = [ (dir + "/modules/fleet.nix") (dir + "/modules/features/backend.nix") ]; path = [ "aspects" "backend" ]; args = module._module.args; }; in {
-    impact = map (x: x.scope) (r.impact "fleet:main/environment:prod/host:web" { }).reached == [ "fleet:main/environment:prod" "fleet:main" ];
-    valid = builtins.filter (s: s.kind == "host") r.scopes != [ ] && map (s: s.name) (builtins.filter (s: s.kind == "host") r.scopes) == [ "web" ];
-    without = map baseNameOf w.dropped == [ "backend.nix" ];
-  };
+  checks =
+    {
+      r,
+      engine,
+      module,
+      dir,
+      ...
+    }:
+    let
+      w = engine.without {
+        files = [
+          (dir + "/modules/fleet.nix")
+          (dir + "/modules/features/backend.nix")
+        ];
+        path = [
+          "aspects"
+          "backend"
+        ];
+        args = module._module.args;
+      };
+    in
+    {
+      impact =
+        map (x: x.scope) (r.impact "fleet:main/environment:prod/host:web" { }).reached == [
+          "fleet:main/environment:prod"
+          "fleet:main"
+        ];
+      valid =
+        builtins.filter (s: s.kind == "host") r.scopes != [ ]
+        && map (s: s.name) (builtins.filter (s: s.kind == "host") r.scopes) == [ "web" ];
+      without = map baseNameOf w.dropped == [ "backend.nix" ];
+    };
 }

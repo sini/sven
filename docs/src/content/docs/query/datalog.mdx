@@ -28,8 +28,14 @@ in
   sven.fleet.main = { };
   sven.host.db-1 = { };
   sven.host.db-2.maintenance = true;
-  sven.host.web-1 = { web = true; dependsOn = [ sven.host.db-1 ]; };
-  sven.host.web-2 = { web = true; dependsOn = [ sven.host.db-2 ]; };
+  sven.host.web-1 = {
+    web = true;
+    dependsOn = [ sven.host.db-1 ];
+  };
+  sven.host.web-2 = {
+    web = true;
+    dependsOn = [ sven.host.db-2 ];
+  };
   sven.flake = { out, ... }: out;
 }
 ```
@@ -40,13 +46,37 @@ in
 let
   D = sven.lib.datalog;
   hosts = lib.attrValues sven.host;
-  rules = lib.concatMap (h: let n = h.name; in
-    lib.optional h.web { head = "web:${n}"; }
-    ++ lib.optional (!h.maintenance) { head = "up:${n}"; }
-    ++ [ { head = "serves:${n}"; pos = [ "web:${n}" ]; neg = [ "drained:${n}" ]; } ]
-    ++ map (d: { head = "drained:${n}"; neg = [ "up:${d.name}" ]; }) h.dependsOn) hosts
+  rules =
+    lib.concatMap (
+      h:
+      let
+        n = h.name;
+      in
+      lib.optional h.web { head = "web:${n}"; }
+      ++ lib.optional (!h.maintenance) { head = "up:${n}"; }
+      ++ [
+        {
+          head = "serves:${n}";
+          pos = [ "web:${n}" ];
+          neg = [ "drained:${n}" ];
+        }
+      ]
+      ++ map (d: {
+        head = "drained:${n}";
+        neg = [ "up:${d.name}" ];
+      }) h.dependsOn
+    ) hosts
     # a choice: exactly one primary database, and the policy does not say which
-    ++ [ { head = "primary:db-1"; neg = [ "primary:db-2" ]; } { head = "primary:db-2"; neg = [ "primary:db-1" ]; } ];
+    ++ [
+      {
+        head = "primary:db-1";
+        neg = [ "primary:db-2" ];
+      }
+      {
+        head = "primary:db-2";
+        neg = [ "primary:db-1" ];
+      }
+    ];
   model = D.wfs rules;
 in
 {
@@ -149,7 +179,7 @@ An atom the rules cannot decide is `undefined`, never a guess. When that matters
 Every block on this page is a file of the template `datalog`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#datalog'
+nix flake init -t github:vic/sven#datalog
 ```
 
 <FileTree>

@@ -15,31 +15,52 @@ This example has a fleet, two environments, two hosts, a user and a home:
 { sven, lib, ... }:
 let
   inherit (sven.lib) same opt;
-  under = field: kind: s: lib.filterAttrs (_: x: same x.${field} s) kind;
+  under =
+    field: kind: s:
+    lib.filterAttrs (_: x: same x.${field} s) kind;
 in
 {
   sven.kinds.fleet = {
     spawns.environment = _: sven.environment;
     sinks.out.reduce = sven.lib.reduce.merge;
-    sinks.dns.out = { dns, ... }: { dns.fleet = dns; }; # the fallback receiver
+    sinks.dns.out =
+      { dns, ... }:
+      {
+        dns.fleet = dns;
+      }; # the fallback receiver
   };
   sven.kinds.environment = {
     fields.public = opt lib.types.bool false;
     spawns.host = under "environment" sven.host;
     sinks.dns = {
       at = s: s.public; # a conditional receiver: only public environments
-      out = { environment, dns, ... }: { dns.${environment.name} = dns; };
+      out =
+        { environment, dns, ... }:
+        {
+          dns.${environment.name} = dns;
+        };
     };
   };
   sven.kinds.host = {
     fields.environment = sven.kinds.environment;
-    spawns = { user = under "on" sven.user; home = under "on" sven.home; };
-    sinks.os.out = { host, os, ... }: { os.${host.name} = os; };
+    spawns = {
+      user = under "on" sven.user;
+      home = under "on" sven.home;
+    };
+    sinks.os.out =
+      { host, os, ... }:
+      {
+        os.${host.name} = os;
+      };
   };
   sven.kinds.user.fields.on = sven.kinds.host;
   sven.kinds.home = {
     fields.on = sven.kinds.host;
-    sinks.os.out = { home, os, ... }: { os.${home.name} = os; }; # a home builds its own config
+    sinks.os.out =
+      { home, os, ... }:
+      {
+        os.${home.name} = os;
+      }; # a home builds its own config
   };
 
   sven.fleet.main = { };
@@ -63,7 +84,10 @@ in
 { sven, ... }:
 {
   sven.aspects.accounts = {
-    at = [ sven.kinds.user sven.kinds.home ];
+    at = [
+      sven.kinds.user
+      sven.kinds.home
+    ];
     os = { scope, ... }: "account ${scope.name}";
   };
   sven.aspects.records = {
@@ -137,10 +161,17 @@ can keep its packages away from the host:
 # A sink with no keys is a wall: a home's packages stop at the home and never reach the host.
 { sven, ... }:
 {
-  sven.kinds.host.sinks.packages.out = { host, packages, ... }: { packages.${host.name} = packages; };
+  sven.kinds.host.sinks.packages.out =
+    { host, packages, ... }:
+    {
+      packages.${host.name} = packages;
+    };
   sven.kinds.home.sinks.packages = { };
   sven.aspects.editor = {
-    at = [ sven.kinds.user sven.kinds.home ];
+    at = [
+      sven.kinds.user
+      sven.kinds.home
+    ];
     packages = { scope, ... }: "vim for ${scope.name}";
   };
 }
@@ -168,7 +199,7 @@ A sink that nobody reads is not an error. Nothing happens. Laziness means it cos
 Every block on this page is a file of the template `routing`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#routing'
+nix flake init -t github:vic/sven#routing
 ```
 
 <FileTree>

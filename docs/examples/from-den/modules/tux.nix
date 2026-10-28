@@ -6,6 +6,10 @@
   sven.aspects.primary-user.at = sven.user.tux;
   sven.aspects.tux = {
     at = sven.user.tux;
-    homeManager = { pkgs, ... }: { home.packages = [ pkgs.htop ]; };
+    homeManager =
+      { pkgs, ... }:
+      {
+        home.packages = [ pkgs.htop ];
+      };
   };
 }

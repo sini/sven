@@ -16,7 +16,13 @@ in
   sven.fleet.main = { };
   sven.host.db-1 = { };
   sven.host.db-2.maintenance = true;
-  sven.host.web-1 = { web = true; dependsOn = [ sven.host.db-1 ]; };
-  sven.host.web-2 = { web = true; dependsOn = [ sven.host.db-2 ]; };
+  sven.host.web-1 = {
+    web = true;
+    dependsOn = [ sven.host.db-1 ];
+  };
+  sven.host.web-2 = {
+    web = true;
+    dependsOn = [ sven.host.db-2 ];
+  };
   sven.flake = { out, ... }: out;
 }

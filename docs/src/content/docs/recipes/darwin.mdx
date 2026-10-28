@@ -13,16 +13,35 @@ Many options mean the same on NixOS and nix-darwin: `networking.hostName`, `envi
 { sven, inputs, ... }:
 {
   sven.kinds.fleet = {
-    spawns = { host = _: sven.host; mac = _: sven.mac; };
+    spawns = {
+      host = _: sven.host;
+      mac = _: sven.mac;
+    };
     sinks.out.reduce = sven.lib.reduce.merge;
   };
   sven.kinds.host.sinks = {
-    os.nixos = { os, ... }: { imports = os; };
-    nixos.out = { host, nixos, ... }: { nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; }; };
+    os.nixos =
+      { os, ... }:
+      {
+        imports = os;
+      };
+    nixos.out =
+      { host, nixos, ... }:
+      {
+        nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
+      };
   };
   sven.kinds.mac.sinks = {
-    os.darwin = { os, ... }: { imports = os; };
-    darwin.out = { mac, darwin, ... }: { darwinConfigurations.${mac.name} = inputs.nix-darwin.lib.darwinSystem { modules = darwin; }; };
+    os.darwin =
+      { os, ... }:
+      {
+        imports = os;
+      };
+    darwin.out =
+      { mac, darwin, ... }:
+      {
+        darwinConfigurations.${mac.name} = inputs.nix-darwin.lib.darwinSystem { modules = darwin; };
+      };
   };
 
   sven.fleet.main = { };
@@ -35,12 +54,20 @@ Many options mean the same on NixOS and nix-darwin: `networking.hostName`, `envi
 { sven, ... }:
 {
   sven.aspects.shared = {
-    at = [ sven.kinds.host sven.kinds.mac ];
-    os = { scope, pkgs, ... }: {
-      networking.hostName = scope.name;
-      environment.systemPackages = [ pkgs.git ];
-      nix.settings.experimental-features = [ "nix-command" "flakes" ];
-    };
+    at = [
+      sven.kinds.host
+      sven.kinds.mac
+    ];
+    os =
+      { scope, pkgs, ... }:
+      {
+        networking.hostName = scope.name;
+        environment.systemPackages = [ pkgs.git ];
+        nix.settings.experimental-features = [
+          "nix-command"
+          "flakes"
+        ];
+      };
   };
 }
 ```
@@ -55,14 +82,20 @@ Many options mean the same on NixOS and nix-darwin: `networking.hostName`, `envi
     at = sven.host.server;
     nixos = {
       boot.loader.grub.device = "nodev";
-      fileSystems."/" = { device = "/dev/sda1"; fsType = "ext4"; };
+      fileSystems."/" = {
+        device = "/dev/sda1";
+        fsType = "ext4";
+      };
       nixpkgs.hostPlatform = "x86_64-linux";
       system.stateVersion = "25.05";
     };
   };
   sven.aspects.studio = {
     at = sven.mac.studio;
-    darwin = { nixpkgs.hostPlatform = "aarch64-darwin"; system.stateVersion = 6; };
+    darwin = {
+      nixpkgs.hostPlatform = "aarch64-darwin";
+      system.stateVersion = 6;
+    };
   };
 }
 ```
@@ -93,7 +126,7 @@ kinds can give `os`, `nixos` and `darwin` at the same time; each element goes wh
 Every block on this page is a file of the template `darwin`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#darwin'
+nix flake init -t github:vic/sven#darwin
 ```
 
 <FileTree>

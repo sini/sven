@@ -32,17 +32,33 @@ in
     sinks.backends = { }; # hosts give their address; a wall: it stays at the environment
   };
   sven.kinds.host = {
-    fields = { environment = sven.kinds.environment; addr = lib.types.str; };
-    sinks.proxy.out = { host, proxy, ... }: { proxy.${host.name} = proxy; };
+    fields = {
+      environment = sven.kinds.environment;
+      addr = lib.types.str;
+    };
+    sinks.proxy.out =
+      { host, proxy, ... }:
+      {
+        proxy.${host.name} = proxy;
+      };
   };
 
   sven.kinds.cluster.fields = { }; # a kind that no scope here is under
 
   sven.fleet.main = { };
   sven.environment.prod = { };
-  sven.host.lb = { environment = sven.environment.prod; addr = "10.0.0.1"; };
-  sven.host.web-1 = { environment = sven.environment.prod; addr = "10.0.0.2"; };
-  sven.host.web-2 = { environment = sven.environment.prod; addr = "10.0.0.3"; };
+  sven.host.lb = {
+    environment = sven.environment.prod;
+    addr = "10.0.0.1";
+  };
+  sven.host.web-1 = {
+    environment = sven.environment.prod;
+    addr = "10.0.0.2";
+  };
+  sven.host.web-2 = {
+    environment = sven.environment.prod;
+    addr = "10.0.0.3";
+  };
   sven.flake = { out, ... }: out;
 }
 ```
@@ -51,19 +67,30 @@ in
 { sven, ... }:
 {
   sven.aspects.backend = {
-    at = sven.lib.all [ sven.kinds.host (s: s.name != "lb") ];
+    at = sven.lib.all [
+      sven.kinds.host
+      (s: s.name != "lb")
+    ];
     backends = { host, ... }: host.addr; # a kind arg: the nearest host
   };
   sven.aspects.balancer = {
     at = sven.host.lb;
     # a sink arg: the reduced value at its nearest receiver (the environment);
     # `scope` is the scope itself; `cluster ? null` is optional, and this fleet has no cluster
-    proxy = { environment, backends, scope, cluster ? null, ... }: {
-      inherit backends;
-      at = scope.id;
-      env = environment.name;
-      cluster = if cluster == null then "none" else cluster.name;
-    };
+    proxy =
+      {
+        environment,
+        backends,
+        scope,
+        cluster ? null,
+        ...
+      }:
+      {
+        inherit backends;
+        at = scope.id;
+        env = environment.name;
+        cluster = if cluster == null then "none" else cluster.name;
+      };
   };
 }
 ```
@@ -125,7 +152,12 @@ and NixOS fills `pkgs`, `config` and `lib` later.
 {
   sven.aspects.open = {
     at = sven.host.lb;
-    proxy = { host, pkgs, ... }: { name = host.name; shell = pkgs.bash; };
+    proxy =
+      { host, pkgs, ... }:
+      {
+        name = host.name;
+        shell = pkgs.bash;
+      };
   };
 }
 ```
@@ -139,7 +171,7 @@ Wrap it: `{ ... }: final: prev: …`.
 Every block on this page is a file of the template `args`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#args'
+nix flake init -t github:vic/sven#args
 ```
 
 <FileTree>

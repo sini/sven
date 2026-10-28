@@ -29,10 +29,17 @@ Writing Nix is a poor interface for an agent: it can write anything, and a typo 
   program,
   sven ? builtins.fetchTarball "https://github.com/vic/sven/archive/main.tar.gz",
   nixpkgs ? builtins.fetchTarball "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz",
-  import-tree ? import (builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"),
+  import-tree ? import (
+    builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"
+  ),
 }:
 (import sven).lib.program.dryRun {
-  base = { imports = [ (import-tree ./modules) ]; _module.args = { lib = import "${nixpkgs}/lib"; }; };
+  base = {
+    imports = [ (import-tree ./modules) ];
+    _module.args = {
+      lib = import "${nixpkgs}/lib";
+    };
+  };
   prog = builtins.fromJSON (builtins.readFile (./. + "/${program}"));
 }
 ```
@@ -126,7 +133,7 @@ Writing Nix is a poor interface for an agent: it can write anything, and a typo 
 Every block on this page is a file of the template `programs`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#programs'
+nix flake init -t github:vic/sven#programs
 ```
 
 <FileTree>

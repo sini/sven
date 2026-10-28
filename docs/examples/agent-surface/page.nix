@@ -4,52 +4,91 @@
   section = "agents";
   order = 1;
 
-  body = { docs, r, ... }: [
-    ''
-      An agent that manages a fleet works through queries. Every answer is data that `builtins.toJSON` prints,
-      so a tool, a script or a model reads it the same way.
+  body =
+    { docs, r, ... }:
+    [
+      ''
+        An agent that manages a fleet works through queries. Every answer is data that `builtins.toJSON` prints,
+        so a tool, a script or a model reads it the same way.
 
-      ## One call to start
+        ## One call to start
 
-      `r.agent` is the schema, the errors, the invariant check and the counts, JSON-safe:
-    ''
-    (docs.value r.agent)
-    ''
-      ## Why is an aspect active, or not?
+        `r.agent` is the schema, the errors, the invariant check and the counts, JSON-safe:
+      ''
+      (docs.value r.agent)
+      ''
+        ## Why is an aspect active, or not?
 
-      `r.explain aspect id depth` traces `at` at one scope: the value of each node of the predicate, what the aspect gives
-      there, and its files. Past the depth, `kids = "cut"`.
-    ''
-    (docs.value (r.explain "postgres" "fleet:main/host:web" 2))
-    ''
-      An unknown aspect or scope is an error record with `near`: the names it was probably meant to be.
+        `r.explain aspect id depth` traces `at` at one scope: the value of each node of the predicate, what the aspect gives
+        there, and its files. Past the depth, `kids = "cut"`.
+      ''
+      (docs.value (r.explain "postgres" "fleet:main/host:web" 2))
+      ''
+        An unknown aspect or scope is an error record with `near`: the names it was probably meant to be.
 
-      ## Trust labels
+        ## Trust labels
 
-      `sven.labels."<path part>" = { trust = n; }` labels the content of files whose path contains that part.
-      An aspect declared in several files takes the lowest trust of them.
-    ''
-    (docs.file "modules/labels.nix")
-    (docs.file "modules/agent/metrics.nix")
-    ''
-      `r.labels` gives each labelled aspect. `r.floor 3` lists every routed element of an aspect below trust 3,
-      with its file: what a reviewer reads first.
-    ''
-    (docs.value (map (x: { inherit (x) aspect trust file; to = x.edge.to; }) (r.floor 3)))
-    (docs.table [ "Query" "Answer" ] [
-      [ "`agent`" "`schema`, `errors`, `check` and counts" ]
-      [ "`schema`" "kinds, aspects (keys, files, how many scopes), invariants" ]
-      [ "`context id { maxEdges; maxAspects; }`" "one scope and its neighborhood, with `truncated`" ]
-      [ "`explain aspect id depth`" "a trace of `at` at a scope" ]
-      [ "`declaredIn path`" "the files that answer a declaration path" ]
-      [ "`labels`, `floor n`" "trust per aspect; elements below a trust" ]
-      [ "`impact id { hops; sinks; max; }`" "what a scope's elements reach, by depth" ]
-    ])
-  ];
+        `sven.labels."<path part>" = { trust = n; }` labels the content of files whose path contains that part.
+        An aspect declared in several files takes the lowest trust of them.
+      ''
+      (docs.file "modules/labels.nix")
+      (docs.file "modules/agent/metrics.nix")
+      ''
+        `r.labels` gives each labelled aspect. `r.floor 3` lists every routed element of an aspect below trust 3,
+        with its file: what a reviewer reads first.
+      ''
+      (docs.value (
+        map (x: {
+          inherit (x) aspect trust file;
+          to = x.edge.to;
+        }) (r.floor 3)
+      ))
+      (docs.table
+        [ "Query" "Answer" ]
+        [
+          [
+            "`agent`"
+            "`schema`, `errors`, `check` and counts"
+          ]
+          [
+            "`schema`"
+            "kinds, aspects (keys, files, how many scopes), invariants"
+          ]
+          [
+            "`context id { maxEdges; maxAspects; }`"
+            "one scope and its neighborhood, with `truncated`"
+          ]
+          [
+            "`explain aspect id depth`"
+            "a trace of `at` at a scope"
+          ]
+          [
+            "`declaredIn path`"
+            "the files that answer a declaration path"
+          ]
+          [
+            "`labels`, `floor n`"
+            "trust per aspect; elements below a trust"
+          ]
+          [
+            "`impact id { hops; sinks; max; }`"
+            "what a scope's elements reach, by depth"
+          ]
+        ]
+      )
+    ];
 
-  checks = { r, ... }: {
-    counts = r.agent.counts == { aspects = 3; edges = 4; kinds = 2; scopes = 4; };
-    explain = !(r.explain "postgres" "fleet:main/host:web" 2).active;
-    floor = builtins.length (r.floor 3) == 3 && (builtins.head (r.floor 3)).trust == 1;
-  };
+  checks =
+    { r, ... }:
+    {
+      counts =
+        r.agent.counts == {
+          aspects = 3;
+          edges = 4;
+          kinds = 2;
+          scopes = 4;
+        };
+      explain = !(r.explain "postgres" "fleet:main/host:web" 2).active;
+      floor = builtins.length (r.floor 3) == 3 && (builtins.head (r.floor 3)).trust == 1;
+    };
 }

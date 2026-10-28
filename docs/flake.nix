@@ -3,18 +3,29 @@
 {
   description = "sven documentation, generated from tested examples";
 
-  outputs = inputs:
+  outputs =
+    inputs:
     let
       sven = inputs.self.sourceInfo; # the docs live in the sven repository: its root is the engine
       flake = (import sven).lib.mkFlake {
         imports = [ (inputs.import-tree ./modules) ];
         _module.args = {
-          inputs = inputs // { inherit sven; };
+          inputs = inputs // {
+            inherit sven;
+          };
           inherit (inputs.nixpkgs) lib;
         };
       };
     in
-    { inherit (flake) packages checks tests devShells; templates = import ./templates.nix; }; # literal names: `self` is readable while the outputs evaluate
+    {
+      inherit (flake)
+        packages
+        checks
+        tests
+        devShells
+        ;
+      templates = import ./templates.nix;
+    }; # literal names: `self` is readable while the outputs evaluate
 
   inputs = {
     den.url = "github:denful/den";

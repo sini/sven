@@ -3,6 +3,13 @@
 {
   sven.aspects.account = {
     at = sven.kinds.user;
-    nixos = { user, ... }: { users.users.${user.name} = { isNormalUser = true; extraGroups = user.groups; }; };
+    nixos =
+      { user, ... }:
+      {
+        users.users.${user.name} = {
+          isNormalUser = true;
+          extraGroups = user.groups;
+        };
+      };
   };
 }

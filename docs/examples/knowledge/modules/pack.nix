@@ -3,6 +3,10 @@
 {
   sven.aspects.pack = {
     at = sven.kinds.fleet;
-    out.rdfPack = removeAttrs (sven.lib.rdf.share { graph = sven.lib.graph; active = { }; errors = [ ]; }) [ "ntriples" ];
+    out.rdfPack = removeAttrs (sven.lib.rdf.share {
+      graph = sven.lib.graph;
+      active = { };
+      errors = [ ];
+    }) [ "ntriples" ];
   };
 }

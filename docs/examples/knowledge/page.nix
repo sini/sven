@@ -4,15 +4,31 @@
   section = "agents";
   order = 4;
 
-  body = { docs, r, engine, ... }:
-    let pack = engine.rdf.share r; in [
+  body =
+    {
+      docs,
+      r,
+      engine,
+      ...
+    }:
+    let
+      pack = engine.rdf.share r;
+    in
+    [
       ''
         An agent with a knowledge store (a triple store such as quipu) can keep the fleet as a graph and query it with SPARQL.
         `sven.lib.rdf.share r` gives the eval result as sorted N-Triples: scopes, kinds, parents, active aspects, every routed
         element as a node with its origin, and errors. It adds a sha256 and a count.
       ''
       (docs.file "modules/hosts.nix")
-      (docs.code "text" (builtins.concatStringsSep "\n" (builtins.genList (i: builtins.elemAt (builtins.filter builtins.isString (builtins.split "\n" pack.ntriples)) i) 12) + "\n…"))
+      (docs.code "text" (
+        builtins.concatStringsSep "\n" (
+          builtins.genList (
+            i: builtins.elemAt (builtins.filter builtins.isString (builtins.split "\n" pack.ntriples)) i
+          ) 12
+        )
+        + "\n…"
+      ))
       (docs.value { inherit (pack) count sha256; })
       ''
         ## Same fleet, same hash
@@ -36,8 +52,20 @@
       '')
     ];
 
-  checks = { r, engine, only, ... }: {
-    stable = (engine.rdf.share r).sha256 == (engine.rdf.share (only [ "modules/pack.nix" "modules/hosts.nix" "modules/fleet.nix" ])).sha256;
-    shapes = builtins.isString (engine.rdf.shacl r);
-  };
+  checks =
+    {
+      r,
+      engine,
+      only,
+      ...
+    }:
+    {
+      stable =
+        (engine.rdf.share r).sha256 == (engine.rdf.share (only [
+          "modules/pack.nix"
+          "modules/hosts.nix"
+          "modules/fleet.nix"
+        ])).sha256;
+      shapes = builtins.isString (engine.rdf.shacl r);
+    };
 }

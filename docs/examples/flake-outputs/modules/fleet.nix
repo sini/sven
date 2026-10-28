@@ -5,7 +5,11 @@
     spawns.host = _: sven.host;
     sinks.out.reduce = sven.lib.reduce.merge;
   };
-  sven.kinds.host.sinks.services.out = { host, services, ... }: { services.${host.name} = services; };
+  sven.kinds.host.sinks.services.out =
+    { host, services, ... }:
+    {
+      services.${host.name} = services;
+    };
   sven.fleet.main = { };
   sven.host.web = { };
   sven.host.db = { };

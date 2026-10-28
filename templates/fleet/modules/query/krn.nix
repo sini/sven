@@ -7,27 +7,73 @@
 { sven, lib, ... }:
 let
   K = sven.lib.krn;
-  inherit (K) run runAll fresh freshNamed eq facto infd distinctfd ltfd plusfd lefd label;
+  inherit (K)
+    run
+    runAll
+    fresh
+    freshNamed
+    eq
+    facto
+    infd
+    distinctfd
+    ltfd
+    plusfd
+    lefd
+    label
+    ;
   lo = r: lib.head r;
   hi = r: lib.last r;
-  portsRel = h: q: freshNamed h.apps (vs: [ (infd (lib.attrValues vs) (lo h.portRange) (hi h.portRange)) (distinctfd (lib.attrValues vs)) ]
-    ++ lib.mapAttrsToList (a: c: ltfd vs.${a} vs.${c}) (lib.filterAttrs (a: _: vs ? ${a}) h.portBefore)
-    ++ [ (eq q vs) (label (lib.attrValues vs)) ]);
+  portsRel =
+    h: q:
+    freshNamed h.apps (
+      vs:
+      [
+        (infd (lib.attrValues vs) (lo h.portRange) (hi h.portRange))
+        (distinctfd (lib.attrValues vs))
+      ]
+      ++ lib.mapAttrsToList (a: c: ltfd vs.${a} vs.${c}) (lib.filterAttrs (a: _: vs ? ${a}) h.portBefore)
+      ++ [
+        (eq q vs)
+        (label (lib.attrValues vs))
+      ]
+    );
   # guest memory in GiB: each guest in its range, the running sums s1 … sk, and sk + the host's reserve within its ram
-  guestsOf = h: lib.attrNames (lib.filterAttrs (_: g: g.on.name == h.name && g.ramRange != [ ]) sven.guest);
-  memRel = h: q: let gs = guestsOf h; n = lib.length gs; sums = lib.genList (i: "__s${toString i}") n; v = vs: i: vs.${lib.elemAt sums i}; in
-    freshNamed (gs ++ sums) (vs:
+  guestsOf =
+    h: lib.attrNames (lib.filterAttrs (_: g: g.on.name == h.name && g.ramRange != [ ]) sven.guest);
+  memRel =
+    h: q:
+    let
+      gs = guestsOf h;
+      n = lib.length gs;
+      sums = lib.genList (i: "__s${toString i}") n;
+      v = vs: i: vs.${lib.elemAt sums i};
+    in
+    freshNamed (gs ++ sums) (
+      vs:
       map (g: infd [ vs.${g} ] (lo sven.guest.${g}.ramRange) (hi sven.guest.${g}.ramRange)) gs
       ++ map (s: infd [ vs.${s} ] 0 h.ram) sums
       ++ lib.genList (i: plusfd (if i == 0 then 0 else v vs (i - 1)) vs.${lib.elemAt gs i} (v vs i)) n
       ++ lib.optional (n > 0) (lefd (v vs (n - 1)) (h.ram - h.ramReserve))
-      ++ [ (eq q (lib.getAttrs gs vs)) (label (map (g: vs.${g}) gs)) ]);
+      ++ [
+        (eq q (lib.getAttrs gs vs))
+        (label (map (g: vs.${g}) gs))
+      ]
+    );
   # the allocation that gives the guests the most memory (the first, in label order, among the largest)
   # the allocation that gives the guests the most memory, by krn maximize within a fuel budget: a search cut by fuel is an
   # error record, never a silent "best"
   memSearch = h: K.maximize h.ramFuel (m: lib.foldl' (a: x: a + x) 0 (lib.attrValues m)) (memRel h);
-  bestMem = h: let s = memSearch h; in if s.complete then s.best else null;
-  hostRows = lib.mapAttrsToList (n: h: { name = n; env = h.environment.name; db = h.dbRole; }) (lib.filterAttrs (_: h: h ? addr) sven.host);
+  bestMem =
+    h:
+    let
+      s = memSearch h;
+    in
+    if s.complete then s.best else null;
+  hostRows = lib.mapAttrsToList (n: h: {
+    name = n;
+    env = h.environment.name;
+    db = h.dbRole;
+  }) (lib.filterAttrs (_: h: h ? addr) sven.host);
 in
 {
   sven.kinds.machine.fields = {
@@ -38,35 +84,107 @@ in
     ram = sven.lib.opt lib.types.int 0;
     ramReserve = sven.lib.opt lib.types.int 0;
     ramRange = sven.lib.opt (sven.helpers.listOf lib.types.int) [ ];
-    ramFuel = sven.lib.opt lib.types.int 100000;   # krn search steps for the memory allocation
+    ramFuel = sven.lib.opt lib.types.int 100000; # krn search steps for the memory allocation
   };
-  sven.host.lb = { apps = [ "grafana" "loki" "prometheus" ]; portRange = [ 8080 8083 ]; portBefore.prometheus = "grafana"; dbRole = true; };
-  sven.host.stage = { dbRole = true; ram = 16; ramReserve = 6; };
-  sven.guest.ci.ramRange = [ 2 8 ];
+  sven.host.lb = {
+    apps = [
+      "grafana"
+      "loki"
+      "prometheus"
+    ];
+    portRange = [
+      8080
+      8083
+    ];
+    portBefore.prometheus = "grafana";
+    dbRole = true;
+  };
+  sven.host.stage = {
+    dbRole = true;
+    ram = 16;
+    ramReserve = 6;
+  };
+  sven.guest.ci.ramRange = [
+    2
+    8
+  ];
 
   sven.aspects.memory-synthesis = {
-    at = sven.lib.all [ sven.kinds.host (s: guestsOf s != [ ]) ];
-    nixos = { host, ... }: let m = bestMem host; in lib.optionalAttrs (m != null) { environment.etc."guests/memory".text = builtins.toJSON m; };
-    errors = { host, ... }: let s = memSearch host; in
-      lib.optional (s.complete && s.best == null) "memory: the guests of ${host.name} do not fit in ${toString host.ram} GiB with ${toString host.ramReserve} reserved"
-      ++ lib.optional (!s.complete) "memory: the search for ${host.name} ran out of fuel after ${toString s.count} answers";
+    at = sven.lib.all [
+      sven.kinds.host
+      (s: guestsOf s != [ ])
+    ];
+    nixos =
+      { host, ... }:
+      let
+        m = bestMem host;
+      in
+      lib.optionalAttrs (m != null) { environment.etc."guests/memory".text = builtins.toJSON m; };
+    errors =
+      { host, ... }:
+      let
+        s = memSearch host;
+      in
+      lib.optional (s.complete && s.best == null)
+        "memory: the guests of ${host.name} do not fit in ${toString host.ram} GiB with ${toString host.ramReserve} reserved"
+      ++ lib.optional (
+        !s.complete
+      ) "memory: the search for ${host.name} ran out of fuel after ${toString s.count} answers";
   };
 
   sven.aspects.port-synthesis = {
-    at = sven.lib.all [ sven.kinds.host (s: s.apps != [ ]) ];
-    nixos = { host, ... }: let a = run 1 (portsRel host); in lib.optionalAttrs (a != [ ]) { environment.etc."apps/ports".text = builtins.toJSON (lib.head a); };
-    errors = { host, ... }: lib.optional (run 1 (portsRel host) == [ ])
-      "ports: no allocation for ${host.name}: ${toString (lib.length host.apps)} apps, ports ${toString host.portRange}";
+    at = sven.lib.all [
+      sven.kinds.host
+      (s: s.apps != [ ])
+    ];
+    nixos =
+      { host, ... }:
+      let
+        a = run 1 (portsRel host);
+      in
+      lib.optionalAttrs (a != [ ]) { environment.etc."apps/ports".text = builtins.toJSON (lib.head a); };
+    errors =
+      { host, ... }:
+      lib.optional (run 1 (portsRel host) == [ ])
+        "ports: no allocation for ${host.name}: ${toString (lib.length host.apps)} apps, ports ${toString host.portRange}";
   };
   sven.aspects.db-placement = {
     at = sven.fleet.main;
-    out = { ... }: {
-      dbPlacement = lib.genAttrs (map (r: r.name) hostRows) (h: runAll (q: fresh ({ env, d, own }: [
-        (facto hostRows { name = h; inherit env; db = own; })
-        (facto hostRows { name = d; inherit env; db = true; })
-        (eq q d) ])));
-      # backward: which apps can take port 8081 in some allocation of lb
-      takes8081 = lib.unique (lib.concatMap (m: lib.attrNames (lib.filterAttrs (_: p: p == 8081) m)) (runAll (portsRel sven.host.lb)));
-    };
+    out =
+      { ... }:
+      {
+        dbPlacement = lib.genAttrs (map (r: r.name) hostRows) (
+          h:
+          runAll (
+            q:
+            fresh (
+              {
+                env,
+                d,
+                own,
+              }:
+              [
+                (facto hostRows {
+                  name = h;
+                  inherit env;
+                  db = own;
+                })
+                (facto hostRows {
+                  name = d;
+                  inherit env;
+                  db = true;
+                })
+                (eq q d)
+              ]
+            )
+          )
+        );
+        # backward: which apps can take port 8081 in some allocation of lb
+        takes8081 = lib.unique (
+          lib.concatMap (m: lib.attrNames (lib.filterAttrs (_: p: p == 8081) m)) (
+            runAll (portsRel sven.host.lb)
+          )
+        );
+      };
   };
 }

@@ -27,8 +27,14 @@ A kind is also a type. A field of type `sven.kinds.environment` holds a ref to a
   sven.environment.prod.domain = "example.com";
   sven.environment.lab.domain = "lab.example.com";
 
-  sven.host.web = { environment = sven.environment.prod; backup = sven.host.db; };
-  sven.host.db = { environment = sven.environment.prod; backup = sven.host.web; }; # refs can point both ways
+  sven.host.web = {
+    environment = sven.environment.prod;
+    backup = sven.host.db;
+  };
+  sven.host.db = {
+    environment = sven.environment.prod;
+    backup = sven.host.web;
+  }; # refs can point both ways
   sven.host.test.environment = sven.environment.lab;
 }
 ```
@@ -42,14 +48,18 @@ Follow a ref like an attrset, and compare two instances with `sven.lib.same`:
 {
   sven.aspects.report = {
     at = sven.kinds.host;
-    report = { host, ... }: {
-      ${host.name} = {
-        fqdn = "${host.name}.${host.environment.domain}"; # follow a ref, read its fields
-        backup = if host.backup == null then null else host.backup.name;
-        # `same` compares two instances by kind and name
-        peers = lib.attrNames (lib.filterAttrs (n: h: n != host.name && sven.lib.same h.environment host.environment) sven.host);
+    report =
+      { host, ... }:
+      {
+        ${host.name} = {
+          fqdn = "${host.name}.${host.environment.domain}"; # follow a ref, read its fields
+          backup = if host.backup == null then null else host.backup.name;
+          # `same` compares two instances by kind and name
+          peers = lib.attrNames (
+            lib.filterAttrs (n: h: n != host.name && sven.lib.same h.environment host.environment) sven.host
+          );
+        };
       };
-    };
   };
 }
 ```
@@ -131,7 +141,7 @@ A name where a ref goes is an error record, with the fix:
 Every block on this page is a file of the template `instances-refs`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#instances-refs'
+nix flake init -t github:vic/sven#instances-refs
 ```
 
 <FileTree>

@@ -30,13 +30,19 @@ This example has two hosts and one guest (a VM) on `big`:
     spawns.host = _: sven.host;
   };
   sven.kinds.host = {
-    fields = { cores = lib.types.int; gpu = sven.lib.opt lib.types.bool false; };
+    fields = {
+      cores = lib.types.int;
+      gpu = sven.lib.opt lib.types.bool false;
+    };
     spawns.guest = s: lib.filterAttrs (_: g: sven.lib.same g.on s) sven.guest;
   };
   sven.kinds.guest.fields.on = sven.kinds.host;
 
   sven.fleet.main = { };
-  sven.host.big = { cores = 32; gpu = true; };
+  sven.host.big = {
+    cores = 32;
+    gpu = true;
+  };
   sven.host.small.cores = 4;
   sven.guest.ci.on = sven.host.big;
 
@@ -46,16 +52,30 @@ This example has two hosts and one guest (a VM) on `big`:
 ```nix title="modules/aspects.nix"
 { sven, ... }:
 let
-  inherit (sven.lib) all not within has;
+  inherit (sven.lib)
+    all
+    not
+    within
+    has
+    ;
 in
 {
   sven.aspects = {
-    builder.at = s: (s.cores or 0) >= 16;                       # a function of the scope: a fact test
-    cuda.at = all [ sven.kinds.host (s: s.gpu) ];               # all of a list
-    tiny.at = all [ sven.kinds.host (not sven.aspects.builder) ]; # an aspect ref, negated
-    vm-tools.at = within sven.aspects.cuda;                     # a proper ancestor holds
-    vm-host.at = has sven.kinds.guest;                          # a child holds
-    monitored.at = [ sven.host.small sven.aspects.vm-host ];    # a list is "any"
+    builder.at = s: (s.cores or 0) >= 16; # a function of the scope: a fact test
+    cuda.at = all [
+      sven.kinds.host
+      (s: s.gpu)
+    ]; # all of a list
+    tiny.at = all [
+      sven.kinds.host
+      (not sven.aspects.builder)
+    ]; # an aspect ref, negated
+    vm-tools.at = within sven.aspects.cuda; # a proper ancestor holds
+    vm-host.at = has sven.kinds.guest; # a child holds
+    monitored.at = [
+      sven.host.small
+      sven.aspects.vm-host
+    ]; # a list is "any"
   };
 }
 ```
@@ -103,8 +123,14 @@ A value in `at` that is not a predicate, such as a string, is an error record. I
 # Two aspects that each hold where the other does not: no answer.
 { sven, ... }:
 {
-  sven.aspects.left.at = sven.lib.all [ sven.kinds.host (sven.lib.not sven.aspects.right) ];
-  sven.aspects.right.at = sven.lib.all [ sven.kinds.host (sven.lib.not sven.aspects.left) ];
+  sven.aspects.left.at = sven.lib.all [
+    sven.kinds.host
+    (sven.lib.not sven.aspects.right)
+  ];
+  sven.aspects.right.at = sven.lib.all [
+    sven.kinds.host
+    (sven.lib.not sven.aspects.left)
+  ];
   sven.aspects.typo.at = "host";
 }
 ```
@@ -166,7 +192,7 @@ you get "undefined", and a query that says where.
 Every block on this page is a file of the template `predicates`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#predicates'
+nix flake init -t github:vic/sven#predicates
 ```
 
 <FileTree>

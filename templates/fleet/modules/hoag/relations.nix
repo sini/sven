@@ -14,11 +14,17 @@ in
   sven.host.stage.dependsOn = [ sven.host.web-1 ];
   sven.aspects.deploy-waves = {
     at = sven.fleet.main;
-    out = { ... }: {
-      deployWaves = G.layers dependsOn;
-      dependents = G.transpose dependsOn;
-      impact = lib.genAttrs (lib.attrNames hosts) (G.reachers dependsOn);
-    };
-    errors = { ... }: map (c: "deploy: hosts depend on each other in a cycle: ${lib.concatStringsSep " -> " c}") (G.sccs dependsOn);
+    out =
+      { ... }:
+      {
+        deployWaves = G.layers dependsOn;
+        dependents = G.transpose dependsOn;
+        impact = lib.genAttrs (lib.attrNames hosts) (G.reachers dependsOn);
+      };
+    errors =
+      { ... }:
+      map (c: "deploy: hosts depend on each other in a cycle: ${lib.concatStringsSep " -> " c}") (
+        G.sccs dependsOn
+      );
   };
 }

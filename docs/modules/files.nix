@@ -4,13 +4,19 @@ let
   pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
 in
 {
-  sven.kinds.site.sinks.files.out = { files, ... }:
+  sven.kinds.site.sinks.files.out =
+    { files, ... }:
     let
       e = lib.evalModules {
         modules = [
           inputs.files.module
-          { _module.args.pkgs = pkgs; files.root = inputs.self; files.relativeRoot = "docs"; }
-        ] ++ files;
+          {
+            _module.args.pkgs = pkgs;
+            files.root = inputs.self;
+            files.relativeRoot = "docs";
+          }
+        ]
+        ++ files;
       };
     in
     {

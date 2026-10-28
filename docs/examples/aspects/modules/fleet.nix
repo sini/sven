@@ -7,7 +7,11 @@
   };
   sven.kinds.host = {
     spawns.user = s: lib.filterAttrs (_: u: lib.any (sven.lib.same s) u.hosts) sven.user;
-    sinks.packages.out = { host, packages, ... }: { packages.${host.name} = packages; };
+    sinks.packages.out =
+      { host, packages, ... }:
+      {
+        packages.${host.name} = packages;
+      };
   };
   sven.kinds.user.fields.hosts = sven.lib.is lib.isList;
 
@@ -16,5 +20,8 @@
   sven.host.web = { };
   sven.host.db = { };
   sven.user.alice.hosts = [ sven.host.web ];
-  sven.user.bob.hosts = [ sven.host.web sven.host.db ];
+  sven.user.bob.hosts = [
+    sven.host.web
+    sven.host.db
+  ];
 }

@@ -4,45 +4,108 @@
   section = "query";
   order = 2;
 
-  body = { docs, r, variant, ... }: [
-    ''
-      Fleet data is plain Nix, so a question about it is a function. `sven.lib.graphs` answers graph questions.
-      It works on `succ`, an attrset from a node to its successors. Every function sorts, so the order the data is
-      written in never changes an answer.
-    ''
-    (docs.table [ "Function" "Answer" ] [
-      [ "`reach succ n`" "every node reachable from `n`" ]
-      [ "`reachers succ n`" "every node that reaches `n`" ]
-      [ "`transpose succ`" "the edges reversed" ]
-      [ "`topo succ`" "a topological order, or `{ ok = false; stuck; }` for a cycle" ]
-      [ "`layers succ`" "waves: each node after its successors" ]
-      [ "`sccs succ`, `cycles succ`" "strongly connected components, nodes on a cycle" ]
-      [ "`shortest succ a b`, `paths succ a b`" "the shortest path, all paths" ]
-      [ "`fromEdges es`" "`succ` from `[ { from; to; } ]`" ]
-    ])
-    ''
-      Hosts depend on hosts:
-    ''
-    (docs.file "modules/fleet.nix")
-    (docs.file "modules/deploy.nix")
-    (docs.value r.flake.deploy)
-    ''
-      The deploy waves as a diagram, from the same data:
-    ''
-    (docs.mermaid (builtins.concatStringsSep "\n" ([ "flowchart LR" ]
-      ++ builtins.concatLists (builtins.genList (i: map (h: "  ${h} --> w${toString i}[\"wave ${toString (i + 1)}\"]") (builtins.elemAt r.flake.deploy.waves i)) (builtins.length r.flake.deploy.waves)))))
-    ''
-      ## A cycle is an error
+  body =
+    {
+      docs,
+      r,
+      variant,
+      ...
+    }:
+    [
+      ''
+        Fleet data is plain Nix, so a question about it is a function. `sven.lib.graphs` answers graph questions.
+        It works on `succ`, an attrset from a node to its successors. Every function sorts, so the order the data is
+        written in never changes an answer.
+      ''
+      (docs.table
+        [ "Function" "Answer" ]
+        [
+          [
+            "`reach succ n`"
+            "every node reachable from `n`"
+          ]
+          [
+            "`reachers succ n`"
+            "every node that reaches `n`"
+          ]
+          [
+            "`transpose succ`"
+            "the edges reversed"
+          ]
+          [
+            "`topo succ`"
+            "a topological order, or `{ ok = false; stuck; }` for a cycle"
+          ]
+          [
+            "`layers succ`"
+            "waves: each node after its successors"
+          ]
+          [
+            "`sccs succ`, `cycles succ`"
+            "strongly connected components, nodes on a cycle"
+          ]
+          [
+            "`shortest succ a b`, `paths succ a b`"
+            "the shortest path, all paths"
+          ]
+          [
+            "`fromEdges es`"
+            "`succ` from `[ { from; to; } ]`"
+          ]
+        ]
+      )
+      ''
+        Hosts depend on hosts:
+      ''
+      (docs.file "modules/fleet.nix")
+      (docs.file "modules/deploy.nix")
+      (docs.value r.flake.deploy)
+      ''
+        The deploy waves as a diagram, from the same data:
+      ''
+      (docs.mermaid (
+        builtins.concatStringsSep "\n" (
+          [ "flowchart LR" ]
+          ++ builtins.concatLists (
+            builtins.genList (
+              i:
+              map (h: "  ${h} --> w${toString i}[\"wave ${toString (i + 1)}\"]") (
+                builtins.elemAt r.flake.deploy.waves i
+              )
+            ) (builtins.length r.flake.deploy.waves)
+          )
+        )
+      ))
+      ''
+        ## A cycle is an error
 
-      A cycle is data, not a hang. `sccs` finds it, and the aspect gives an error record:
-    ''
-    (docs.file "variants/cycle.nix")
-    (docs.value (map (e: e.error) (variant "variants/cycle.nix").errors))
-  ];
+        A cycle is data, not a hang. `sccs` finds it, and the aspect gives an error record:
+      ''
+      (docs.file "variants/cycle.nix")
+      (docs.value (map (e: e.error) (variant "variants/cycle.nix").errors))
+    ];
 
-  checks = { r, variant, ... }: {
-    waves = r.flake.deploy.waves == [ [ "cache" "db" ] [ "api" ] [ "web" ] [ "lb" ] ];
-    impact = r.flake.deploy.impact.db == [ "api" "lb" "web" ];
-    cycle = map (e: e.error) (variant "variants/cycle.nix").errors == [ "deploy: a dependency cycle: api -> db -> lb -> web" ];
-  };
+  checks =
+    { r, variant, ... }:
+    {
+      waves =
+        r.flake.deploy.waves == [
+          [
+            "cache"
+            "db"
+          ]
+          [ "api" ]
+          [ "web" ]
+          [ "lb" ]
+        ];
+      impact =
+        r.flake.deploy.impact.db == [
+          "api"
+          "lb"
+          "web"
+        ];
+      cycle =
+        map (e: e.error) (variant "variants/cycle.nix").errors
+        == [ "deploy: a dependency cycle: api -> db -> lb -> web" ];
+    };
 }

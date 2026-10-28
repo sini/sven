@@ -28,8 +28,14 @@ Each block is one module of `modules/`. Declare the kinds it needs; `lib` is nix
 # The problem: two aspects give an admin. I expected the second to win.
 { sven, ... }:
 {
-  sven.aspects.ops = { at = sven.kinds.host; admin = "ana"; };
-  sven.aspects.dev = { at = sven.host.web; admin = "bo"; };
+  sven.aspects.ops = {
+    at = sven.kinds.host;
+    admin = "ana";
+  };
+  sven.aspects.dev = {
+    at = sven.host.web;
+    admin = "bo";
+  };
 }
 ```
 
@@ -95,7 +101,8 @@ A change to the engine also needs a test in `tests/default.nix`. Keep the engine
 
 ## Set up
 
-`nix develop` in `docs/` gives a devshell with every command below. `menu` lists them.
+`nix develop ./docs` from the repository root (or `nix develop` in `docs/`) gives a devshell with every command below.
+`menu` lists them. Each command runs from the repository root, whatever your directory.
 
 
 | Command | Group | What it does |

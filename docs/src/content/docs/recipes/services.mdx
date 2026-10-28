@@ -14,7 +14,13 @@ This is [clan](https://clan.lol)'s inventory model, in plain sven.
   sven.host.nas.addr = "10.0.0.10";
   sven.host.web.addr = "10.0.0.1";
   sven.host.db.addr = "10.0.0.2";
-  sven.instance.backup.roles = { server = [ sven.host.nas ]; client = [ sven.host.web sven.host.db ]; };
+  sven.instance.backup.roles = {
+    server = [ sven.host.nas ];
+    client = [
+      sven.host.web
+      sven.host.db
+    ];
+  };
 }
 ```
 
@@ -27,9 +33,24 @@ per instance (clan's `perInstance`). An aspect at a machine that `has` a member 
 { sven, lib, ... }:
 let
   inherit (sven.lib) same is;
-  membersOf = m: lib.listToAttrs (lib.concatLists (lib.mapAttrsToList (n: i:
-    lib.concatMap (role: lib.optional (lib.any (same m) i.roles.${role}) (lib.nameValuePair "${n}.${role}" { instance = n; inherit role; }))
-      (lib.attrNames i.roles)) sven.instance));
+  membersOf =
+    m:
+    lib.listToAttrs (
+      lib.concatLists (
+        lib.mapAttrsToList (
+          n: i:
+          lib.concatMap (
+            role:
+            lib.optional (lib.any (same m) i.roles.${role}) (
+              lib.nameValuePair "${n}.${role}" {
+                instance = n;
+                inherit role;
+              }
+            )
+          ) (lib.attrNames i.roles)
+        ) sven.instance
+      )
+    );
 in
 {
   sven.kinds.fleet = {
@@ -43,7 +64,14 @@ in
   sven.kinds.host = {
     fields.addr = lib.types.str;
     spawns.member = membersOf;
-    sinks.config = { reduce = sven.lib.reduce.merge; out = { host, config, ... }: { config.${host.name} = config; }; };
+    sinks.config = {
+      reduce = sven.lib.reduce.merge;
+      out =
+        { host, config, ... }:
+        {
+          config.${host.name} = config;
+        };
+    };
   };
   sven.kinds.member = { }; # its elements go up to its machine
 
@@ -79,17 +107,33 @@ as itself. The server reads the entries and builds its allow list:
 # The service: an aspect per role, at member scopes. Clients export their address; the server reads them.
 { sven, lib, ... }:
 let
-  role = r: sven.lib.all [ sven.kinds.member (s: s.instance == "backup" && s.role == r) ];
+  role =
+    r:
+    sven.lib.all [
+      sven.kinds.member
+      (s: s.instance == "backup" && s.role == r)
+    ];
 in
 {
   sven.aspects.backup-client = {
     at = role "client";
     exports = { host, ... }: host.addr; # published by the member scope: the engine sets `from`
-    config = { host, ... }: { backup.target = sven.host.nas.addr; backup.name = host.name; };
+    config =
+      { host, ... }:
+      {
+        backup.target = sven.host.nas.addr;
+        backup.name = host.name;
+      };
   };
   sven.aspects.backup-server = {
     at = role "server";
-    config = { exports, ... }: { backup.allow = lib.sort (a: b: a < b) (map (e: e.value) (lib.filter (e: e.from.kind == "member") exports)); };
+    config =
+      { exports, ... }:
+      {
+        backup.allow = lib.sort (a: b: a < b) (
+          map (e: e.value) (lib.filter (e: e.from.kind == "member") exports)
+        );
+      };
   };
   # once per machine that takes part in any role of the service
   sven.aspects.backup-tools = {
@@ -142,7 +186,7 @@ typed role settings with errors, exports per service with owner overrides, insta
 Every block on this page is a file of the template `services`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#services'
+nix flake init -t github:vic/sven#services
 ```
 
 <FileTree>

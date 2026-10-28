@@ -5,11 +5,23 @@
   order = 2;
   alsoAt = "../CONTRIBUTING.md"; # the same text is the repository's CONTRIBUTING.md: plain markdown only on this page
 
-  body = { docs, inputs, dir, commands, lib, ... }:
+  body =
+    {
+      docs,
+      inputs,
+      dir,
+      commands,
+      lib,
+      ...
+    }:
     let
-      reply = import (inputs.sven + "/docs/issue/eval.nix") { inherit (inputs) sven nixpkgs; blocks = dir + "/issue"; };
+      reply = import (inputs.sven + "/docs/issue/eval.nix") {
+        inherit (inputs) sven nixpkgs;
+        blocks = dir + "/issue";
+      };
       byCategory = lib.groupBy (c: c.category) commands;
-    in [
+    in
+    [
       ''
         Thank you for helping. Bug reports, questions, docs fixes, examples and engine changes are all welcome.
         sven is small, and every page of its docs is a tested example, so a good report or a good example helps everyone after you.
@@ -53,20 +65,56 @@
         `nix develop ./docs` from the repository root (or `nix develop` in `docs/`) gives a devshell with every command below.
         `menu` lists them. Each command runs from the repository root, whatever your directory.
       ''
-      (docs.table [ "Command" "Group" "What it does" ] (lib.concatMap (g: map (c: [ "`${c.name}`" g c.help ]) byCategory.${g}) (lib.attrNames byCategory)))
+      (docs.table [ "Command" "Group" "What it does" ] (
+        lib.concatMap (
+          g:
+          map (c: [
+            "`${c.name}`"
+            g
+            c.help
+          ]) byCategory.${g}
+        ) (lib.attrNames byCategory)
+      ))
       ''
         ## Generated files
 
         Do not edit generated files. Edit their source, then run the generator. A check fails when a committed file is stale.
       ''
-      (docs.table [ "Files" "Source" "Generator" ] [
-        [ "`docs/src/content/docs/**`, `docs/src/sidebar.json`" "`docs/examples/*/page.nix`" "`docs-write`" ]
-        [ "`.github/workflows/test.yml`" "`docs/modules/ci.nix`" "`docs-write`" ]
-        [ "`.github/workflows/issue.yml`, `.github/ISSUE_TEMPLATE/*`" "`docs/modules/issues.nix`" "`docs-write`" ]
-        [ "`CONTRIBUTING.md`" "`docs/examples/contributing/page.nix`" "`docs-write`" ]
-        [ "`templates/fleet/README.md`, `templates/fleet/ci.json`" "`templates/fleet/modules/docs/`" "`fleet-write`" ]
-        [ "`templates/fleet/flake.nix`" "the `flake-file` sink of the fleet" "`fleet-flake`" ]
-      ])
+      (docs.table
+        [ "Files" "Source" "Generator" ]
+        [
+          [
+            "`docs/src/content/docs/**`, `docs/src/sidebar.json`"
+            "`docs/examples/*/page.nix`"
+            "`docs-write`"
+          ]
+          [
+            "`.github/workflows/test.yml`"
+            "`docs/modules/ci.nix`"
+            "`docs-write`"
+          ]
+          [
+            "`.github/workflows/issue.yml`, `.github/ISSUE_TEMPLATE/*`"
+            "`docs/modules/issues.nix`"
+            "`docs-write`"
+          ]
+          [
+            "`CONTRIBUTING.md`"
+            "`docs/examples/contributing/page.nix`"
+            "`docs-write`"
+          ]
+          [
+            "`templates/fleet/README.md`, `templates/fleet/ci.json`"
+            "`templates/fleet/modules/docs/`"
+            "`fleet-write`"
+          ]
+          [
+            "`templates/fleet/flake.nix`"
+            "the `flake-file` sink of the fleet"
+            "`fleet-flake`"
+          ]
+        ]
+      )
       ''
         ## CI
 
@@ -84,7 +132,23 @@
       ''
     ];
 
-  checks = { inputs, dir, ... }: let reply = import (inputs.sven + "/docs/issue/eval.nix") { inherit (inputs) sven nixpkgs; blocks = dir + "/issue"; }; in {
-    reply = reply.modules == 2 && map (e: { inherit (e) code from; }) reply.errors == [ { code = "one"; from = "fleet:main/host:web"; } ];
-  };
+  checks =
+    { inputs, dir, ... }:
+    let
+      reply = import (inputs.sven + "/docs/issue/eval.nix") {
+        inherit (inputs) sven nixpkgs;
+        blocks = dir + "/issue";
+      };
+    in
+    {
+      reply =
+        reply.modules == 2
+        &&
+          map (e: { inherit (e) code from; }) reply.errors == [
+            {
+              code = "one";
+              from = "fleet:main/host:web";
+            }
+          ];
+    };
 }

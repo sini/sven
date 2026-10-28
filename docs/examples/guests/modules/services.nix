@@ -3,8 +3,19 @@
 {
   sven.aspects.guest-base = {
     at = sven.kinds.guest;
-    nixos = { guest, ... }: { networking.hostName = guest.name; system.stateVersion = "25.05"; };
+    nixos =
+      { guest, ... }:
+      {
+        networking.hostName = guest.name;
+        system.stateVersion = "25.05";
+      };
   };
-  sven.aspects.nginx = { at = sven.guest.web; nixos.services.nginx.enable = true; };
-  sven.aspects.postgres = { at = sven.guest.db; nixos.services.postgresql.enable = true; };
+  sven.aspects.nginx = {
+    at = sven.guest.web;
+    nixos.services.nginx.enable = true;
+  };
+  sven.aspects.postgres = {
+    at = sven.guest.db;
+    nixos.services.postgresql.enable = true;
+  };
 }

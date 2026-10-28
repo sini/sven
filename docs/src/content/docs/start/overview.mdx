@@ -53,7 +53,11 @@ A machine has an `owner` field and a `packages` sink.
   sven.kinds.machine = {
     fields.owner = lib.types.str;
     sinks.packages.reduce = sven.lib.reduce.set; # sinks: where elements go
-    sinks.packages.out = { machine, packages, ... }: { inventory.${machine.name} = packages; };
+    sinks.packages.out =
+      { machine, packages, ... }:
+      {
+        inventory.${machine.name} = packages;
+      };
   };
 
   sven.office.main = { };
@@ -155,7 +159,7 @@ before you deploy.
 Every block on this page is a file of the template `overview`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#overview'
+nix flake init -t github:vic/sven#overview
 ```
 
 <FileTree>

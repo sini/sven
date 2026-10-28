@@ -7,26 +7,104 @@
 { sven, lib, ... }:
 let
   K = sven.lib.krn;
-  machinesIn = r: env: lib.filter (s: lib.elem s.kind [ "host" "mac" ] && s.parent.kind == "environment" && s.parent.name == env) r.scopes;
+  machinesIn =
+    r: env:
+    lib.filter (
+      s:
+      lib.elem s.kind [
+        "host"
+        "mac"
+      ]
+      && s.parent.kind == "environment"
+      && s.parent.name == env
+    ) r.scopes;
 in
 {
   sven.queries = {
-    freePort = { host, r }:
+    freePort =
+      { host, r }:
       let
         id = (lib.findFirst (s: s.kind == "host" && s.name == host) { id = ""; } r.scopes).id;
-        used = lib.concatMap (m: lib.attrValues (builtins.fromJSON (m.environment.etc."apps/ports".text or "{}"))) (r.reduced.nixos.${id} or [ ]);
+        used = lib.concatMap (
+          m: lib.attrValues (builtins.fromJSON (m.environment.etc."apps/ports".text or "{}"))
+        ) (r.reduced.nixos.${id} or [ ]);
         a = K.run 1 (q: [ (K.infd [ q ] 8080 8099) ] ++ map (p: K.neqfd q p) used ++ [ (K.label [ q ]) ]);
-      in if a == [ ] then { error = "no free port on ${host} in 8080..8099"; inherit used; } else { port = lib.head a; inherit used; };
-    placeDb = { host, r }:
-      let rows = map (s: { name = s.name; env = s.parent.name; db = s.dbRole or false; }) (lib.filter (s: s.kind == "host" && s.parent.kind == "environment") r.scopes);
-      in K.runAll (q: K.fresh ({ env, d, own }: [ (K.facto rows { name = host; inherit env; db = own; }) (K.facto rows { name = d; inherit env; db = true; }) (K.eq q d) ]));
-    safeHostsFor = { aspect, env, r }:
+      in
+      if a == [ ] then
+        {
+          error = "no free port on ${host} in 8080..8099";
+          inherit used;
+        }
+      else
+        {
+          port = lib.head a;
+          inherit used;
+        };
+    placeDb =
+      { host, r }:
       let
-        try = s: sven.lib.program.dryRun { base = r.root; inherit r; prog = [ { op = "place"; inherit aspect; inherit (s) kind name; } ]; };
-        tried = map (s: { inherit (s) name; d = try s; }) (machinesIn r env);
-      in {
+        rows = map (s: {
+          name = s.name;
+          env = s.parent.name;
+          db = s.dbRole or false;
+        }) (lib.filter (s: s.kind == "host" && s.parent.kind == "environment") r.scopes);
+      in
+      K.runAll (
+        q:
+        K.fresh (
+          {
+            env,
+            d,
+            own,
+          }:
+          [
+            (K.facto rows {
+              name = host;
+              inherit env;
+              db = own;
+            })
+            (K.facto rows {
+              name = d;
+              inherit env;
+              db = true;
+            })
+            (K.eq q d)
+          ]
+        )
+      );
+    safeHostsFor =
+      {
+        aspect,
+        env,
+        r,
+      }:
+      let
+        try =
+          s:
+          sven.lib.program.dryRun {
+            base = r.root;
+            inherit r;
+            prog = [
+              {
+                op = "place";
+                inherit aspect;
+                inherit (s) kind name;
+              }
+            ];
+          };
+        tried = map (s: {
+          inherit (s) name;
+          d = try s;
+        }) (machinesIn r env);
+      in
+      {
         safe = map (x: x.name) (lib.filter (x: x.d.ok) tried);
-        refused = lib.listToAttrs (map (x: { name = x.name; value = x.d.violations or [ ] ++ map (e: e.error) (x.d.errors or [ ]); }) (lib.filter (x: !x.d.ok) tried));
+        refused = lib.listToAttrs (
+          map (x: {
+            name = x.name;
+            value = x.d.violations or [ ] ++ map (e: e.error) (x.d.errors or [ ]);
+          }) (lib.filter (x: !x.d.ok) tried)
+        );
       };
   };
 }

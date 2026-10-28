@@ -16,14 +16,33 @@ let
 in
 {
   sven.kinds.host.sinks = {
-    ports.config = { ports, ... }: { firewall.allowedTCPPorts = ports; }; # ports feed config
-    config = { reduce = merge; out = { host, config, ... }: { config.${host.name} = config; }; };
-  };
-  sven.kinds.guest.sinks = {
-    ports.config = { ports, ... }: { firewall.allowedTCPPorts = ports; };
+    ports.config =
+      { ports, ... }:
+      {
+        firewall.allowedTCPPorts = ports;
+      }; # ports feed config
     config = {
       reduce = merge;
-      config = { guest, config, ... }: { vms.${guest.name} = config; }; # its own name: a forward up, to the host
+      out =
+        { host, config, ... }:
+        {
+          config.${host.name} = config;
+        };
+    };
+  };
+  sven.kinds.guest.sinks = {
+    ports.config =
+      { ports, ... }:
+      {
+        firewall.allowedTCPPorts = ports;
+      };
+    config = {
+      reduce = merge;
+      config =
+        { guest, config, ... }:
+        {
+          vms.${guest.name} = config;
+        }; # its own name: a forward up, to the host
     };
   };
 }
@@ -54,8 +73,15 @@ in
 ```nix title="modules/aspects.nix"
 { sven, ... }:
 {
-  sven.aspects.ssh = { at = sven.kinds.host; ports = 22; };
-  sven.aspects.runner = { at = sven.guest.ci; ports = 8080; config.runner.enable = true; };
+  sven.aspects.ssh = {
+    at = sven.kinds.host;
+    ports = 22;
+  };
+  sven.aspects.runner = {
+    at = sven.guest.ci;
+    ports = 8080;
+    config.runner.enable = true;
+  };
 }
 ```
 
@@ -104,7 +130,7 @@ and to `darwin` on a mac. Aspects write `os` once. See [nix-darwin machines](/re
 Every block on this page is a file of the template `forwards`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#forwards'
+nix flake init -t github:vic/sven#forwards
 ```
 
 <FileTree>

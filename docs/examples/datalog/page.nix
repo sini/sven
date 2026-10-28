@@ -4,37 +4,77 @@
   section = "query";
   order = 3;
 
-  body = { docs, r, ... }: [
-    ''
-      Some questions are rules: "a host serves when it runs a web server and is not drained; a host is drained when a host
-      it depends on is down." `sven.lib.datalog` solves ground rules with negation. Each rule is `{ head; pos; neg; }`.
-      You ground the rules with Nix: one set per host.
-    ''
-    (docs.file "modules/fleet.nix")
-    (docs.fileWith "{7-12}" "modules/policy.nix")
-    (docs.value r.flake.serving)
-    (docs.table [ "Function" "Answer" ] [
-      [ "`wfs rules`" "the well-founded model: `{ true; false; undefined; }`. No strata needed." ]
-      [ "`stable rules`" "every stable model: one per consistent choice" ]
-      [ "`why rules model atom`" "the rules that prove an atom" ]
-      [ "`proof rules model atom`" "a proof tree; a positive cycle shows `cycle = true`" ]
-      [ "`whyNot rules model atom`" "per rule: the `missing` positive atoms and the `blocking` negative ones" ]
-      [ "`judge rules a notA`" "`supported`, `refuted`, `both`, `neither` or `unknown`" ]
-      [ "`facts atoms`" "atoms as rules with no body" ]
-    ])
-    ''
-      `web-2` does not serve: its database `db-2` is in maintenance, so `web-2` is drained. `whyNot` says so.
-      The primary database is undefined in the well-founded model. The stable models list the two choices.
-    ''
-    (docs.note "Undefined is an answer" ''
-      An atom the rules cannot decide is `undefined`, never a guess. When that matters, give an error record for it.
-      [Invariants](/query/invariants/) use the same solver, and treat an undefined violation as `incomplete`, never a pass.
-    '')
-  ];
+  body =
+    { docs, r, ... }:
+    [
+      ''
+        Some questions are rules: "a host serves when it runs a web server and is not drained; a host is drained when a host
+        it depends on is down." `sven.lib.datalog` solves ground rules with negation. Each rule is `{ head; pos; neg; }`.
+        You ground the rules with Nix: one set per host.
+      ''
+      (docs.file "modules/fleet.nix")
+      (docs.fileWith "{7-12}" "modules/policy.nix")
+      (docs.value r.flake.serving)
+      (docs.table
+        [ "Function" "Answer" ]
+        [
+          [
+            "`wfs rules`"
+            "the well-founded model: `{ true; false; undefined; }`. No strata needed."
+          ]
+          [
+            "`stable rules`"
+            "every stable model: one per consistent choice"
+          ]
+          [
+            "`why rules model atom`"
+            "the rules that prove an atom"
+          ]
+          [
+            "`proof rules model atom`"
+            "a proof tree; a positive cycle shows `cycle = true`"
+          ]
+          [
+            "`whyNot rules model atom`"
+            "per rule: the `missing` positive atoms and the `blocking` negative ones"
+          ]
+          [
+            "`judge rules a notA`"
+            "`supported`, `refuted`, `both`, `neither` or `unknown`"
+          ]
+          [
+            "`facts atoms`"
+            "atoms as rules with no body"
+          ]
+        ]
+      )
+      ''
+        `web-2` does not serve: its database `db-2` is in maintenance, so `web-2` is drained. `whyNot` says so.
+        The primary database is undefined in the well-founded model. The stable models list the two choices.
+      ''
+      (docs.note "Undefined is an answer" ''
+        An atom the rules cannot decide is `undefined`, never a guess. When that matters, give an error record for it.
+        [Invariants](/query/invariants/) use the same solver, and treat an undefined violation as `incomplete`, never a pass.
+      '')
+    ];
 
-  checks = { r, ... }: let s = r.flake.serving; in {
-    serves = s.serves == [ "web-1" ];
-    choice = s.choices == [ [ "primary:db-1" ] [ "primary:db-2" ] ] && s.undefined == [ "primary:db-1" "primary:db-2" ];
-    blocking = (builtins.head s.whyNot).blocking == [ "drained:web-2" ];
-  };
+  checks =
+    { r, ... }:
+    let
+      s = r.flake.serving;
+    in
+    {
+      serves = s.serves == [ "web-1" ];
+      choice =
+        s.choices == [
+          [ "primary:db-1" ]
+          [ "primary:db-2" ]
+        ]
+        &&
+          s.undefined == [
+            "primary:db-1"
+            "primary:db-2"
+          ];
+      blocking = (builtins.head s.whyNot).blocking == [ "drained:web-2" ];
+    };
 }

@@ -12,6 +12,8 @@ in
       impact = lib.genAttrs (lib.attrNames sven.host) (G.reachers dependsOn); # who breaks if this host is down
       path = G.shortest dependsOn "lb" "db";
     };
-    errors = map (c: "deploy: a dependency cycle: ${lib.concatStringsSep " -> " c}") (lib.filter (c: lib.length c > 1) (G.sccs dependsOn));
+    errors = map (c: "deploy: a dependency cycle: ${lib.concatStringsSep " -> " c}") (
+      lib.filter (c: lib.length c > 1) (G.sccs dependsOn)
+    );
   };
 }

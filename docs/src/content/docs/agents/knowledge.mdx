@@ -15,7 +15,10 @@ element as a node with its origin, and errors. It adds a sha256 and a count.
   sven.environment.prod.domain = "example.com";
   sven.host.web.environment = sven.environment.prod;
   sven.host.db.environment = sven.environment.prod;
-  sven.aspects.nginx = { at = sven.host.web; services = "nginx"; };
+  sven.aspects.nginx = {
+    at = sven.host.web;
+    services = "nginx";
+  };
 }
 ```
 
@@ -56,7 +59,11 @@ A fleet can give its pack as a flake output:
 {
   sven.aspects.pack = {
     at = sven.kinds.fleet;
-    out.rdfPack = removeAttrs (sven.lib.rdf.share { graph = sven.lib.graph; active = { }; errors = [ ]; }) [ "ntriples" ];
+    out.rdfPack = removeAttrs (sven.lib.rdf.share {
+      graph = sven.lib.graph;
+      active = { };
+      errors = [ ];
+    }) [ "ntriples" ];
   };
 }
 ```
@@ -92,7 +99,7 @@ so "what did the fleet look like before this change" is a query.
 Every block on this page is a file of the template `knowledge`. Copy it and run it:
 
 ```sh frame="terminal"
-nix flake init -t 'github:vic/sven?dir=docs#knowledge'
+nix flake init -t github:vic/sven#knowledge
 ```
 
 <FileTree>

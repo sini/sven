@@ -13,7 +13,14 @@
     reduce = sven.lib.reduce.set;
     of = sven.kinds.secret;
     # the plan a secrets tool reads: agenix, sops-nix, or your own
-    out = { host, secrets, ... }: { secretsPlan.${host.name} = map (s: { inherit (s) name file; path = "/run/secrets/${s.name}"; }) secrets; };
+    out =
+      { host, secrets, ... }:
+      {
+        secretsPlan.${host.name} = map (s: {
+          inherit (s) name file;
+          path = "/run/secrets/${s.name}";
+        }) secrets;
+      };
   };
 
   sven.fleet.main = { };

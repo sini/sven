@@ -2,8 +2,18 @@
 {
   sven.aspects.report = {
     at = sven.kinds.host;
-    report = { host, ... }: {
-      ${host.name} = { inherit (host) port jump vpn tags; channel = host.settings.kernel.channel; };
-    };
+    report =
+      { host, ... }:
+      {
+        ${host.name} = {
+          inherit (host)
+            port
+            jump
+            vpn
+            tags
+            ;
+          channel = host.settings.kernel.channel;
+        };
+      };
   };
 }

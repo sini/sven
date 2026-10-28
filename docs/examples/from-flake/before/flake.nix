@@ -6,20 +6,23 @@
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { nixpkgs, home-manager, ... }:
+  outputs =
+    { nixpkgs, home-manager, ... }:
     let
-      mkHost = name: nixpkgs.lib.nixosSystem {
-        modules = [
-          ./common.nix
-          ./hosts/${name}.nix
-          home-manager.nixosModules.home-manager
-          {
-            networking.hostName = name;
-            home-manager.useGlobalPkgs = true;
-            home-manager.users.alice = import ./home.nix;
-          }
-        ];
-      };
+      mkHost =
+        name:
+        nixpkgs.lib.nixosSystem {
+          modules = [
+            ./common.nix
+            ./hosts/${name}.nix
+            home-manager.nixosModules.home-manager
+            {
+              networking.hostName = name;
+              home-manager.useGlobalPkgs = true;
+              home-manager.users.alice = import ./home.nix;
+            }
+          ];
+        };
     in
     {
       nixosConfigurations.web = mkHost "web";
