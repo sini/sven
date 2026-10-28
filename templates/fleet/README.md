@@ -127,6 +127,8 @@ This rule decides how you write a value for a fleet-wide sink. A static value fr
 
 Structure can depend on presence: a `spawns` function can ask `sven.lib.holds sven.aspects.role-server s` at the parent ([den/presence-structure.nix](modules/den/presence-structure.nix)).
 
+Each scope computes each aspect ref once, so aspects that read aspects cost linear time, however deep they nest. Refs can form cycles. A cycle through `not` has no answer: the aspects on it are undefined, as in the well-founded semantics of logic programs. They are not active, and the `undefined` query lists them. A cycle with no `not` (`p` where `q`, `q` where `p`) has no founded support, so it is false.
+
 ## Sinks: where elements go
 
 A sink on a kind collects elements and reduces them:
@@ -205,10 +207,41 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | `graph` | `{ scopes; edges; }`: every scope and every routed element |
 | `scopes` | the scopes in order |
 | `active` | aspect, then scope id, then `true` or `false` |
+| `undefined` | `[ { aspect; scope; } ]`: aspects that `at` cannot decide, because of a cycle through `not` (`a` where not `b`, `b` where not `a`). They are not active. |
 | `reduced` | sink, then receiver id, then the value |
 | `flake` | the answer of `sven.flake` |
 
 `sven.lib.graph` is readable inside the fleet. Each edge has `sink`, `from`, `to` and `origin` (the aspect that gave the element), so "which aspects reach this host" is a query, not a registry. The diagrams and tables at the end of this README come from `graph`, the kind declarations and sink values ([docs/readme.nix](modules/docs/readme.nix)): the fleet map, the kind tree, sink forwarding, pools, clan instances, vars generators and the deploy order.
+
+## Graphs, Datalog and krn
+
+Fleet data is plain Nix, so a question about it is a function. sven ships three libraries for the hard ones. Each is builtins only, total, and gives the same answer whatever the file order.
+
+**`sven.lib.graphs`** works on `succ`, an attrset from a node to its successors: `reach`, `reachers`, `transpose`, `topo` (a cycle is data: `{ ok = false; stuck; }`), `layers`, `sccs`, `cycles`, `shortest`, `paths`. [hoag/relations.nix](modules/hoag/relations.nix) builds the deploy waves, the dependents and the impact of losing a host, and gives an error for a dependency cycle:
+
+```nix
+dependsOn = lib.mapAttrs (_: h: map (d: d.name) h.dependsOn) hosts;
+deployWaves = G.layers dependsOn;                                 # [ [ "lb" ] [ "web-1" "web-2" ] [ "stage" ] ]
+impact = lib.genAttrs (lib.attrNames hosts) (G.reachers dependsOn); # lb down: stage, web-1, web-2 break
+```
+
+**`sven.lib.datalog`** solves ground rules with negation, `{ head; pos; neg; }`. You ground the rules with Nix (one per host). `wfs` gives the well-founded model (true, false, undefined; no strata). `stable` gives the stable models: a choice. `why` gives the rules that prove an atom. [query/datalog.nix](modules/query/datalog.nix) is a serving policy: a host serves when it runs nginx and is not drained. A host is drained when it is in maintenance or the host it depends on is down. The database primary is a choice between two hosts. An atom the policy leaves undefined is an error.
+
+```nix
+{ head = "serves:${n}"; pos = [ "web:${n}" ]; neg = [ "drained:${n}" ]; }
+{ head = "drained:${n}"; neg = [ "up:${d.name}" ]; }              # for each host n depends on
+{ head = "primary:lb"; neg = [ "primary:web-1" ]; }                # and the other way round: two stable models
+```
+
+**`sven.lib.krn`** is µKanren: logic variables, unification over attrsets, lists and scalars, and goals that run in both directions. It synthesizes values that meet constraints. [query/krn.nix](modules/query/krn.nix) gives each app on lb a port from its range with no two the same. The same relation, run backward, answers which apps can take port 8081. A join over host records by unification places each host's database:
+
+```nix
+portsRel = apps: range: q: freshNamed apps (vs: map (a: membero vs.${a} range) apps ++ distinct (lib.attrValues vs) ++ [ (eq q vs) ]);
+run 1 (portsRel [ "grafana" "loki" "prometheus" ] [ 8080 8081 8082 8083 ])  # [ { grafana = 8080; loki = 8081; prometheus = 8082; } ]
+runAll (q: fresh ({ env, d, own }: [ (facto hosts { name = "web-1"; inherit env; db = own; }) (facto hosts { name = d; inherit env; db = true; }) (eq q d) ]))
+```
+
+krn limits: lists have a fixed length (no cons cells), so `appendo` needs the whole list or both parts. `neq` decides only on ground terms (there is no constraint store), so place it after the goals that choose the values. A search with no answer gives `[ ]`: give an error record then, as `port-synthesis` does.
 
 ## Patterns in this fleet
 
@@ -251,6 +284,9 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | exports: scoped by the engine, allow-listed per service, read across services, overridden by the owner | clan | [clan/inventory.nix](modules/clan/inventory.nix), [services/borg.nix](services/borg.nix) |
 | vars: generator graph, shared or per machine, a deploy plan as data, secret-read guard | clan | [clan/vars.nix](modules/clan/vars.nix) |
 | machines from directories, a service from outside `modules/` | clan | [clan/vars.nix](modules/clan/vars.nix), [services/borg.nix](services/borg.nix) |
+| deploy waves, impact of losing a host, a dependency cycle as an error (`sven.lib.graphs`) | den-hoag | [hoag/relations.nix](modules/hoag/relations.nix) |
+| a serving policy with maintenance, drain by dependency, a primary chosen by stable models (`sven.lib.datalog`) | Gen | [query/datalog.nix](modules/query/datalog.nix) |
+| port allocation, database placement, a query run backward (`sven.lib.krn`) | µKanren | [query/krn.nix](modules/query/krn.nix) |
 | one machine, two builds | swarsel | [swarsel/variants.nix](modules/swarsel/variants.nix) |
 | one machine writes config into another, and fleet globals | swarsel | [swarsel/distributed.nix](modules/swarsel/distributed.nix) |
 | aspects exported as `nixosModules` | swarsel, Den | [swarsel/exports.nix](modules/swarsel/exports.nix) |
@@ -296,7 +332,7 @@ The den-hoag CI (175 test files and 57 Den behavior tests) gives 119 capabilitie
 
 sini's fleet ([sini/nix-config](https://github.com/sini/nix-config)) gives 98 patterns ([vic/sini-patterns.md](https://github.com/vic/sven/blob/main/vic/sini-patterns.md)). Every one has a check, except packaging.
 
-sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
+sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint for data; `sven.lib.datalog` gives the well-founded model when your rules need one. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
 
 Three families of Den bugs cannot happen in sven:
 
@@ -359,7 +395,7 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 ```
 
 ## This fleet, live
-Generated from the fleet's queries: 74 scopes, 28 kinds, 175 aspects, 781 routed elements.
+Generated from the fleet's queries: 74 scopes, 28 kinds, 178 aspects, 785 routed elements.
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
 | `backup` |  |  | `nixos` | 3 |
@@ -372,13 +408,13 @@ Generated from the fleet's queries: 74 scopes, 28 kinds, 175 aspects, 781 routed
 | `export` |  |  | `os` | 1 |
 | `fleet` | `recipients`, `secretStore` | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `exports`, `flake-file`, `gateway-upstreams`, `generators`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `public-reads`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `warnings`, `xmsg-nodes` | 1 |
 | `group` | `label`, `members` |  |  | 0 |
-| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `on`, `passthrough`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
+| `guest` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `on`, `passthrough`, `portRange`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |
 | `home` | `channel`, `on`, `system`, `user` | `user` | `homeManager`, `os` | 2 |
-| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `member`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
+| `host` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portRange`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `member`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
 | `instance` | `module`, `roles` |  |  | 0 |
-| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `member`, `user` | `darwin`, `os` | 1 |
-| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
+| `mac` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portRange`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `member`, `user` | `darwin`, `os` | 1 |
+| `machine` | `addr`, `apps`, `buildHost`, `builder`, `channel`, `dbOn`, `dbRole`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `maintenance`, `minimal`, `motd`, `portRange`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
 | `member` |  |  |  | 18 |
 | `pet` | `of` | `toy` |  | 2 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |
@@ -968,8 +1004,8 @@ flowchart LR
 
 | Machine | Kind | Aspects giving elements | Some aspects |
 |---|---|---|---|
-| `lb` | host | 46 | alloy, attic, base, caddy, ci-host, clan-sshd, +40 |
-| `lb-minimal` | host | 28 | alloy, base, clan-sshd, deploy-record, dev, env-tuning, +22 |
+| `lb` | host | 48 | alloy, attic, base, caddy, ci-host, clan-sshd, +42 |
+| `lb-minimal` | host | 29 | alloy, base, clan-sshd, deploy-record, dev, env-tuning, +23 |
 | `web-1` | host | 46 | alloy, api-route, base, ci-host, clan-sshd, db-claim, +40 |
 | `web-2` | host | 43 | alloy, autoinclude, base, ci-host, clan-sshd, db-claim, +37 |
 | `stage` | host | 51 | alloy, base, ci-host, clan-sshd, db-claim, db-client, +45 |
@@ -1023,11 +1059,11 @@ flowchart LR
 | `meta` | hive | hive | 2 |
 | `monitor` | host | host | 1 |
 | `monitoring-ingest` | cluster | fleet | 1 |
-| `nixos` | backup, guest, host, member, user, variant | backup, guest, host, variant | 146 |
+| `nixos` | backup, guest, host, member, user, variant | backup, guest, host, variant | 149 |
 | `no-gui` | system | system | 1 |
 | `nodes` | host | fleet | 1 |
 | `os` | export, guest, host, mac, member, user | export, guest, home, host, mac | 93 |
-| `out` | cluster, environment, export, fleet, hive, home, +5 | fleet | 48 |
+| `out` | cluster, environment, export, fleet, hive, home, +5 | fleet | 49 |
 | `overlays` | fleet | fleet | 1 |
 | `packages` | system | system | 7 |
 | `pairs` | host, toy | host | 6 |
