@@ -9,7 +9,7 @@ rpc() { printf '%s\n' "$1" | timeout -k 5 300 "$SRV"; }
 call() { rpc "$(jq -cn --arg n "$1" --argjson a "$2" '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:$n,arguments:$a}}')"; }
 text() { jq -c '.result.content[0].text | fromjson'; } # the wrapped { complete, result | error }
 check() { # name jq-filter input-json
-  if jq -e "$2" <<<"$3" >/dev/null 2>&1; then echo "PASS $1"; else echo "FAIL $1"; fails=$((fails + 1)); fi
+  if jq -e "$2" <<<"$3" >/dev/null 2>&1; then echo "PASS $1"; else echo "FAIL $1: got $(head -c 400 <<<"$3")"; fails=$((fails + 1)); fi
 }
 
 out=$(rpc '{"jsonrpc":"2.0","id":1,"method":"initialize"}')
@@ -57,7 +57,8 @@ check program-violation '.result.ok == false and (.result.violations | map(conta
 out=$(call sven_program '{"program":[{"op":"plac"}]}' | text)
 check program-invalid '.result.valid == false and .result.errors[0].near == ["place"]' "$out"
 
-out=$(SVEN_TIMEOUT=1 call sven_export '{}' | text)
+# a timeout no evaluation can meet (1 ms): the timeout path, without racing the machine's speed
+out=$(SVEN_TIMEOUT=0.001 call sven_export '{}' | text)
 check export-timeout '.complete == false and .error == "timeout"' "$out"
 
 
