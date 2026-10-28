@@ -253,6 +253,44 @@ runAll (q: fresh ({ env, d, own }: [ (facto hosts { name = "web-1"; inherit env;
 
 A search with no answer gives `[ ]`. Give an error record then, as `port-synthesis` and `memory-synthesis` do. krn has no constraints over terms other than `neq` (no `absento`), and `appendo` with two unknown lists enumerates without end: use `run n`.
 
+## For agents: ask, prove, change
+
+An agent that manages this fleet works through queries. Every answer is data that `builtins.toJSON` can print. `query.nix` gives them on the command line, for example the `agent` attribute with `--json`.
+
+| Query | Answer |
+|---|---|
+| `schema` | every kind (fields with type names and defaults, spawns, sinks with their reduce strategy), every aspect (keys, files, how many scopes) and every invariant |
+| `agent` | `schema`, `errors`, `check` and counts, JSON-safe |
+| `context id { maxEdges; maxAspects; }` | one scope: parent, children, active aspects, the elements it gives and receives, its errors. Each list says `truncated = { shown; of; }` |
+| `explain aspect id depth` | why an aspect is active, inactive or undefined at a scope: a trace of its `at` (true, false or null at each node), what it gives, its files. Past the depth, `kids = "cut"` |
+| `declaredIn path` | the files that answer a declaration path, in file order |
+| `facts` | the fleet as ground atoms: `kind:K:ID`, `has:ASPECT:ID`, `edge:SINK:FROM:TO`, `error:CODE:FROM` |
+| `check` | the invariants: `violations`, `incomplete`, `ok`, `why atom` |
+
+An unknown aspect or scope gives an error record with `near`: the names it was probably meant to be.
+
+**Error records.** Each error has `error` and `from` for people, and `code`, `path`, `got`, `want`, `fix`, `class` and `near` for agents. `class` is `fixable` (an edit to the data fixes it) or `authority` (no edit by this author can).
+
+```nix
+{ code = "check"; path = [ "port" ]; got = 70000; want = "Port"; fix = "give port a value of type Port"; class = "fixable"; from = "host:a"; }
+{ code = "unknown-field"; path = [ "prot" ]; near = [ "port" ]; … }
+```
+
+**Invariants.** `sven.invariants.<name>` gives Datalog rules over the facts ([agent/invariants.nix](modules/agent/invariants.nix)). A true `bad:` atom is a violation. An undefined one (a cycle through `not`) is `incomplete`, never a pass.
+
+```nix
+sven.invariants.attic = { scopes, ... }: map (s: { head = "bad:attic-on-mac:${s.id}"; pos = [ "has:attic:${s.id}" ]; }) (lib.filter (s: s.kind == "mac") scopes);
+```
+
+**Changes go through `stage`.** `sven.lib.stage { base; change; rejected ? [ ]; grant ? null; }` evaluates the fleet without and with the change. Nothing is applied. It returns the new errors, the new violations, a diff (scopes, routed elements, active aspects), the change's `sha` and the `refused` list. `ok` is true only when nothing new is wrong. A change in `rejected`, and an element outside the grant, are refused with `class = "authority"`. `render` is the change as JSON, so it can be read back and staged again.
+
+```nix
+sven.lib.stage { base = fleet; change = { sven.aspects.attic.at = [ { kind = "mac"; name = "studio"; } ]; }; }
+# ok = false; violations = [ "bad:attic-on-mac:…/mac:studio" ]; diff.active.added = [ "attic@…/mac:studio" ]
+```
+
+**Grants only narrow.** `sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where an agent may give elements. `narrow g h` keeps what both allow. No function makes a grant wider. A staged change that gives an element outside its grant is refused.
+
 ## Patterns in this fleet
 
 | Pattern | From | File |
