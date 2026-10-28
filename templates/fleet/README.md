@@ -445,9 +445,16 @@ The `lab` environment compares the two: `app-1`, `app-2` and `app-3` share, `app
 | each its own pkgs | 19.0 s | 21.7 M | 17.0 M |
 | shared pkgs | 12.7 s | 16.8 M | 12.9 M |
 
-The `drvPath`s are the same both ways. The e2e check `shared-pkgs-same-drv` proves it on every run: each follower's toplevel equals its build with its own `pkgs` (`nixosConfigurationsOwnPkgs`).
+The prod hosts share too: `lb`, its variant `lb-minimal`, `web-1` and `web-2` join app-1's group (same channel and system). Evaluated both ways (`--arg hosts '[ "lb" "web-1" "web-2" ]'`):
 
-Two rules. A sharing host cannot set `nixpkgs.config` or `nixpkgs.overlays` of its own: its group shares them, so every host in the group must give the same. And documentation must be off on sharing hosts, because the manual and man pages differ when `pkgs` is shared.
+| lb, web-1, web-2 toplevel | CPU | Thunks | Function calls | Values | Sets | Lists | GC total |
+|---|---|---|---|---|---|---|---|
+| each its own pkgs | 35.3 s | 36.6 M | 27.9 M | 806 MB | 929 MB | 76 MB | 2.71 GB |
+| shared pkgs | 24.8 s | 29.3 M | 21.9 M | 641 MB | 585 MB | 61 MB | 1.96 GB |
+
+The `drvPath`s are the same both ways. The e2e check `shared-pkgs-same-drv` proves it on every run, for all six followers: each follower's toplevel equals its build with its own `pkgs` (`nixosConfigurationsOwnPkgs`).
+
+Two rules. A sharing host cannot set `nixpkgs.config` or `nixpkgs.overlays` of its own: its group shares them, so every host in the group must give the same. Here the overlays are fleet-wide, and the unfree and insecure permits are only on `stage`, which does not share. And documentation is off on every sharing host (`shared-pkgs-no-docs` in [platforms/nixos.nix](modules/platforms/nixos.nix)), because the manual and man pages differ when `pkgs` is shared. With docs on, the e2e check fails.
 
 ## Generated files and checks
 
@@ -495,7 +502,7 @@ bash tests/cost.sh                                # PASS aspect-ref-memo, PASS r
 ```
 
 ## This fleet, live
-Generated from the fleet's queries: 87 scopes, 28 kinds, 184 aspects, 963 routed elements.
+Generated from the fleet's queries: 87 scopes, 28 kinds, 184 aspects, 966 routed elements.
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
 | `backup` |  |  | `nixos` | 3 |
@@ -1155,11 +1162,11 @@ flowchart LR
 | `app-1` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
 | `app-2` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
 | `app-3` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
-| `app-4` | host | 31 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +25 |
-| `lb` | host | 48 | alloy, attic, base, caddy, ci-host, clan-sshd, +42 |
-| `lb-minimal` | host | 29 | alloy, base, clan-sshd, deploy-record, dev, env-tuning, +23 |
-| `web-1` | host | 46 | alloy, api-route, base, ci-host, clan-sshd, db-claim, +40 |
-| `web-2` | host | 44 | alloy, autoinclude, base, ci-host, clan-sshd, db-claim, +38 |
+| `app-4` | host | 30 | alloy, base, ci-host, clan-sshd, db-lockdown, db-provide, +24 |
+| `lb` | host | 49 | alloy, attic, base, caddy, ci-host, clan-sshd, +43 |
+| `lb-minimal` | host | 30 | alloy, base, clan-sshd, deploy-record, dev, env-tuning, +24 |
+| `web-1` | host | 47 | alloy, api-route, base, ci-host, clan-sshd, db-claim, +41 |
+| `web-2` | host | 45 | alloy, autoinclude, base, ci-host, clan-sshd, db-claim, +39 |
 | `stage` | host | 52 | alloy, base, ci-host, clan-sshd, db-claim, db-client, +46 |
 | `ci` | guest | 12 | alloy, base, dev, docker, global-pkgs, globals-addr, +6 |
 | `studio` | mac | 11 | base, ci-mac, clan-sshd, dev, dock, global-pkgs, +5 |
@@ -1211,7 +1218,7 @@ flowchart LR
 | `meta` | hive | hive | 2 |
 | `monitor` | host | host | 1 |
 | `monitoring-ingest` | cluster | fleet | 1 |
-| `nixos` | backup, guest, host, member, user, variant | backup, guest, host, variant | 227 |
+| `nixos` | backup, guest, host, member, user, variant | backup, guest, host, variant | 230 |
 | `no-gui` | system | system | 1 |
 | `nodes` | host | fleet | 1 |
 | `os` | export, guest, host, mac, member, user | export, guest, home, host, mac | 113 |
