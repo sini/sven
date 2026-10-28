@@ -433,6 +433,7 @@ let
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
       self = {
         inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent impact labels floor;
+        inherit root;   # the module this result came from: a stored query can stage a change against it
         # every instance's field values, JSON-safe: for history diffs and agents
         data = mapAttrs (k: _: mapAttrs (n: i: static.jsonSafe (mapAttrs (_: v: if isAttrs v && v ? kind && v ? name then "${v.kind}:${v.name}" else v) (removeAttrs i [ "kind" "name" ]))) instances.${k}) kinds;
         errors = errorsAll;
@@ -512,7 +513,37 @@ let
     hit = (eval (mk files)).declaredIn path;
     keep = filter (f: !elem (toString f) hit) files;
   in { dropped = filter (f: elem (toString f) hit) files; r = eval (mk keep); };
+  # change programs: a change as a list of data ops, so an agent can write, check, show and replay it.
+  #   { op = "set"; path; value; }          one declaration path gets a value
+  #   { op = "ref"; path; kind; name; }     one declaration path gets an instance ref
+  #   { op = "place"; aspect; kind; name; } the aspect is also active at that instance
+  #   { op = "new"; kind; name; fields; }   a new instance (a field value { ref = { kind; name; }; } is a ref)
+  program = rec {
+    opErrors = r: i: o: let at = "program[${toString i}]"; kinds = r.schema.kinds; in
+      if !isAttrs o || !(o ? op) then [ (errWith at "not an op" { code = "program"; want = "{ op = …; }"; }) ]
+      else if o.op == "set" || o.op == "ref" then (if !(isList (o.path or null)) || o.path == [ ] then [ (errWith at "path must be a non-empty list" { code = "program"; }) ]
+        else let k = head o.path; in if !(kinds ? ${k}) then [ (errWith at "no kind ${k}" { code = "program"; near = near k (attrNames kinds); }) ]
+        else if length o.path > 2 && !((kinds.${k}.fields or { }) ? ${b.elemAt o.path 2}) then [ (errWith at "kind ${k} has no field ${b.elemAt o.path 2}" { code = "program"; near = near (b.elemAt o.path 2) (attrNames (kinds.${k}.fields or { })); }) ]
+        else if o.op == "ref" && !(kinds ? ${o.kind or ""}) then [ (errWith at "no kind ${o.kind or "?"}" { code = "program"; }) ] else [ ])
+      else if o.op == "place" then (if !(r.schema.aspects ? ${o.aspect or ""}) then [ (errWith at "no aspect ${o.aspect or "?"}" { code = "program"; near = near (o.aspect or "") (attrNames r.schema.aspects); }) ] else [ ])
+      else if o.op == "new" then (if !(kinds ? ${o.kind or ""}) then [ (errWith at "no kind ${o.kind or "?"}" { code = "program"; }) ] else [ ])
+      else [ (errWith at "unknown op ${toString o.op}" { code = "program"; near = near (toString o.op) [ "set" "ref" "place" "new" ]; }) ];
+    validate = r: prog: b.concatLists (b.genList (i: opErrors r i (b.elemAt prog i)) (length prog));
+    # the program as one sven module (a function: refs need `sven`)
+    toModule = prog: { sven, ... }: let
+      nest = path: v: b.foldl' (acc: k: { ${k} = acc; }) v (reverse path);
+      refOf = x: if isAttrs x && x ? ref then sven.${x.ref.kind}.${x.ref.name} else x;
+      one = o: if o.op == "set" then nest o.path o.value else if o.op == "ref" then nest o.path sven.${o.kind}.${o.name}
+        else if o.op == "place" then { aspects.${o.aspect}.at = [ { inherit (o) kind name; } ]; }
+        else { ${o.kind}.${o.name} = mapAttrs (_: refOf) (o.fields or { }); };
+    in { imports = map (o: { sven = one o; }) prog; };
+    dryRun = { base, prog, grant ? null, rejected ? [ ] }: let r = eval base; errs = validate r prog; in
+      if errs != [ ] then { ok = false; valid = false; errors = errs; }
+      else let s = stage { inherit base grant rejected; change = toModule prog; }; in
+        removeAttrs s [ "render" "sha" ] // { valid = true; sha = b.hashString "sha256" (b.toJSON prog); };
+    render = b.toJSON;
+  };
   # a change as data: set one declaration path (`change.set [ "host" "web-1" "port" ] 8080`)
   change = { set = path: value: { sven = b.foldl' (acc: k: { ${k} = acc; }) value (reverse path); }; };
 in
-{ lib = static // { inherit eval stage change grants diffData asOf history without; inherit (grants) grant narrow allowed; mkFlake = m: (eval m).flake; }; }
+{ lib = static // { inherit eval stage change grants diffData asOf history without program; inherit (grants) grant narrow allowed; mkFlake = m: (eval m).flake; }; }

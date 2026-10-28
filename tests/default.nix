@@ -230,6 +230,19 @@ let
     check-whynot = let r = ports ({ sven, ... }: { sven.aspects.fw-b = { at = sven.host.b; fw = "on"; }; sven.aspects.firewall.at = sven.host.b; }); in
       r.check.ok && b.any (x: x.blocking == [ "has:firewall:top:t/host:b" ]) (r.check.whyNot "bad:no-firewall:top:t/host:b")
       && (r.check.proof "kind:host:top:t/host:a").atom == "kind:host:top:t/host:a" && (ports { }).check.whyNot "bad:no-firewall:top:t/host:b" == [ ];
+    program-validate = let r = ports { }; v = sven.program.validate r; in
+      v [ { op = "set"; path = [ "host" "c" "port" ]; value = 443; } { op = "place"; aspect = "firewall"; kind = "host"; name = "c"; } ] == [ ]
+      && (b.head (v [ { op = "set"; path = [ "hots" "c" "port" ]; value = 1; } ])).near == [ "host" ]
+      && (b.head (v [ { op = "set"; path = [ "host" "c" "prot" ]; value = 1; } ])).near == [ "port" ]
+      && (b.head (v [ { op = "place"; aspect = "firewal"; kind = "host"; name = "c"; } ])).near == [ "firewall" ]
+      && (b.head (v [ { op = "plac"; } ])).near == [ "place" ] && b.length (v [ { } ]) == 1;
+    program-dryrun = let base = { imports = [ portsBase ]; }; d = p: sven.program.dryRun { inherit base; prog = p; };
+        ok = d [ { op = "new"; kind = "host"; name = "c"; fields.port = 443; } { op = "place"; aspect = "firewall"; kind = "host"; name = "c"; } ];
+        bad = d [ { op = "new"; kind = "host"; name = "c"; fields.port = 443; } ]; in
+      ok.ok && ok.valid && ok.diff.scopes.added == [ "top:t/host:c" ] && b.isString ok.sha
+      && !bad.ok && bad.violations == [ "bad:no-firewall:top:t/host:c" ]
+      && !(d [ { op = "set"; path = [ "hots" ]; value = 1; } ]).valid
+      && b.fromJSON (sven.program.render [ { op = "set"; path = [ "host" "c" "port" ]; value = 1; } ]) == [ { op = "set"; path = [ "host" "c" "port" ]; value = 1; } ];
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
@@ -311,7 +324,7 @@ let
   };
 in
 {
-  inherit checks logic ports portsBase;
+  inherit checks logic ports portsBase sven;
   # the lib suites live in their own files; `failed` runs them all
   failed = b.filter (n: !checks.${n}) (b.attrNames checks) ++ map (n: "datalog/${n}") (import ./datalog.nix).failed ++ map (n: "rdf/${n}") (import ./rdf.nix).failed ++ map (n: "krn/${n}") (import ./krn.nix).failed ++ map (n: "shacl/${n}") (import ./shacl.nix).failed;
 }
