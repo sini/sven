@@ -469,9 +469,9 @@ let
   # data with no functions: it can be hashed, rendered as JSON and read back
   isData = v: if isFunction v then false else if isList v then all isData v else if isAttrs v then (if v ? __functor then false else all (k: isData v.${k}) (attrNames v)) else true;
   # stage: an agent's change, in quarantine. Nothing changes; two evals compare. `ok` only when nothing new is wrong.
-  stage = { base, change, rejected ? [ ], grant ? null, invariants ? true }:
+  stage = { base, change, rejected ? [ ], grant ? null, invariants ? true, r0 ? eval base }:   # r0: the base already evaluated
     let
-      r0 = eval base;
+
       r1 = eval { imports = [ base change ]; };
       keyE = e: "${e.from}|${e.error}";
       keyG = e: "${e.sink}|${e.from}|${e.to}|${e.origin}";
@@ -537,9 +537,9 @@ let
         else if o.op == "place" then { aspects.${o.aspect}.at = [ { inherit (o) kind name; } ]; }
         else { ${o.kind}.${o.name} = mapAttrs (_: refOf) (o.fields or { }); };
     in { imports = map (o: { sven = one o; }) prog; };
-    dryRun = { base, prog, grant ? null, rejected ? [ ] }: let r = eval base; errs = validate r prog; in
+    dryRun = { base, prog, grant ? null, rejected ? [ ], r ? eval base }: let errs = validate r prog; in
       if errs != [ ] then { ok = false; valid = false; errors = errs; }
-      else let s = stage { inherit base grant rejected; change = toModule prog; }; in
+      else let s = stage { inherit base grant rejected; r0 = r; change = toModule prog; }; in
         removeAttrs s [ "render" "sha" ] // { valid = true; sha = b.hashString "sha256" (b.toJSON prog); };
     render = b.toJSON;
   };
