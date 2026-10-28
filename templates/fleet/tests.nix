@@ -341,7 +341,7 @@ let
     checks = {
       lb-toplevel = lib.hasSuffix ".drv" lbCfg.system.build.toplevel.drvPath;
       # every CI target evaluates to a derivation (assertions included): the darwin system too
-      studio-toplevel = lib.hasSuffix ".drv" out.darwinConfigurations.studio.config.system.build.toplevel.drvPath;
+      studio-toplevel = let x = builtins.tryEval out.darwinConfigurations.studio.config.system.build.toplevel.drvPath; in x.success && lib.hasSuffix ".drv" x.value;   # a failed assertion is a throw: named red
       # trimmed base module lists: the same toplevel as the full list; a list without nginx fails for a host that sets it
       modlist-same-drv = let d = c: c.config.system.build.toplevel.drvPath; in
         lib.attrNames out.nixosConfigurationsFull == [ "app-2" "web-1" ]
