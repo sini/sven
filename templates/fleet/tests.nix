@@ -194,6 +194,19 @@ let
     hoag-settings-authority = (red "aspect-settings" web1).nginx == { gzip = true; workers = 8; } && (red "aspect-settings" web2).nginx.workers == 4
       && (red "aspect-settings" stage).nginx == { gzip = false; workers = 1; };
     hoag-settings-conflict = hasMsg (with' ({ sven, ... }: { sven.aspects.t2 = { at = sven.host.web-1; aspect-settings = { rank = 2; set.nginx.workers = 9; }; }; })) "aspect-settings: two layers of rank 2 disagree";
+    hoag-ci-strategies = (red "tuning" lb).value == { ports = [ 22 80 443 ]; color = "blue"; accent = "blue"; }
+      && (red "tuning" stage).value.ports == [ 22 ] && map (p: p.rank) (red "tuning" lb).provenance.ports == [ 0 1 2 ];
+    hoag-ci-claim-dedup = red "token-claims" "fleet:main" == { apitoken.sharers = [ "web-1" "web-2" ]; metrics.sharers = [ "web-1" ]; };
+    hoag-ci-lockdown = nixosAt lb [ "environment" "etc" "db/lockdown" "text" ] == [ "web-2" ] && nixosAt stage [ "environment" "etc" "db/lockdown" "text" ] == [ "" ];
+    hoag-ci-route-split = red "secret-claims" "fleet:main" == { api.by = "web-1"; } && red "connect-claims" "fleet:main" == { api.by = "web-1"; };
+    hoag-ci-demand-cascade = lib.sort (a: b: a < b) (map (s: s.id) (lib.filter (s: lib.elem s.kind [ "database" "secret" "connect" ]) r.scopes)) == [
+      "fleet:main/database:audit" "fleet:main/database:audit/connect:audit-url" "fleet:main/database:audit/secret:audit-pw"
+      "fleet:main/database:orders" "fleet:main/database:orders/connect:orders-url" "fleet:main/database:orders/secret:orders-pw"
+      "fleet:main/database:users" "fleet:main/database:users/connect:users-url" "fleet:main/database:users/secret:users-pw" ]
+      && (scope "fleet:main/database:orders").by == [ "web-1" "web-2" ];
+    hoag-ci-visible = out.visibleMotd == { a = "w1"; b = "w2"; w = "w1"; };
+    hoag-ci-suppress-chain = map (a: r.active.${a}.${lb}) [ "sup-a" "sup-b" "sup-c" "sup-d" ] == [ true false true false ];
+    hoag-ci-class-share-per-class = out.classShare ? nixos && !(out.classShare ? homeManager);
     hoag-claims-reverse-read = first (nixosAt lb [ "services" "postgresql" "ensureDatabases" ]) == [ "app_web_1" "app_web_2" ]
       && first (nixosAt stage [ "services" "postgresql" "ensureDatabases" ]) == [ "app_stage" ] && first (nixosAt web1 [ "services" "postgresql" "ensureDatabases" ]) == null
       && first (nixosAt web1 [ "environment" "etc" "app/database-url" "text" ]) == "postgres://10.0.1.1/app_web_1";

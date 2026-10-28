@@ -142,6 +142,7 @@ let
     gap-bad-at = has gaps "`at` holds a string, not a predicate";
     graph-edges = b.elem { sink = "persist"; from = "fleet:main/host:lb"; to = "fleet:main/host:lb"; origin = "aspect motd"; } good.graph.edges;
     deep-1000 = b.length (deep 1000).scopes == 1002;
+    empty-fleet = msgs (sven.eval { }) == [ ] && (sven.eval { }).scopes == [ ] && (sven.eval { }).flake == null;   # den-hoag empty-aspects
     wide-3000 = b.length (wide 3000).scopes == 3001;
   };
 in
