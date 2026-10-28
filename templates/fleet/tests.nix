@@ -325,10 +325,11 @@ let
     checks = {
       lb-toplevel = lib.hasSuffix ".drv" lbCfg.system.build.toplevel.drvPath;
       shared-pkgs-same-drv = let d = c: c.config.system.build.toplevel.drvPath; in
-        out.sharedPkgs == { app-1 = { leader = "app-1"; follower = false; }; app-2 = { leader = "app-1"; follower = true; }; app-3 = { leader = "app-1"; follower = true; }; }
-        && lib.attrNames out.nixosConfigurationsOwnPkgs == [ "app-2" "app-3" ]
-        && lib.all (n: d out.nixosConfigurations.${n} == d out.nixosConfigurationsOwnPkgs.${n}) [ "app-2" "app-3" ]
-        && out.sharedPkgs ? app-4 == false;
+        # every follower: its toplevel on the shared pkgs equals its toplevel on its own pkgs
+        lib.all (n: out.sharedPkgs.${n}.follower) (lib.attrNames out.nixosConfigurationsOwnPkgs)
+        && lib.attrNames out.nixosConfigurationsOwnPkgs == [ "app-2" "app-3" "lb" "lb-minimal" "web-1" "web-2" ]   # lb-minimal: lb's variant inherits sharedPkgs && out.sharedPkgs.lb.leader == "app-1"
+        && lib.all (n: d out.nixosConfigurations.${n} == d out.nixosConfigurationsOwnPkgs.${n}) (lib.attrNames out.nixosConfigurationsOwnPkgs)
+        && !(out.sharedPkgs ? app-4) && !(out.sharedPkgs ? stage);
       clan-built = lbCfg.services.borgbackup.jobs.backup.repo == "borg@10.0.1.1:/srv/lb" && lbCfg.users.users ? svc-a && lbCfg.users.users ? svc-b
         && lbCfg.services.openssh.enable && lbCfg.environment.etc.extra.text == "svc-a"
         && out.nixosConfigurations.web-2.config.environment.etc.autoinclude.text == "web-2"

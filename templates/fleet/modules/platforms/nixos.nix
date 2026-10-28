@@ -5,6 +5,8 @@ let
   inherit (sven.lib.reduce) one;
 in
 {
+  # a host on shared pkgs keeps docs off: the manual, man pages and option help differ when pkgs is shared
+  sven.aspects.shared-pkgs-no-docs = { at = sven.lib.all [ sven.kinds.host (s: s.sharedPkgs) ]; nixos.documentation = { enable = false; nixos.enable = false; man.enable = false; }; };
   sven.kinds.host = {
     fields = sven.kinds.machine.fields;
     spawns = {

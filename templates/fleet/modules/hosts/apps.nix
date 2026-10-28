@@ -8,6 +8,4 @@
     addr = "10.0.9.${lib.removePrefix "app-" n}";
     sharedPkgs = n != "app-4";
   });
-  # docs off: with docs on, a shared pkgs changes the manual, manpage and help derivations (evalmodules-research.md)
-  sven.aspects.lab-no-docs = { at = sven.lib.all [ sven.kinds.host (sven.lib.within sven.environment.lab) ]; nixos.documentation = { enable = false; nixos.enable = false; man.enable = false; }; };
 }

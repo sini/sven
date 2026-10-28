@@ -4,6 +4,7 @@
     "channel": "stable",
     "system": "x86_64-linux",
     "addr": "10.0.1.10",
+    "sharedPkgs": true,
     "settings": { "kernel": { "channel": "latest" } }
   },
   "web-2": {
@@ -11,6 +12,7 @@
     "channel": "stable",
     "system": "x86_64-linux",
     "addr": "10.0.1.11",
+    "sharedPkgs": true,
     "buildHost": "10.0.1.1"
   }
 }
