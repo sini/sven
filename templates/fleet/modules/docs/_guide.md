@@ -119,6 +119,8 @@ An aspect is active only at the scope where `at` holds. It never flows down to c
 
 Static content counts once per receiver. An aspect active at a host and at its users, with the same static `nixos` value, lands once on the host. Content that names the scope (`{ user, ... }:`) lands once per scope.
 
+This rule decides how you write a value for a fleet-wide sink. A static value from many machines arrives once: use it for data that all machines share (a shared vars generator). A function value arrives once per machine: use it for data that each machine owns (a per-machine generator, `{ scope, ... }: …`). See [clan/vars.nix](modules/clan/vars.nix).
+
 Structure can depend on presence: a `spawns` function can ask `sven.lib.holds sven.aspects.role-server s` at the parent ([den/presence-structure.nix](modules/den/presence-structure.nix)).
 
 ## Sinks: where elements go
@@ -149,6 +151,12 @@ sven.kinds.guest.sinks.nixos.nixos = { guest, nixos, ... }: {           # its ow
 ```
 
 A sink that nobody reads is not an error. Nothing happens. A sink with no keys is a wall: `sven.kinds.home.sinks.os = { }` keeps a home's elements away from the host above it.
+
+A sink's `reduce` can be any function `[ { from; value; } ] -> { value; errors; }`. Write your own when the merge order is the point: per-key strategies with provenance ([hoag/ci.nix](modules/hoag/ci.nix)), ranked layers ([hoag/settings.nix](modules/hoag/settings.nix)), dedup of claims, an export store where a member can only write its own scope ([clan/inventory.nix](modules/clan/inventory.nix)). The engine sets `from`. An element cannot say where it comes from, so a scope cannot write for another.
+
+Give errors and warnings as data. An aspect key `errors` adds records to the `errors` query. A sink such as `warnings` (with `reduce.list`) holds messages that do not fail the fleet ([clan/inventory.nix](modules/clan/inventory.nix): a tag that matches no machine).
+
+Do not give a sink the name of a field or an arg. A sink `tags` and a field `tags` read as one arg. In this fleet, clan tags are the field `labels` for that reason.
 
 The `out` sink of the root is the flake. `sven.flake = { out, ... }: out;` gives it.
 
@@ -196,7 +204,7 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | `reduced` | sink, then receiver id, then the value |
 | `flake` | the answer of `sven.flake` |
 
-`sven.lib.graph` is readable inside the fleet. The `docs` aspect makes a mermaid chart from it, and this README uses it too.
+`sven.lib.graph` is readable inside the fleet. Each edge has `sink`, `from`, `to` and `origin` (the aspect that gave the element), so "which aspects reach this host" is a query, not a registry. The diagrams and tables at the end of this README come from `graph`, the kind declarations and sink values ([docs/readme.nix](modules/docs/readme.nix)): the fleet map, the kind tree, sink forwarding, pools, clan instances, vars generators and the deploy order.
 
 ## Patterns in this fleet
 
@@ -229,6 +237,16 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | one sink name on three kinds | sini | [sini/secrets.nix](modules/sini/secrets.nix) |
 | a trust filter on the reader side | sini | [sini/xmsg.nix](modules/sini/xmsg.nix) |
 | devshell, formatter, hooks: sink to sink | sini | [sini/flake.nix](modules/sini/flake.nix) |
+| access by labelled groups: machine grants and gates, SSO-only users | sini | [topology/access.nix](modules/topology/access.nix), [sini/services.nix](modules/sini/services.nix) |
+| an allow-list joined from three fleet pools, with an error for a client that has no address | sini | [sini/services.nix](modules/sini/services.nix) |
+| first node starts the cluster, the others join | sini | [sini/clusters.nix](modules/sini/clusters.nix) |
+| two pools joined by host, in the cluster's environment; a guest's intent read by its parent | sini | [sini/joins.nix](modules/sini/joins.nix) |
+| aspect factories; an aspect checked alone with stand-in args; one DNS edge at most | sini | [sini/joins.nix](modules/sini/joins.nix) |
+| merge strategy per key with provenance and refs; claim dedup; negation; demand cascade; shadowing query; suppression chain | den-hoag CI | [hoag/ci.nix](modules/hoag/ci.nix) |
+| service instances × roles, perInstance and perMachine, layered typed settings, contract errors | clan | [clan/inventory.nix](modules/clan/inventory.nix), [clan/services.nix](modules/clan/services.nix) |
+| exports: scoped by the engine, allow-listed per service, read across services, overridden by the owner | clan | [clan/inventory.nix](modules/clan/inventory.nix), [services/borg.nix](services/borg.nix) |
+| vars: generator graph, shared or per machine, a deploy plan as data, secret-read guard | clan | [clan/vars.nix](modules/clan/vars.nix) |
+| machines from directories, a service from outside `modules/` | clan | [clan/vars.nix](modules/clan/vars.nix), [services/borg.nix](services/borg.nix) |
 | one machine, two builds | swarsel | [swarsel/variants.nix](modules/swarsel/variants.nix) |
 | one machine writes config into another, and fleet globals | swarsel | [swarsel/distributed.nix](modules/swarsel/distributed.nix) |
 | aspects exported as `nixosModules` | swarsel, Den | [swarsel/exports.nix](modules/swarsel/exports.nix) |
@@ -270,6 +288,10 @@ The home reads stage's `monitor` sink like any child. It still builds its own `h
 | permutation-stable output (A12), per-member laziness (A17) | file order never changes a result, and sinks are lazy per receiver | `tests.nix`: `den-permutation-stable`, `den-sibling-laziness` |
 | class-share (A18): the config every member of a class shares is built once, gated against the full build | the core is the elements equal at every host; each host's shared build has the same toplevel `drvPath` as its full build | [hoag/class-share.nix](modules/hoag/class-share.nix) |
 
+The den-hoag CI (175 test files and 57 Den behavior tests) gives 119 capabilities ([vic/hoag-ci-patterns.txt](https://github.com/vic/sven/blob/main/vic/hoag-ci-patterns.txt)): 92 have a check here, 25 are den-hoag mechanisms with no effect for a fleet author (strata, codomain declarations, commitments), and 2 are open design questions. Each den-hoag "discipline" is a reduce function or a plain query in sven ([hoag/ci.nix](modules/hoag/ci.nix)).
+
+sini's fleet ([sini/nix-config](https://github.com/sini/nix-config)) gives 98 patterns ([vic/sini-patterns.md](https://github.com/vic/sven/blob/main/vic/sini-patterns.md)). Every one has a check, except packaging.
+
 sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
 
 Three families of Den bugs cannot happen in sven:
@@ -277,6 +299,23 @@ Three families of Den bugs cannot happen in sven:
 - **Double delivery.** An element has one id per receiver.
 - **Lost content when one aspect is in two files.** A read queries all files. Nothing merges early.
 - **A host's home-manager content leaking to its users.** Elements go up the tree, never down.
+
+## sven and clan
+
+[clan](https://clan.lol) adds service instances, roles, exports and vars on top of NixOS. All its docs, its 31 services and its library give 79 capabilities ([vic/clan-patterns.txt](https://github.com/vic/sven/blob/main/vic/clan-patterns.txt)): 64 have a check here, 6 are clan internals, and 9 are tools (CLI, installers, secret generation). sven covers the configuration, not the tools.
+
+| clan | sven | File |
+|---|---|---|
+| machines with tags (`all`, `nixos`, `darwin` are automatic) | host and mac instances with the field `labels` | [clan/inventory.nix](modules/clan/inventory.nix) |
+| `inventory.instances.<i>`, `module.name` | the data kind `instance`; `module` defaults to the instance name | [clan/inventory.nix](modules/clan/inventory.nix) |
+| role members: named machines and tagged machines | each machine spawns one `member` scope per (instance, role) | [clan/inventory.nix](modules/clan/inventory.nix) |
+| `perInstance` | an aspect at a member scope | [clan/services.nix](modules/clan/services.nix) |
+| `perMachine` | an aspect at a machine that `has` a member | [clan/services.nix](modules/clan/services.nix) |
+| role settings, then machine settings, typed by the role interface | interface defaults, role, machine; a wrong type is an error record | [clan/inventory.nix](modules/clan/inventory.nix) |
+| exports, `selectExports`, scope rules | a fleet sink; the engine sets the writer; a service lists its keys; the owner overrides from the fleet scope | [clan/inventory.nix](modules/clan/inventory.nix) |
+| a service from another flake (`module.input`) | a module file imported as a function with args | [services/borg.nix](services/borg.nix) |
+| vars generators, `share`, dependencies, `neededFor`, `deploy = false`, recipients | the `generators` sink and `out.varsPlan` | [clan/vars.nix](modules/clan/vars.nix) |
+| autoincludes from `machines/<name>/` | a host per directory, its `configuration.nix` imported | [clan/vars.nix](modules/clan/vars.nix) |
 
 ## Generated files and checks
 
@@ -298,6 +337,7 @@ Each aspect declares the flake inputs it uses on the `flake-file` sink. The gene
 | `files/README.md`, `files/ci.json` | the committed files match the fleet |
 | `infra-<host>` | each fact that aspects state from fleet data holds in the built system: the hostname, nginx and port 80 where nginx is active, every persisted directory |
 | `lb-no-gui` | lb's built system has no GUI package |
+| `guard-pod` | an aspect applied alone to stand-in args (a cluster with the flag on) gives the expected manifest, whatever the fleet sets |
 | `web` | a VM test: a client reaches nginx |
 | `pre-commit` | the hooks that aspects give |
 
