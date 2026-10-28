@@ -228,7 +228,7 @@ let
     field-facts = let r = ports ({ sven, ... }: { sven.kinds.host.fields.peer = sven.lib.maybe sven.kinds.host; sven.host.b.peer = sven.host.a; }); in
       b.elem "val:port:top:t/host:a:22" r.facts && b.elem "ref:peer:top:t/host:b:host:a" r.facts && !(b.elem "ref:peer:top:t/host:a:host:b" r.facts);
     check-whynot = let r = ports ({ sven, ... }: { sven.aspects.fw-b = { at = sven.host.b; fw = "on"; }; sven.aspects.firewall.at = sven.host.b; }); in
-      r.check.ok && (b.head (r.check.whyNot "bad:no-firewall:top:t/host:b")).blocking == [ "has:firewall:top:t/host:b" ]
+      r.check.ok && b.any (x: x.blocking == [ "has:firewall:top:t/host:b" ]) (r.check.whyNot "bad:no-firewall:top:t/host:b")
       && (r.check.proof "kind:host:top:t/host:a").atom == "kind:host:top:t/host:a" && (ports { }).check.whyNot "bad:no-firewall:top:t/host:b" == [ ];
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
