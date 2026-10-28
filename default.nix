@@ -400,6 +400,8 @@ let
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
       self = {
         inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent;
+        # every instance's field values, JSON-safe: for history diffs and agents
+        data = mapAttrs (k: _: mapAttrs (n: i: static.jsonSafe (mapAttrs (_: v: if isAttrs v && v ? kind && v ? name then "${v.kind}:${v.name}" else v) (removeAttrs i [ "kind" "name" ]))) instances.${k}) kinds;
         errors = errorsAll;
         flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
         # stored queries: `sven.queries.<name> = { host, r, ... }: …`. `r` is this result; the other formals are the
