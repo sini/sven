@@ -247,6 +247,6 @@ let
   };
 in
 {
-  inherit checks e2e;
+  inherit checks e2e r;
   failed = lib.filter (n: !checks.${n}) (lib.attrNames checks);
 }
