@@ -348,11 +348,33 @@ let
         invariants = attrNames (top.invariants or { });
         queries = [ "errors" "graph" "scopes" "active" "reduced" "undefined" "declaredIn" "facts" "check" "schema" "flake" ];
       };
+      # ── explain: why an aspect is (not) active at a scope, as a three-valued trace of its `at`, cut at a depth ──
+      byId = listToAttrs (map (s: { name = s.id; value = s; }) unsorted);
+      trace = d: p: s: let v = eval3 [ ] p s; node = op: x: { inherit op; value = v; } // x; kids = f: if d == 0 then "cut" else f (d - 1); in
+        if isFunction p then node "function" { }
+        else if isList p then node "any" { kids = kids (d': map (q: trace d' q s) p); }
+        else if p ? __all then node "all" { kids = kids (d': map (q: trace d' q s) p.__all); }
+        else if p ? __not then node "not" { kids = kids (d': [ (trace d' p.__not s) ]); }
+        else if p ? __within then node "within" { kids = kids (d': map (x: { scope = x.id; } // trace d' p.__within x) (above s)); }
+        else if p ? __has then node "has" { kids = kids (d': map (x: { scope = x.id; } // trace d' p.__has x) (byParent.${s.id} or [ ])); }
+        else if p ? __functor then node "function" { }
+        else if p ? __kind then node "kind" { kind = p.__kind; }
+        else if p ? __aspect then node "aspect" { aspect = p.__aspect; kids = kids (d': [ (trace d' (aspects.${p.__aspect}.at or [ ]) s) ]); }
+        else node "instance" { instance = "${p.kind or "?"}:${p.name or "?"}"; };
+      explain = n: id: depth:
+        if !(aspects ? ${n}) then errWith "explain" "no aspect ${n}" { code = "unknown-aspect"; near = near n aspectNames; }
+        else if !(byId ? ${id}) then errWith "explain" "no scope ${id}" { code = "unknown-scope"; near = near id (attrNames byId); }
+        else let s = byId.${id}; v = s.__here.${n}; in {
+          aspect = n; scope = id; active = if v == null then "undefined" else v;
+          at = trace depth (aspects.${n}.at or [ ]) s;
+          gives = map (e: { inherit (e) sink; to = e.to; }) (filter (e: e.origin == "aspect ${n}" && e.from == id) graph.edges);
+          files = declaredIn [ "aspects" n ];
+        };
       errorsAll = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
     in
     {
-      inherit scopes active reduced graph undefined declaredIn check facts schema;
+      inherit scopes active reduced graph undefined declaredIn check facts schema explain;
       errors = errorsAll;
       flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
     };
