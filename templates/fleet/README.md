@@ -319,9 +319,7 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 ```
 
 ## This fleet, live
-
-Generated from the fleet's queries: 73 scopes, 28 kinds, 173 aspects, 779 routed elements.
-
+Generated from the fleet's queries: 74 scopes, 28 kinds, 175 aspects, 781 routed elements.
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
 | `backup` |  |  | `nixos` | 3 |
@@ -332,7 +330,7 @@ Generated from the fleet's queries: 73 scopes, 28 kinds, 173 aspects, 779 routed
 | `domain` | `mail`, `under` | `domain` |  | 3 |
 | `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `idm-users`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
 | `export` |  |  | `os` | 1 |
-| `fleet` | `secretStore` | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `exports`, `flake-file`, `gateway-upstreams`, `generators`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `public-reads`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `warnings`, `xmsg-nodes` | 1 |
+| `fleet` | `recipients`, `secretStore` | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `exports`, `flake-file`, `gateway-upstreams`, `generators`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `public-reads`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `warnings`, `xmsg-nodes` | 1 |
 | `group` | `label`, `members` |  |  | 0 |
 | `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `on`, `passthrough`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |
@@ -341,7 +339,7 @@ Generated from the fleet's queries: 73 scopes, 28 kinds, 173 aspects, 779 routed
 | `instance` | `module`, `roles` |  |  | 0 |
 | `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `member`, `user` | `darwin`, `os` | 1 |
 | `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
-| `member` |  |  |  | 17 |
+| `member` |  |  |  | 18 |
 | `pet` | `of` | `toy` |  | 2 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |
 | `region` | `zone` |  |  | 0 |
@@ -352,162 +350,678 @@ Generated from the fleet's queries: 73 scopes, 28 kinds, 173 aspects, 779 routed
 | `user` | `classes`, `groups`, `phone`, `shell` |  | `account`, `age-secrets`, `both`, `git`, `hmvals`, `homeDarwin`, `homeLinux`, `homeManager`, `maid`, `secrets` | 13 |
 | `variant` | `of` |  | `nixos` | 1 |
 | `vim` | `features`, `theme` |  | `vim` | 2 |
-
 A kind with 0 scopes is data: nothing spawns it.
 
-### Scope tree
+### Fleet map
+Every scope, under its parent. Machines sit in their environment. `[host]` `(mac)` `[[guest]]` `[/home/]` `((user))` `{{member}}`.
 
 ```mermaid
 flowchart LR
-  s6c4c773b["fleet:main"]
-  s16dfc102["database:audit"]
-  s6ab735ce["connect:audit-url"]
-  s5bdb8d65["secret:audit-pw"]
-  se22efb42["database:orders"]
-  s932d75a4["connect:orders-url"]
-  s8b01df51["secret:orders-pw"]
-  sc57390ab["database:users"]
-  s2936f18a["connect:users-url"]
-  s1505b103["secret:users-pw"]
-  s2911e9c4["domain:example.org"]
-  s366cbd5f["domain:api.example.org"]
-  sab02c799["domain:v1.api.example.org"]
-  s4a308930["environment:prod"]
-  s4fab1871["cluster:axon"]
-  sc1312ce7["host:lb"]
-  sf9f17122["backup:nightly"]
-  s701b3a10["host:lb-minimal"]
-  sf9eca2c3["member:backup.client"]
-  sed675275["member:sshd.server"]
-  sc0428e06["user:alice"]
-  s0970bac0["member:backup.client"]
-  s098e9b5b["member:backup.server"]
-  se859c3e1["member:fleet-sshd-for-backup.server"]
-  s0f9a4fe1["member:sshd.server"]
-  s72a16165["member:svc-a.default"]
-  s70b6ad1c["member:svc-b.default"]
-  sa830f4b8["user:alice"]
-  s3459c6cb["variant:debug"]
-  s348d4306["host:web-1"]
-  s4fa72356["backup:nightly"]
-  s12224d54["member:backup.client"]
-  s0a71d135["member:sshd.server"]
-  sc7ac250a["user:alice"]
-  s83e8ed4e["host:web-2"]
-  sb74b34b1["backup:nightly"]
-  s32c7676c["member:backup.client"]
-  sc3a2134b["member:sshd.server"]
-  sc13f188c["user:alice"]
-  s6a423160["environment:staging"]
-  s6d0ac6bd["host:stage"]
-  s6c189246["guest:ci"]
-  saa74234a["user:alice"]
-  scb25ae93["user:bob"]
-  sc323d023["home:alice@stage"]
-  sdcbb6559["user:alice"]
-  s30ba2a2e["member:backup.client"]
-  s6eb5b208["member:sshd.server"]
-  sf2e1c7f9["member:wifi.default"]
-  s9dc85016["pet:fido"]
-  sbb628669["pet:rex"]
-  s6a2516ba["toy:ball"]
-  s266ef398["toy:bone"]
-  sd081aeb7["user:alice"]
-  s22a49c85["user:bob"]
-  s2ed910d1["mac:studio"]
-  sd73deb06["member:banner.default"]
-  s0b7ec9a8["member:sshd.server"]
-  s844bc5de["user:alice"]
-  sc355b316["user:bob"]
-  sde1685e5["phone:pixel"]
-  s5601dfa6["user:alice"]
-  sc26f9795["export:base"]
-  se7af5a76["hive:prod"]
-  s3c61e6cb["hive:staging"]
-  s6b74e236["home:alice-laptop"]
-  s7a797ce6["user:alice"]
-  s977ffe77["replica:r1"]
-  s34ffbb9a["system:aarch64-darwin"]
-  s7b4ccd9b["system:aarch64-linux"]
-  s561d4bec["system:x86_64-linux"]
-  s7502a912["vim:dev"]
-  s5b6ebf2d["vim:min"]
-  s6c4c773b --> s16dfc102
-  s16dfc102 --> s6ab735ce
-  s16dfc102 --> s5bdb8d65
-  s6c4c773b --> se22efb42
-  se22efb42 --> s932d75a4
-  se22efb42 --> s8b01df51
-  s6c4c773b --> sc57390ab
-  sc57390ab --> s2936f18a
-  sc57390ab --> s1505b103
-  s6c4c773b --> s2911e9c4
-  s2911e9c4 --> s366cbd5f
-  s366cbd5f --> sab02c799
-  s6c4c773b --> s4a308930
-  s4a308930 --> s4fab1871
-  s4a308930 --> sc1312ce7
-  sc1312ce7 --> sf9f17122
-  sc1312ce7 --> s701b3a10
-  s701b3a10 --> sf9eca2c3
-  s701b3a10 --> sed675275
-  s701b3a10 --> sc0428e06
-  sc1312ce7 --> s0970bac0
-  sc1312ce7 --> s098e9b5b
-  sc1312ce7 --> se859c3e1
-  sc1312ce7 --> s0f9a4fe1
-  sc1312ce7 --> s72a16165
-  sc1312ce7 --> s70b6ad1c
-  sc1312ce7 --> sa830f4b8
-  sc1312ce7 --> s3459c6cb
-  s4a308930 --> s348d4306
-  s348d4306 --> s4fa72356
-  s348d4306 --> s12224d54
-  s348d4306 --> s0a71d135
-  s348d4306 --> sc7ac250a
-  s4a308930 --> s83e8ed4e
-  s83e8ed4e --> sb74b34b1
-  s83e8ed4e --> s32c7676c
-  s83e8ed4e --> sc3a2134b
-  s83e8ed4e --> sc13f188c
-  s6c4c773b --> s6a423160
-  s6a423160 --> s6d0ac6bd
-  s6d0ac6bd --> s6c189246
-  s6c189246 --> saa74234a
-  s6c189246 --> scb25ae93
-  s6d0ac6bd --> sc323d023
-  sc323d023 --> sdcbb6559
-  s6d0ac6bd --> s30ba2a2e
-  s6d0ac6bd --> s6eb5b208
-  s6d0ac6bd --> sf2e1c7f9
-  s6d0ac6bd --> s9dc85016
-  s6d0ac6bd --> sbb628669
-  sbb628669 --> s6a2516ba
-  sbb628669 --> s266ef398
-  s6d0ac6bd --> sd081aeb7
-  s6d0ac6bd --> s22a49c85
-  s6a423160 --> s2ed910d1
-  s2ed910d1 --> sd73deb06
-  s2ed910d1 --> s0b7ec9a8
-  s2ed910d1 --> s844bc5de
-  s2ed910d1 --> sc355b316
-  s6a423160 --> sde1685e5
-  sde1685e5 --> s5601dfa6
-  s6c4c773b --> sc26f9795
-  s6c4c773b --> se7af5a76
-  s6c4c773b --> s3c61e6cb
-  s6c4c773b --> s6b74e236
-  s6b74e236 --> s7a797ce6
-  s6c4c773b --> s977ffe77
-  s6c4c773b --> s34ffbb9a
-  s6c4c773b --> s7b4ccd9b
-  s6c4c773b --> s561d4bec
-  s561d4bec --> s7502a912
-  s561d4bec --> s5b6ebf2d
+  n6c4c773b6d["main"]
+  n16dfc1029d["audit"]
+  n6ab735ce20["audit-url"]
+  n5bdb8d6538["audit-pw"]
+  ne22efb421e["orders"]
+  n932d75a441["orders-url"]
+  n8b01df51e4["orders-pw"]
+  nc57390ab41["users"]
+  n2936f18ab2["users-url"]
+  n1505b103fa["users-pw"]
+  n2911e9c415["example.org"]
+  n366cbd5f9b["api.example.org"]
+  nab02c799e7["v1.api.example.org"]
+  subgraph n4a308930d1 ["environment prod"]
+    n4fab18710d["axon"]
+    nc1312ce7ae["lb"]
+    n348d430633["web-1"]
+    n83e8ed4efa["web-2"]
+  end
+  nf9f17122b2["nightly"]
+  n701b3a108b["lb-minimal"]
+  nf9eca2c328{{"backup.client"}}
+  ned6752757e{{"sshd.server"}}
+  nc0428e065b(("alice"))
+  n0970bac0a6{{"backup.client"}}
+  n098e9b5bd6{{"backup.server"}}
+  ne859c3e18b{{"fleet-sshd-for-backup.server"}}
+  n0f9a4fe1ad{{"sshd.server"}}
+  n72a161654c{{"svc-a.default"}}
+  n70b6ad1c8a{{"svc-b.default"}}
+  na830f4b8b8(("alice"))
+  n3459c6cb2f["debug"]
+  n4fa72356c7["nightly"]
+  n12224d54f1{{"backup.client"}}
+  nb080ec254e{{"docs.default"}}
+  n0a71d13528{{"sshd.server"}}
+  nc7ac250ac5(("alice"))
+  nb74b34b11d["nightly"]
+  n32c7676c59{{"backup.client"}}
+  nc3a2134b9b{{"sshd.server"}}
+  nc13f188ca9(("alice"))
+  subgraph n6a42316005 ["environment staging"]
+    n6d0ac6bdcf["stage"]
+    n2ed910d1a2("studio")
+    nde1685e50c["pixel"]
+  end
+  n6c18924696[["ci"]]
+  naa74234a68(("alice"))
+  ncb25ae931c(("bob"))
+  nc323d02327[/"alice@stage"/]
+  ndcbb655952(("alice"))
+  n30ba2a2e3b{{"backup.client"}}
+  n6eb5b2084b{{"sshd.server"}}
+  nf2e1c7f95c{{"wifi.default"}}
+  n9dc8501632["fido"]
+  nbb62866910["rex"]
+  n6a2516baaa["ball"]
+  n266ef398d5["bone"]
+  nd081aeb796(("alice"))
+  n22a49c8529(("bob"))
+  nd73deb0696{{"banner.default"}}
+  n0b7ec9a892{{"sshd.server"}}
+  n844bc5dea1(("alice"))
+  nc355b3167e(("bob"))
+  n5601dfa697(("alice"))
+  nc26f97958b["base"]
+  ne7af5a76b3["prod"]
+  n3c61e6cb29["staging"]
+  n6b74e236a9[/"alice-laptop"/]
+  n7a797ce653(("alice"))
+  n977ffe77aa["r1"]
+  n34ffbb9ad1["aarch64-darwin"]
+  n7b4ccd9ba9["aarch64-linux"]
+  n561d4bece3["x86_64-linux"]
+  n7502a9122c["dev"]
+  n5b6ebf2d61["min"]
+  n6c4c773b6d --> n16dfc1029d
+  n16dfc1029d --> n6ab735ce20
+  n16dfc1029d --> n5bdb8d6538
+  n6c4c773b6d --> ne22efb421e
+  ne22efb421e --> n932d75a441
+  ne22efb421e --> n8b01df51e4
+  n6c4c773b6d --> nc57390ab41
+  nc57390ab41 --> n2936f18ab2
+  nc57390ab41 --> n1505b103fa
+  n6c4c773b6d --> n2911e9c415
+  n2911e9c415 --> n366cbd5f9b
+  n366cbd5f9b --> nab02c799e7
+  n6c4c773b6d --> n4a308930d1
+  nc1312ce7ae --> nf9f17122b2
+  nc1312ce7ae --> n701b3a108b
+  n701b3a108b --> nf9eca2c328
+  n701b3a108b --> ned6752757e
+  n701b3a108b --> nc0428e065b
+  nc1312ce7ae --> n0970bac0a6
+  nc1312ce7ae --> n098e9b5bd6
+  nc1312ce7ae --> ne859c3e18b
+  nc1312ce7ae --> n0f9a4fe1ad
+  nc1312ce7ae --> n72a161654c
+  nc1312ce7ae --> n70b6ad1c8a
+  nc1312ce7ae --> na830f4b8b8
+  nc1312ce7ae --> n3459c6cb2f
+  n348d430633 --> n4fa72356c7
+  n348d430633 --> n12224d54f1
+  n348d430633 --> nb080ec254e
+  n348d430633 --> n0a71d13528
+  n348d430633 --> nc7ac250ac5
+  n83e8ed4efa --> nb74b34b11d
+  n83e8ed4efa --> n32c7676c59
+  n83e8ed4efa --> nc3a2134b9b
+  n83e8ed4efa --> nc13f188ca9
+  n6c4c773b6d --> n6a42316005
+  n6d0ac6bdcf --> n6c18924696
+  n6c18924696 --> naa74234a68
+  n6c18924696 --> ncb25ae931c
+  n6d0ac6bdcf --> nc323d02327
+  nc323d02327 --> ndcbb655952
+  n6d0ac6bdcf --> n30ba2a2e3b
+  n6d0ac6bdcf --> n6eb5b2084b
+  n6d0ac6bdcf --> nf2e1c7f95c
+  n6d0ac6bdcf --> n9dc8501632
+  n6d0ac6bdcf --> nbb62866910
+  nbb62866910 --> n6a2516baaa
+  nbb62866910 --> n266ef398d5
+  n6d0ac6bdcf --> nd081aeb796
+  n6d0ac6bdcf --> n22a49c8529
+  n2ed910d1a2 --> nd73deb0696
+  n2ed910d1a2 --> n0b7ec9a892
+  n2ed910d1a2 --> n844bc5dea1
+  n2ed910d1a2 --> nc355b3167e
+  nde1685e50c --> n5601dfa697
+  n6c4c773b6d --> nc26f97958b
+  n6c4c773b6d --> ne7af5a76b3
+  n6c4c773b6d --> n3c61e6cb29
+  n6c4c773b6d --> n6b74e236a9
+  n6b74e236a9 --> n7a797ce653
+  n6c4c773b6d --> n977ffe77aa
+  n6c4c773b6d --> n34ffbb9ad1
+  n6c4c773b6d --> n7b4ccd9ba9
+  n6c4c773b6d --> n561d4bece3
+  n561d4bece3 --> n7502a9122c
+  n561d4bece3 --> n5b6ebf2d61
 ```
 
-### CI jobs (`ci.json`)
+**Kind tree**: solid edges are `spawns`; dotted edges are fields that refer to another kind.
 
+```mermaid
+flowchart LR
+  n7cbc0bc9ca["backup"]
+  n827e34afc1["channel"]
+  nc92432ddea["cluster"]
+  n52f2128ad0["database"]
+  nd04b68e3a1["db"]
+  n250aeb1446["domain"]
+  nba34edff52["environment"]
+  ne09dd078b0["export"]
+  n0d07ea97e1["fleet"]
+  n71187e0c90["group"]
+  n8df93cc983["guest"]
+  nbdd2e394af["hive"]
+  nd265c5f895["home"]
+  n91a43a88c2["host"]
+  n7db9bbfe88["instance"]
+  n25061baf77["mac"]
+  n5e4f590e9f["machine"]
+  nf384c24853["member"]
+  n6bef2d08c6["pet"]
+  n2d3040b89e["phone"]
+  n27cd44a86f["region"]
+  n0cf2d58364["replica"]
+  n8c182f1484["secret"]
+  n0953dd6b11["system"]
+  nd6ba07fb42["toy"]
+  naf777705f2["user"]
+  nb5e23250d3["variant"]
+  ne5b792c758["vim"]
+  nc92432ddea -.->|"environment"| nba34edff52
+  n52f2128ad0 --> n6b201efe64
+  n52f2128ad0 --> n8c182f1484
+  n250aeb1446 --> n250aeb1446
+  nba34edff52 --> nc92432ddea
+  nba34edff52 --> n91a43a88c2
+  nba34edff52 --> n25061baf77
+  nba34edff52 --> n2d3040b89e
+  n0d07ea97e1 --> n52f2128ad0
+  n0d07ea97e1 --> n250aeb1446
+  n0d07ea97e1 --> nba34edff52
+  n0d07ea97e1 --> ne09dd078b0
+  n0d07ea97e1 --> nbdd2e394af
+  n0d07ea97e1 --> nd265c5f895
+  n0d07ea97e1 --> n0cf2d58364
+  n0d07ea97e1 --> n0953dd6b11
+  n8df93cc983 --> naf777705f2
+  n8df93cc983 -.->|"channel"| n827e34afc1
+  n8df93cc983 -.->|"environment"| nba34edff52
+  n8df93cc983 -.->|"on"| n91a43a88c2
+  n8df93cc983 -.->|"system"| n0953dd6b11
+  nbdd2e394af -.->|"environment"| nba34edff52
+  nd265c5f895 --> naf777705f2
+  nd265c5f895 -.->|"channel"| n827e34afc1
+  nd265c5f895 -.->|"system"| n0953dd6b11
+  nd265c5f895 -.->|"user"| naf777705f2
+  n91a43a88c2 --> n7cbc0bc9ca
+  n91a43a88c2 --> n8df93cc983
+  n91a43a88c2 --> nd265c5f895
+  n91a43a88c2 --> n91a43a88c2
+  n91a43a88c2 --> nf384c24853
+  n91a43a88c2 --> n6bef2d08c6
+  n91a43a88c2 --> naf777705f2
+  n91a43a88c2 --> nb5e23250d3
+  n91a43a88c2 -.->|"channel"| n827e34afc1
+  n91a43a88c2 -.->|"environment"| nba34edff52
+  n91a43a88c2 -.->|"system"| n0953dd6b11
+  n25061baf77 --> nf384c24853
+  n25061baf77 --> naf777705f2
+  n25061baf77 -.->|"channel"| n827e34afc1
+  n25061baf77 -.->|"environment"| nba34edff52
+  n25061baf77 -.->|"system"| n0953dd6b11
+  n5e4f590e9f -.->|"channel"| n827e34afc1
+  n5e4f590e9f -.->|"environment"| nba34edff52
+  n5e4f590e9f -.->|"system"| n0953dd6b11
+  n6bef2d08c6 --> nd6ba07fb42
+  n6bef2d08c6 -.->|"of"| n91a43a88c2
+  n2d3040b89e --> naf777705f2
+  n2d3040b89e -.->|"channel"| n827e34afc1
+  n2d3040b89e -.->|"environment"| nba34edff52
+  n2d3040b89e -.->|"system"| n0953dd6b11
+  n0cf2d58364 -.->|"db"| nd04b68e3a1
+  n0cf2d58364 -.->|"region"| n27cd44a86f
+  n0953dd6b11 --> ne5b792c758
+  nd6ba07fb42 -.->|"of"| n6bef2d08c6
+  nb5e23250d3 -.->|"of"| n91a43a88c2
+```
+
+<details><summary>Sinks, pools, clan instances, vars, deploy order (diagrams)</summary>
+
+**Sink forwarding**: a dashed edge is a sink key that feeds another sink (label: the kind). A solid edge is `out`, labelled with the receivers that build an output.
+
+```mermaid
+flowchart LR
+  ncc24ba33bb("account")
+  ne19ee6b5c8("age-secrets")
+  n48d844d4c9("aspect-settings")
+  ne6757dbb0b("backends")
+  n964bca5c67("both")
+  nfa20f4b2b6("certificate-domains")
+  n427fbcd67e("checks")
+  n51433b8bd8("ci")
+  n2aba2b8d3f("class-members")
+  nd71746440e("colmena")
+  n5880016a7a("connect-claims")
+  na4a7496f4e("darwin")
+  n1da7acee50("db-claims")
+  nf9ed027d00("deploy")
+  nfaaefe0c2a("dev")
+  n9e9018bb09("devshell")
+  n2a8ec11140("dns-records")
+  nc960dda0a1("dns-zones")
+  nc319909949("droid")
+  n58d5fbe670("exports")
+  n5d2b151b79("files")
+  n632ce41da4("flake-file")
+  n2e96af1184("fw")
+  neb8b81b71c("fw-tcp")
+  n01947727a6("gateway-upstreams")
+  n0b813f6126("generators")
+  n1707fcb47d("git")
+  n30e5c07625("git-hooks")
+  n5f088b962b("globals")
+  na3e05e4692("hmvals")
+  n6c02586eb3("homeDarwin")
+  nb4d870f4dd("homeLinux")
+  n105bdfb4bb("homeManager")
+  na03b519b92("host-addrs")
+  n3e349132c7("idm-users")
+  n2673d14998("inference-clients")
+  nb1ac840462("infra")
+  nc661e855c6("isNixos")
+  n495c044323("k3s-nodes")
+  n8fdd6c0ff0("k8s-manifests")
+  n7f7e19d1fa("maid")
+  n27f587449e("mesh-peers")
+  n3bdc2ab4f7("meta")
+  nb588cf97f7("monitor")
+  nf2223a351e("monitoring-ingest")
+  na788f0f454("nixos")
+  n9ed1dd6a5f("no-gui")
+  n58609270c8("nodes")
+  na38fcc0344("os")
+  nc03228363e("out")
+  n305e8e949e("overlays")
+  n81a4f97a16("packages")
+  n3bd17f7e2f("pairs")
+  n7c237af34c("peer-dev")
+  n9608c364fa("persist")
+  n24ae98cb28("platform")
+  n70818b36fd("port-forwards")
+  n44ee9b93c9("public-reads")
+  n93bdf79f40("records")
+  nf995268350("replicate-home")
+  n9577e49d40("route-claims")
+  n1170fc1994("scrape")
+  n28498a499e("secret-claims")
+  n7bec19a8d7("secrets")
+  ndbaf8c5740("served-domains")
+  nbc1be661db("service-domains")
+  na57def2dad("syncthing-peers")
+  nf4c1a72ce9("tags")
+  nee15f964db("templates")
+  n2b6100fe44("terraform")
+  ncc06734691("terranix")
+  n7376b1b127("token-claims")
+  nae8f8b3768("treefmt")
+  n3b0a85f662("tuning")
+  n2306021a40("unfree")
+  n635f763452("unifi")
+  nfc2a3dde19("unit-checks")
+  n40ab2ba9bb("user-packages")
+  n54328a6510("vars")
+  n889109ab65("vim")
+  nc1ff286d7d("warnings")
+  ne2b781d168("xmsg-nodes")
+  n4218c12206[("flake outputs")]
+  na788f0f454 -.->|"backup"| na788f0f454
+  ne19ee6b5c8 -.->|"cluster"| n8fdd6c0ff0
+  n8fdd6c0ff0 -->|"axon"| n4218c12206
+  n2b6100fe44 -->|"prod"| n4218c12206
+  ncc06734691 -->|"prod"| n4218c12206
+  n635f763452 -->|"prod"| n4218c12206
+  na38fcc0344 -->|"alice-laptop, alice@stage, base, ci, lb, lb-minimal, +4"| n4218c12206
+  n51433b8bd8 -->|"main"| n4218c12206
+  nd71746440e -->|"main"| n4218c12206
+  n632ce41da4 -->|"main"| n4218c12206
+  n0b813f6126 -->|"main"| n4218c12206
+  nb1ac840462 -->|"main"| n4218c12206
+  n9577e49d40 -.->|"fleet"| n5880016a7a
+  n9577e49d40 -.->|"fleet"| n28498a499e
+  nee15f964db -->|"main"| n4218c12206
+  nfc2a3dde19 -->|"main"| n4218c12206
+  n40ab2ba9bb -->|"main"| n4218c12206
+  n54328a6510 -->|"main"| n4218c12206
+  ne19ee6b5c8 -.->|"guest"| na788f0f454
+  na788f0f454 -.->|"guest"| na788f0f454
+  na38fcc0344 -.->|"guest"| na788f0f454
+  n9608c364fa -.->|"guest"| na788f0f454
+  n2306021a40 -.->|"guest"| na38fcc0344
+  n3bdc2ab4f7 -->|"prod, staging"| n4218c12206
+  n105bdfb4bb -->|"alice, alice-laptop, alice@stage, bob, pixel"| n4218c12206
+  ne19ee6b5c8 -.->|"host"| na788f0f454
+  n2e96af1184 -.->|"host"| neb8b81b71c
+  na788f0f454 -.->|"host"| n2aba2b8d3f
+  na788f0f454 -.->|"host"| nd71746440e
+  na788f0f454 -->|"ci, debug, lb, lb-minimal, nightly, stage, +2"| n4218c12206
+  na38fcc0344 -.->|"host"| na788f0f454
+  n9608c364fa -.->|"host"| na788f0f454
+  n2306021a40 -.->|"host"| na38fcc0344
+  na4a7496f4e -->|"studio"| n4218c12206
+  na38fcc0344 -.->|"mac"| na4a7496f4e
+  nc319909949 -->|"pixel"| n4218c12206
+  n105bdfb4bb -.->|"phone"| nc319909949
+  n427fbcd67e -->|"x86_64-linux"| n4218c12206
+  n9e9018bb09 -->|"aarch64-darwin, aarch64-linux, x86_64-linux"| n4218c12206
+  n5d2b151b79 -->|"x86_64-linux"| n4218c12206
+  n30e5c07625 -.->|"system"| n9e9018bb09
+  n30e5c07625 -->|"aarch64-darwin, aarch64-linux, x86_64-linux"| n4218c12206
+  n9ed1dd6a5f -->|"x86_64-linux"| n4218c12206
+  n81a4f97a16 -->|"aarch64-darwin, aarch64-linux, x86_64-linux"| n4218c12206
+  nae8f8b3768 -->|"aarch64-darwin, aarch64-linux, x86_64-linux"| n4218c12206
+  ncc24ba33bb -.->|"user"| na38fcc0344
+  ne19ee6b5c8 -.->|"user"| n105bdfb4bb
+  n964bca5c67 -.->|"user"| n105bdfb4bb
+  n964bca5c67 -.->|"user"| na38fcc0344
+  n1707fcb47d -.->|"user"| n105bdfb4bb
+  n6c02586eb3 -.->|"user"| n105bdfb4bb
+  nb4d870f4dd -.->|"user"| n105bdfb4bb
+  n105bdfb4bb -.->|"user"| na38fcc0344
+  n7f7e19d1fa -.->|"user"| na38fcc0344
+  n7bec19a8d7 -.->|"user"| n105bdfb4bb
+  na788f0f454 -.->|"variant"| na788f0f454
+  n889109ab65 -->|"dev, min"| n4218c12206
+```
+
+**Pools**: elements routed up from one kind to another, labelled with the sinks.
+
+```mermaid
+flowchart LR
+  nbef6320675["backup"]
+  nd64d1d67a7["cluster"]
+  n9c823beb5d["domain"]
+  nd086c25d77["environment"]
+  n5eff1733fa["export"]
+  n91d5d2cc57["fleet"]
+  n6d97491988[["guest"]]
+  n24c3f6fa44["hive"]
+  n1d6e8fa2a0[/"home"/]
+  n176652715a["host"]
+  n08d6894135("mac")
+  nc1c099a844{{"member"}}
+  nae6071da07["phone"]
+  n9e45cb601f["replica"]
+  n9e30fb7851["system"]
+  n7de19fbcd5["toy"]
+  n98318c51f4(("user"))
+  n19dbbc75e7["variant"]
+  nce49cf1ba2["vim"]
+  nbef6320675 -->|"nixos"| n176652715a
+  nd64d1d67a7 -->|"monitoring-ingest, out"| n91d5d2cc57
+  n9c823beb5d -->|"certificate-domains, dns-records, dns-zones"| n91d5d2cc57
+  nd086c25d77 -->|"out"| n91d5d2cc57
+  n5eff1733fa -->|"out"| n91d5d2cc57
+  n6d97491988 -->|"flake-file, generators, globals, records"| n91d5d2cc57
+  n6d97491988 -->|"nixos"| n176652715a
+  n24c3f6fa44 -->|"out"| n91d5d2cc57
+  n1d6e8fa2a0 -->|"ci, out"| n91d5d2cc57
+  n176652715a -->|"backends, k3s-nodes, mesh-peers, port-forwards"| nd086c25d77
+  n176652715a -->|"ci, class-members, colmena, db-claims, flake-file, gateway-upstreams, generators, globals, host-addrs, inference-clients, infra, nodes, out, public-reads, records, route-claims, served-domains, token-claims, vars"| n91d5d2cc57
+  n08d6894135 -->|"ci, generators, globals, out, public-reads, records"| n91d5d2cc57
+  nc1c099a844 -->|"exports, generators"| n91d5d2cc57
+  nc1c099a844 -->|"nixos, os"| n176652715a
+  nc1c099a844 -->|"os"| n08d6894135
+  nae6071da07 -->|"out"| n91d5d2cc57
+  n9e45cb601f -->|"scrape"| n91d5d2cc57
+  n9e30fb7851 -->|"ci, out"| n91d5d2cc57
+  n7de19fbcd5 -->|"pairs"| n176652715a
+  n98318c51f4 -->|"peer-dev, replicate-home, syncthing-peers, user-packages, xmsg-nodes"| n91d5d2cc57
+  n98318c51f4 -->|"os, persist"| n6d97491988
+  n98318c51f4 -->|"homeManager, os"| n1d6e8fa2a0
+  n98318c51f4 -->|"nixos, os, persist"| n176652715a
+  n98318c51f4 -->|"os"| n08d6894135
+  n98318c51f4 -->|"homeManager"| nae6071da07
+  n19dbbc75e7 -->|"nixos"| n176652715a
+  nce49cf1ba2 -->|"out"| n91d5d2cc57
+```
+
+**Pool sequence**: the same pools as messages.
+
+```mermaid
+sequenceDiagram
+  participant backup
+  participant cluster
+  participant domain
+  participant environment
+  participant export
+  participant fleet
+  participant guest
+  participant hive
+  participant home
+  participant host
+  participant mac
+  participant member
+  participant phone
+  participant replica
+  participant system
+  participant toy
+  participant user
+  participant variant
+  participant vim
+  backup->>host: nixos
+  cluster->>fleet: monitoring-ingest, out
+  domain->>fleet: certificate-domains, dns-records, dns-zones
+  environment->>fleet: out
+  export->>fleet: out
+  guest->>fleet: flake-file, generators, globals, records
+  guest->>host: nixos
+  hive->>fleet: out
+  home->>fleet: ci, out
+  host->>environment: backends, k3s-nodes, mesh-peers, port-forwards
+  host->>fleet: ci, class-members, colmena, db-claims, flake-file, gateway-upstreams, generators, globals, host-addrs, inference-clients, infra, nodes, out, public-reads, records, route-claims, served-domains, token-claims, vars
+  mac->>fleet: ci, generators, globals, out, public-reads, records
+  member->>fleet: exports, generators
+  member->>host: nixos, os
+  member->>mac: os
+  phone->>fleet: out
+  replica->>fleet: scrape
+  system->>fleet: ci, out
+  toy->>host: pairs
+  user->>fleet: peer-dev, replicate-home, syncthing-peers, user-packages, xmsg-nodes
+  user->>guest: os, persist
+  user->>home: homeManager, os
+  user->>host: nixos, os, persist
+  user->>mac: os
+  user->>phone: homeManager
+  variant->>host: nixos
+  vim->>fleet: out
+```
+
+**clan instances**: each instance (its service) to the machines of each role.
+
+```mermaid
+flowchart LR
+  n8124926b70{{"backup (borg)"}}
+  n6bc5679698{{"banner (banner)"}}
+  n68ed50a098{{"docs (site)"}}
+  n7c202b078d{{"fleet-sshd-for-backup (sshd)"}}
+  n3f242defca{{"sshd (sshd)"}}
+  n11f8045e3c{{"svc-a (users)"}}
+  n4748d5f1db{{"svc-b (users)"}}
+  n29bce928a3{{"wifi (wifi)"}}
+  nc1312ce7ae["lb"]
+  n701b3a108b["lb-minimal"]
+  n348d430633["web-1"]
+  n83e8ed4efa["web-2"]
+  n6d0ac6bdcf["stage"]
+  n2ed910d1a2("studio")
+  n8124926b70 -->|"client"| n701b3a108b
+  n3f242defca -->|"server"| n701b3a108b
+  n8124926b70 -->|"client"| nc1312ce7ae
+  n8124926b70 -->|"server"| nc1312ce7ae
+  n7c202b078d -->|"server"| nc1312ce7ae
+  n3f242defca -->|"server"| nc1312ce7ae
+  n11f8045e3c -->|"default"| nc1312ce7ae
+  n4748d5f1db -->|"default"| nc1312ce7ae
+  n8124926b70 -->|"client"| n348d430633
+  n68ed50a098 -->|"default"| n348d430633
+  n3f242defca -->|"server"| n348d430633
+  n8124926b70 -->|"client"| n83e8ed4efa
+  n3f242defca -->|"server"| n83e8ed4efa
+  n8124926b70 -->|"client"| n6d0ac6bdcf
+  n3f242defca -->|"server"| n6d0ac6bdcf
+  n29bce928a3 -->|"default"| n6d0ac6bdcf
+  n6bc5679698 -->|"default"| n2ed910d1a2
+  n3f242defca -->|"server"| n2ed910d1a2
+```
+
+**vars generators**: an edge is a dependency. A hexagon is shared by every machine that uses it.
+
+```mermaid
+flowchart LR
+  nc6bd2b6cfb["borg-backup@lb · lb"]
+  n1c995d288a["borg-backup@lb-minimal · lb-minimal"]
+  nb7d1d194e5["borg-backup@stage · stage"]
+  nb998136565["borg-backup@web-1 · web-1"]
+  nd0e0d1b2da["borg-backup@web-2 · web-2"]
+  ne351d50168["from-exports@web-1 · web-1"]
+  n7e7d3468bc["openssh@lb · lb"]
+  na4fea78605["openssh@lb-minimal · lb-minimal"]
+  n5fc666537c["openssh@stage · stage"]
+  n5ead2d910f["openssh@studio · studio"]
+  n914f0bf04d["openssh@web-1 · web-1"]
+  nb4ef6d445f["openssh@web-2 · web-2"]
+  n232f52aea6{{"wifi.home · stage"}}
+  n7e7d3468bc --> nc6bd2b6cfb
+  na4fea78605 --> n1c995d288a
+  n5fc666537c --> nb7d1d194e5
+  n914f0bf04d --> nb998136565
+  nb4ef6d445f --> nd0e0d1b2da
+```
+
+**Deploy order** (`dependsOn`).
+
+```mermaid
+flowchart LR
+  n93a14523c3["lb"]
+  nd3cab0236d["stage"]
+  n7f6fd922d3["web-1"]
+  nc592a3b713["web-2"]
+  n7f6fd922d3 -->|"before"| nd3cab0236d
+  n93a14523c3 -->|"before"| n7f6fd922d3
+  n93a14523c3 -->|"before"| nc592a3b713
+```
+
+</details>
+
+### Summary
+| Environment | Machines | Users | Clusters |
+|---|---|---|---|
+| `prod` | lb, lb-minimal, web-1, web-2 | 1 | axon |
+| `staging` | ci, stage, studio | 2 |  |
+
+| Machine | Kind | Aspects giving elements | Some aspects |
+|---|---|---|---|
+| `lb` | host | 46 | alloy, attic, base, caddy, ci-host, clan-sshd, +40 |
+| `lb-minimal` | host | 28 | alloy, base, clan-sshd, deploy-record, dev, env-tuning, +22 |
+| `web-1` | host | 46 | alloy, api-route, base, ci-host, clan-sshd, db-claim, +40 |
+| `web-2` | host | 43 | alloy, autoinclude, base, ci-host, clan-sshd, db-claim, +37 |
+| `stage` | host | 51 | alloy, base, ci-host, clan-sshd, db-claim, db-client, +45 |
+| `ci` | guest | 12 | alloy, base, dev, docker, global-pkgs, globals-addr, +6 |
+| `studio` | mac | 11 | base, ci-mac, clan-sshd, dev, dock, global-pkgs, +5 |
+
+| Sink | Given at | Received at | Elements |
+|---|---|---|---|
+| `account` | user | user | 19 |
+| `age-secrets` | host | host | 1 |
+| `aspect-settings` | host | host | 9 |
+| `backends` | host | environment | 3 |
+| `both` | user | user | 2 |
+| `certificate-domains` | domain | fleet | 3 |
+| `checks` | system | system | 1 |
+| `ci` | home, host, mac, system | fleet | 10 |
+| `class-members` | host | fleet | 5 |
+| `colmena` | host | fleet | 5 |
+| `connect-claims` | fleet | fleet | 1 |
+| `darwin` | mac | mac | 3 |
+| `db-claims` | host | fleet | 3 |
+| `deploy` | host | host | 5 |
+| `dev` | host | host | 1 |
+| `devshell` | system | system | 6 |
+| `dns-records` | domain | fleet | 1 |
+| `dns-zones` | domain | fleet | 2 |
+| `droid` | phone | phone | 1 |
+| `exports` | member | fleet | 2 |
+| `files` | system | system | 2 |
+| `flake-file` | fleet, guest, host | fleet | 10 |
+| `fw` | host | host | 2 |
+| `fw-tcp` | host | host | 1 |
+| `gateway-upstreams` | host | fleet | 1 |
+| `generators` | guest, host, mac, member | fleet | 19 |
+| `git` | user | user | 26 |
+| `git-hooks` | system | system | 3 |
+| `globals` | guest, host, mac | fleet | 6 |
+| `hmvals` | user | user | 10 |
+| `homeDarwin` | user | user | 2 |
+| `homeLinux` | user | user | 9 |
+| `homeManager` | user | home, phone, user | 125 |
+| `host-addrs` | host | fleet | 5 |
+| `idm-users` | environment | environment | 2 |
+| `inference-clients` | host | fleet | 1 |
+| `infra` | host | fleet | 7 |
+| `isNixos` | host | host | 5 |
+| `k3s-nodes` | host | environment | 2 |
+| `k8s-manifests` | cluster | cluster | 4 |
+| `maid` | user | user | 4 |
+| `mesh-peers` | host | environment | 4 |
+| `meta` | hive | hive | 2 |
+| `monitor` | host | host | 1 |
+| `monitoring-ingest` | cluster | fleet | 1 |
+| `nixos` | backup, guest, host, member, user, variant | backup, guest, host, variant | 146 |
+| `no-gui` | system | system | 1 |
+| `nodes` | host | fleet | 1 |
+| `os` | export, guest, host, mac, member, user | export, guest, home, host, mac | 93 |
+| `out` | cluster, environment, export, fleet, hive, home, +5 | fleet | 48 |
+| `overlays` | fleet | fleet | 1 |
+| `packages` | system | system | 7 |
+| `pairs` | host, toy | host | 6 |
+| `peer-dev` | user | fleet | 9 |
+| `persist` | guest, host, user | guest, host | 14 |
+| `platform` | host | host | 5 |
+| `port-forwards` | host | environment | 1 |
+| `public-reads` | host, mac | fleet | 6 |
+| `records` | guest, host, mac | fleet | 7 |
+| `replicate-home` | user | fleet | 9 |
+| `route-claims` | host | fleet | 1 |
+| `scrape` | replica | fleet | 1 |
+| `secret-claims` | fleet | fleet | 1 |
+| `secrets` | user | user | 16 |
+| `served-domains` | host | fleet | 2 |
+| `service-domains` | host | host | 2 |
+| `syncthing-peers` | user | fleet | 9 |
+| `tags` | host | host | 3 |
+| `templates` | fleet | fleet | 1 |
+| `terraform` | environment | environment | 1 |
+| `terranix` | environment | environment | 1 |
+| `token-claims` | host | fleet | 2 |
+| `treefmt` | system | system | 3 |
+| `tuning` | host | host | 10 |
+| `unfree` | host | host | 1 |
+| `unifi` | environment | environment | 1 |
+| `unit-checks` | fleet | fleet | 1 |
+| `user-packages` | user | fleet | 9 |
+| `vars` | fleet, host | fleet | 6 |
+| `vim` | vim | vim | 5 |
+| `warnings` | fleet | fleet | 1 |
+| `xmsg-nodes` | user | fleet | 13 |
+
+### CI jobs (`ci.json`)
 | Job | System | Builds |
 |---|---|---|
 | `alice-laptop` | `x86_64-linux` | `homeConfigurations."alice-laptop".activationPackage` |

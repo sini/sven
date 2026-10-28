@@ -88,11 +88,45 @@ let
     edges = lib.concatLists (lib.mapAttrsToList (n: h: map (d: { from = "host:${d.name}"; to = "host:${n}"; label = "before"; }) h.dependsOn) hosts);
   };
 
+  # kind tree: solid = `spawns` (parent kind to child kind), dotted = a field that is a ref to another kind
+  kindTree = {
+    nodes = map (k: { id = "k:${k}"; label = k; kind = "kind"; }) (lib.attrNames sven.kinds);
+    edges = lib.concatLists (lib.mapAttrsToList (k: d: map (c: { from = "k:${k}"; to = "k:${c}"; }) (names (d.spawns or { }))
+      ++ lib.concatLists (lib.mapAttrsToList (f: t: lib.optional (lib.isAttrs t && t ? __kind) { from = "k:${k}"; to = "k:${t.__kind}"; label = f; live = false; }) (d.fields or { }))) sven.kinds);
+  };
+  # pools as a sequence: who sends what to whom
+  sequence = lib.concatStringsSep "\n" ([ "```mermaid" "sequenceDiagram" ]
+    ++ map (k: "  participant ${k}") (sorted (map (e: e.label) pools.nodes))
+    ++ map (e: "  ${lib.removePrefix "kind:" e.from}->>${lib.removePrefix "kind:" e.to}: ${e.label}") pools.edges ++ [ "```" ]);
+
+  # summary tables
+  machineScopes = lib.filter (s: lib.elem s.kind [ "host" "mac" "guest" ]) g.scopes;
+  aspectsAt = s: sorted (map (e: lib.removePrefix "aspect " e.origin) (lib.filter (e: e.from == s.id && lib.hasPrefix "aspect " e.origin) g.edges));   # aspects that gave elements here (projected hasAspect)
+  under = p: k: lib.filter (s: s.kind == k && lib.hasPrefix "${p.id}/" s.id) g.scopes;
+  summary = ''
+    ### Summary
+    | Environment | Machines | Users | Clusters |
+    |---|---|---|---|
+    ${lib.concatMapStringsSep "\n" (e: "| `${e.name}` | ${short (map (s: s.name) (lib.concatMap (under e) [ "host" "mac" "guest" ]))} | ${toString (lib.length (sorted (map (s: s.name) (under e "user"))))} | ${short (map (s: s.name) (under e "cluster"))} |") (lib.filter (s: s.kind == "environment") g.scopes)}
+
+    | Machine | Kind | Aspects giving elements | Some aspects |
+    |---|---|---|---|
+    ${lib.concatMapStringsSep "\n" (s: let as = aspectsAt s; in "| `${s.name}` | ${s.kind} | ${toString (lib.length as)} | ${short as} |") machineScopes}
+
+    | Sink | Given at | Received at | Elements |
+    |---|---|---|---|
+    ${lib.concatMapStringsSep "\n" (k: let es = lib.filter (e: e.sink == k) g.edges; in "| `${k}` | ${short (map (e: kindOf.${e.from}) es)} | ${short (map (e: kindOf.${e.to}) es)} | ${toString (lib.length es)} |") (sorted (map (e: e.sink) g.edges))}
+  '';
+
   diagrams = generators: ''
     ### Fleet map
     Every scope, under its parent. Machines sit in their environment. `[host]` `(mac)` `[[guest]]` `[/home/]` `((user))` `{{member}}`.
 
     ${mermaid fleetMap}
+
+    **Kind tree**: solid edges are `spawns`; dotted edges are fields that refer to another kind.
+
+    ${mermaid kindTree}
 
     <details><summary>Sinks, pools, clan instances, vars, deploy order (diagrams)</summary>
 
@@ -103,6 +137,10 @@ let
     **Pools**: elements routed up from one kind to another, labelled with the sinks.
 
     ${mermaid pools}
+
+    **Pool sequence**: the same pools as messages.
+
+    ${sequence}
 
     **clan instances**: each instance (its service) to the machines of each role.
 
@@ -137,6 +175,7 @@ in
         (builtins.readFile ./_guide.md)
         kinds
         (diagrams generators)
+        summary
         (jobs ci)
       ];
     };
