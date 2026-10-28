@@ -152,8 +152,8 @@ let
     datalog-stratified = let w = D.wfs (choice ++ [ { head = "b"; } ]); in w.true == [ "b" "s" ] && w.undefined == [ ] && w.false == [ "a" "c" "t" "u" ];
     datalog-stable = D.stable choice == [ [ "b" "s" ] [ "a" "c" "s" ] ] && D.stable [ { head = "p"; neg = [ "p" ]; } ] == [ ];
     datalog-why = D.why choice (D.wfs choice) "s" == [ { head = "s"; } ] && D.why choice (D.wfs choice) "t" == [ ];
-    krn-backward = K.runAll (q: K.fresh ({ a, b }: [ (K.appendo a b [ 1 2 ]) (K.eq q [ a b ]) ])) == [ [ [ ] [ 1 2 ] ] [ [ 1 ] [ 2 ] ] [ [ 1 2 ] [ ] ] ]
-      && K.run 1 (q: K.appendo [ 1 ] [ 2 3 ] q) == [ [ 1 2 3 ] ];
+    krn-backward = map (map K.toList) (K.runAll (q: K.fresh ({ a, b }: [ (K.appendo a b (K.fromList [ 1 2 ])) (K.eq q [ a b ]) ]))) == [ [ [ ] [ 1 2 ] ] [ [ 1 ] [ 2 ] ] [ [ 1 2 ] [ ] ] ]
+      && map K.toList (K.run 1 (q: K.appendo (K.fromList [ 1 ]) (K.fromList [ 2 3 ]) q)) == [ [ 1 2 3 ] ];
     krn-unify-records = K.runAll (q: K.fresh ({ x }: [ (K.eq q { addr = x; port = 443; }) (K.membero x [ "10.0.1.1" "10.0.1.2" ]) ]))
       == [ { addr = "10.0.1.1"; port = 443; } { addr = "10.0.1.2"; port = 443; } ]
       && K.runAll (q: K.eq { a = q; } { b = 1; }) == [ ] && K.runAll (q: K.eq [ q 1 ] [ 2 3 ]) == [ ]
@@ -161,7 +161,18 @@ let
     krn-fresh-occurs = K.run 1 (q: K.fresh ({ x }: K.eq q [ x x ])) == [ [ "_.0" "_.0" ] ] && K.run 1 (q: K.eq q [ q ]) == [ ];
     krn-interleave = let fives = x: K.disj [ (K.eq x 5) (fives x) ]; sixes = x: K.disj [ (K.eq x 6) (sixes x) ]; in
       K.run 4 (q: K.disj [ (fives q) (sixes q) ]) == [ 5 6 5 6 ];
-    krn-neq = K.runAll (q: K.fresh ({ a, b }: [ (K.membero a [ "x" "y" ]) (K.membero b [ "x" "y" ]) (K.neq a b) (K.eq q [ a b ]) ])) == [ [ "x" "y" ] [ "y" "x" ] ];
+    krn-cons-unbounded = K.run 3 (q: K.fresh ({ x, y }: [ (K.appendo x y q) ])) == [ "_.0" { head = "_.0"; tail = "_.1"; } { head = "_.0"; tail = { head = "_.1"; tail = "_.2"; }; } ]
+      && K.run 2 (q: K.membero q (K.fromList [ "x" "y" ])) == [ "x" "y" ];
+    krn-neq-store = K.runAll (q: [ (K.neq q 1) (K.membero q [ 1 2 3 ]) ]) == [ 2 3 ]                       # =/= before the value: stored
+      && K.runAll (q: K.fresh ({ a }: [ (K.neq q { p = 1; }) (K.eq q { p = a; }) (K.membero a [ 1 2 ]) ])) == [ { p = 2; } ]
+      && K.runC 1 (q: K.fresh ({ x }: [ (K.neq q x) ])) == [ { value = "_.0"; neq = [ [ [ "_.0" "_.1" ] ] ]; dom = { }; } ]
+      && K.runAll (q: [ (K.neq q 1) (K.eq q 1) ]) == [ ];
+    krn-fd = K.runAll (q: K.fresh ({ x, y }: [ (K.infd [ x y ] 1 4) (K.plusfd x y 5) (K.eq q [ x y ]) (K.label [ x y ]) ])) == [ [ 1 4 ] [ 2 3 ] [ 3 2 ] [ 4 1 ] ]
+      && K.runAll (q: K.fresh ({ a, b, c }: [ (K.infd [ a b c ] 1 3) (K.distinctfd [ a b c ]) (K.ltfd a b) (K.eq q [ a b c ]) (K.label [ a b c ]) ]))
+        == [ [ 2 3 1 ] [ 1 2 3 ] [ 1 3 2 ] ]
+      && K.runC 1 (q: [ (K.infd [ q ] 2 5) (K.neqfd q 3) ]) == [ { value = "_.0"; neq = [ ]; dom = { "_.0" = [ 2 4 5 ]; }; } ]
+      && K.runAll (q: [ (K.infd [ q ] 1 3) (K.lefd 5 q) ]) == [ ];                                          # propagation alone fails it
+    krn-neq =K.runAll (q: K.fresh ({ a, b }: [ (K.membero a [ "x" "y" ]) (K.membero b [ "x" "y" ]) (K.neq a b) (K.eq q [ a b ]) ])) == [ [ "x" "y" ] [ "y" "x" ] ];
     not-cycle-undefined = let r = logic true; h = "top:t/host:h"; in
       map (x: "${x.aspect}@${x.scope}") r.undefined == [ "a@${h}" "b@${h}" "c@${h}" "v@${h}" "w@${h}/user:u" ]   # within and has carry it across scopes
       && !r.active.a.${h} && !r.active.b.${h} && !r.active.c.${h} && msgs r == [ ];
