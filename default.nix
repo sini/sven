@@ -137,14 +137,17 @@ let
         else if p ? __all then concatMap refsOf p.__all else if p ? __not then refsOf p.__not
         else if p ? __within then refsOf p.__within else if p ? __has then refsOf p.__has
         else if p ? __aspect then [ p.__aspect ] else [ ];
-      cyclic = mapAttrs (n: a: any (x: x.key == n) (genericClosure {
+      reach = mapAttrs (n: a: map (x: x.key) (genericClosure {
         startSet = map (r: { key = r; }) (refsOf (a.at or [ ]));
         operator = x: map (r: { key = r; }) (refsOf (aspects.${x.key}.at or [ ]));
       })) aspects;
+      cyclic = mapAttrs (n: rs: elem n rs) reach;
+      tainted = mapAttrs (n: rs: cyclic.${n} || any (r: cyclic.${r}) rs) reach;    # can be undefined: it reaches a cycle
       or3 = vs: if any (v: v == true) vs then true else if any (v: v == null) vs then null else false;
       and3 = vs: if any (v: v == false) vs then false else if any (v: v == null) vs then null else true;
       eval3 = stack: p: s:
-        if isList p then or3 (map (q: eval3 stack q s) p)
+        if isFunction p then p s
+        else if isList p then (if length p == 1 then eval3 stack (head p) s else or3 (map (q: eval3 stack q s) p))   # `at` is always a list (a union over files): one entry is the common case
         else if isAttrs p && p ? __all then and3 (map (q: eval3 stack q s) p.__all)
         else if isAttrs p && p ? __not then (let v = eval3 (map (x: x // { neg = true; }) stack) p.__not s; in if v == null then null else !v)
         else if isAttrs p && p ? __within then or3 (map (eval3 stack p.__within) (above s))
@@ -158,9 +161,11 @@ let
           else eval3 (stack ++ [ { inherit key; neg = false; } ]) (aspects.${q}.at or [ ]) s
         else p ? kind && p ? name && s.kind == p.kind && s.name == p.name;
       here = s: mapAttrs (q: a: eval3 [ { key = "${q}@${s.id}"; neg = false; } ] (a.at or [ ]) s) aspects;
-      holds = p: s: eval3 [ ] p s == true;
-      active = mapAttrs (n: _: listToAttrs (map (s: { name = s.id; value = s.__here.${n} == true; }) unsorted)) aspects;
-      undefined = concatMap (s: map (n: { aspect = n; scope = s.id; }) (filter (n: s.__here.${n} == null) aspectNames)) unsorted;
+      holds = p: s: if isFunction p then p s else if p == [ ] then false else if isList p && length p == 1 && isFunction (head p) then (head p) s else eval3 [ ] p s == true;   # fast paths: most predicates are functions, most sinks have no `at`
+      # an aspect in the ref graph (it reads refs, or something reads it) goes through the memo; the others run directly
+      inRefs = listToAttrs (map (n: { name = n; value = true; }) (concatMap (n: if reach.${n} == [ ] then [ ] else [ n ] ++ reach.${n}) aspectNames));
+      active = mapAttrs (n: a: let at = if inRefs ? ${n} then (s: s.__here.${n} == true) else holds (a.at or [ ]); in listToAttrs (map (s: { name = s.id; value = at s; }) unsorted)) aspects;
+      undefined = concatMap (s: map (n: { aspect = n; scope = s.id; }) (filter (n: s.__here.${n} == null) (filter (n: tainted.${n}) aspectNames))) unsorted;
       atErrors = concatMap (n: map (p: err "aspect ${n}" "`at` holds a ${b.typeOf p}, not a predicate")   # a typo must not read as false
         (filter (p: !(isFunction p || isList p || isAttrs p && (p ? __functor || p ? __kind || p ? __aspect || p ? kind && p ? name))) (toList (aspects.${n}.at or [ ])))) aspectNames;
 
