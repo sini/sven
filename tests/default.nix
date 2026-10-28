@@ -285,5 +285,6 @@ let
 in
 {
   inherit checks logic ports portsBase;
-  failed = b.filter (n: !checks.${n}) (b.attrNames checks);
+  # the lib suites live in their own files; `failed` runs them all
+  failed = b.filter (n: !checks.${n}) (b.attrNames checks) ++ map (n: "datalog/${n}") (import ./datalog.nix).failed ++ map (n: "rdf/${n}") (import ./rdf.nix).failed;
 }
