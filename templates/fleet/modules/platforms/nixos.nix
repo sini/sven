@@ -20,7 +20,9 @@ in
             deploy.nodes.${host.name} = { hostname = deploy.address; sshUser = deploy.user; };
             ageManifest.${host.name} = lib.attrNames sys.config.age.secrets;
           };
-        colmena = { host, nixos, deploy, ... }: { ${host.name} = { imports = nixos; deployment.targetHost = deploy.address; }; };
+        colmena = { host, scope, nixos, deploy, tags, ... }: { # tags: a source; roles: active aspects (hasAspect = holds)
+          ${host.name} = { imports = nixos; deployment = { targetHost = deploy.address; tags = [ host.environment.name ] ++ tags ++ lib.filter (n: sven.lib.holds sven.aspects."role-${n}" scope) [ "server" "workstation" "laptop" ]; }; };
+        };
       };
       os.nixos = { os, ... }: { imports = os; };
       deploy.reduce = one;
