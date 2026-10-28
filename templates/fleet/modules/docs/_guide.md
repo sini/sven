@@ -55,7 +55,11 @@ sven.kinds.host.fields = {
 sven.host.lb = { addr = "10.0.1.1"; environment = sven.environment.prod; };
 ```
 
-A type is anything with `check = value: bool`. `lib.types`, your own `sven.lib.is builtins.isString`, and kinds all work. sven has no type system of its own. `sven.lib.opt type default` and `sven.lib.maybe type` add a default.
+A type is anything with `check = value: bool`. `lib.types`, your own `sven.lib.is builtins.isString`, and kinds all work. sven has no type system of its own. `sven.lib.opt type default` and `sven.lib.maybe type` add a default. `sven.lib.derive type (self: …)` computes the default from the instance itself:
+
+```nix
+sven.kinds.host.fields.vpn = sven.lib.derive lib.types.str (self: "vpn-${self.name}");
+```
 
 Fields are strict. A missing field, an unknown field, a failed check, or a string where a ref goes is an error record. The read gives `null`, and evaluation continues.
 
@@ -107,9 +111,15 @@ sven.aspects.nginx = {
 
 A predicate is a function `scope: bool`. A kind ref, an instance ref, an aspect ref and a list are predicates too. Combine them with `sven.lib.all`, `not`, `within` (a proper ancestor holds) and `has` (a child holds).
 
-`at` from several files is a union. To replace an aspect at one scope, put `not` in its `at` and write your own aspect ([features/motd.nix](modules/features/motd.nix)).
+`at` from several files is a union. To replace an aspect at one scope, put `not` in its `at` and write your own aspect ([features/motd.nix](modules/features/motd.nix)). A value in `at` that is not a predicate (a string, a number) is an error record, not a silent `false`.
+
+One aspect can live in several files. Data under one key merges. Functions under one key each apply: two files that write `nixos = { … }: …` for the same aspect give two elements.
 
 An aspect is active only at the scope where `at` holds. It never flows down to children: a host profile does not reach the host's guests.
+
+Static content counts once per receiver. An aspect active at a host and at its users, with the same static `nixos` value, lands once on the host. Content that names the scope (`{ user, ... }:`) lands once per scope.
+
+Structure can depend on presence: a `spawns` function can ask `sven.lib.holds sven.aspects.role-server s` at the parent ([den/presence-structure.nix](modules/den/presence-structure.nix)).
 
 ## Sinks: where elements go
 
@@ -202,6 +212,14 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | specialisations as a variant kind | Den | [platforms/variants.nix](modules/platforms/variants.nix) |
 | deterministic ids from sorted names | Den | [den/ids.nix](modules/den/ids.nix) |
 | a standalone home that reads its host's data | Den #739 | [den/standalone-home-on-host.nix](modules/den/standalone-home-on-host.nix) |
+| fan-out: every user × every pet (cartesian), toys of each pet (transitive), landing at the host | Den | [den/patterns.nix](modules/den/patterns.nix) |
+| context enrichment: a sink is context (`isNixos`, then `platform`) | Den | [den/patterns.nix](modules/den/patterns.nix) |
+| host-written home content for users who opt in, run in the user's context | Den host-aspects | [den/patterns.nix](modules/den/patterns.nix) |
+| broadcast: the sender tags who receives | Den pipes | [den/patterns.nix](modules/den/patterns.nix) |
+| a pipeline stage between producers and consumers | Den pipes | [den/patterns.nix](modules/den/patterns.nix) |
+| one class into both NixOS and home-manager, and per-user home classes (`classes = [ maid ]`) | Den | [den/patterns.nix](modules/den/patterns.nix), [den/custom-classes.nix](modules/den/custom-classes.nix) |
+| a value that reads its producer's realized config | Den #713 | [den/patterns.nix](modules/den/patterns.nix) |
+| structure from presence: a child scope only where an aspect holds | Den #525 | [den/presence-structure.nix](modules/den/presence-structure.nix) |
 | discovery: k3s nodes per cluster, ingest across environments | sini | [sini/clusters.nix](modules/sini/clusters.nix) |
 | recursive kinds: domains under domains | sini | [sini/domains.nix](modules/sini/domains.nix) |
 | conditional receivers: terranix, unifi | sini | [sini/network.nix](modules/sini/network.nix) |
@@ -234,7 +252,7 @@ The home reads stage's `monitor` sink like any child. It still builds its own `h
 
 ## sven, Den and Den on Gen
 
-[Den](https://github.com/denful/den) has 1,365 CI tests. [den-hoag](https://github.com/sini/den-hoag), Den's next version on the [Gen](https://github.com/sini/gen) libraries, has 18 laws. This fleet shows each of their capabilities with sven's four words. Every row has a check in `tests.nix`.
+[Den](https://github.com/denful/den) has 1,365 CI tests in 289 files. Every one was read for the usage pattern it pins ([vic/den-patterns.md](https://github.com/vic/sven/blob/main/vic/den-patterns.md): 168 patterns). [den-hoag](https://github.com/sini/den-hoag), Den's next version on the [Gen](https://github.com/sini/gen) libraries, has 18 laws. This fleet shows each of their capabilities with sven's four words. Every row has a check in `tests.nix`.
 
 | Den / den-hoag | sven | File |
 |---|---|---|

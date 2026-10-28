@@ -59,7 +59,11 @@ sven.kinds.host.fields = {
 sven.host.lb = { addr = "10.0.1.1"; environment = sven.environment.prod; };
 ```
 
-A type is anything with `check = value: bool`. `lib.types`, your own `sven.lib.is builtins.isString`, and kinds all work. sven has no type system of its own. `sven.lib.opt type default` and `sven.lib.maybe type` add a default.
+A type is anything with `check = value: bool`. `lib.types`, your own `sven.lib.is builtins.isString`, and kinds all work. sven has no type system of its own. `sven.lib.opt type default` and `sven.lib.maybe type` add a default. `sven.lib.derive type (self: …)` computes the default from the instance itself:
+
+```nix
+sven.kinds.host.fields.vpn = sven.lib.derive lib.types.str (self: "vpn-${self.name}");
+```
 
 Fields are strict. A missing field, an unknown field, a failed check, or a string where a ref goes is an error record. The read gives `null`, and evaluation continues.
 
@@ -111,9 +115,15 @@ sven.aspects.nginx = {
 
 A predicate is a function `scope: bool`. A kind ref, an instance ref, an aspect ref and a list are predicates too. Combine them with `sven.lib.all`, `not`, `within` (a proper ancestor holds) and `has` (a child holds).
 
-`at` from several files is a union. To replace an aspect at one scope, put `not` in its `at` and write your own aspect ([features/motd.nix](modules/features/motd.nix)).
+`at` from several files is a union. To replace an aspect at one scope, put `not` in its `at` and write your own aspect ([features/motd.nix](modules/features/motd.nix)). A value in `at` that is not a predicate (a string, a number) is an error record, not a silent `false`.
+
+One aspect can live in several files. Data under one key merges. Functions under one key each apply: two files that write `nixos = { … }: …` for the same aspect give two elements.
 
 An aspect is active only at the scope where `at` holds. It never flows down to children: a host profile does not reach the host's guests.
+
+Static content counts once per receiver. An aspect active at a host and at its users, with the same static `nixos` value, lands once on the host. Content that names the scope (`{ user, ... }:`) lands once per scope.
+
+Structure can depend on presence: a `spawns` function can ask `sven.lib.holds sven.aspects.role-server s` at the parent ([den/presence-structure.nix](modules/den/presence-structure.nix)).
 
 ## Sinks: where elements go
 
@@ -206,6 +216,14 @@ Tree requests: `nearest = <kind>`, `parent = true`, `children = <predicate>`, `s
 | specialisations as a variant kind | Den | [platforms/variants.nix](modules/platforms/variants.nix) |
 | deterministic ids from sorted names | Den | [den/ids.nix](modules/den/ids.nix) |
 | a standalone home that reads its host's data | Den #739 | [den/standalone-home-on-host.nix](modules/den/standalone-home-on-host.nix) |
+| fan-out: every user × every pet (cartesian), toys of each pet (transitive), landing at the host | Den | [den/patterns.nix](modules/den/patterns.nix) |
+| context enrichment: a sink is context (`isNixos`, then `platform`) | Den | [den/patterns.nix](modules/den/patterns.nix) |
+| host-written home content for users who opt in, run in the user's context | Den host-aspects | [den/patterns.nix](modules/den/patterns.nix) |
+| broadcast: the sender tags who receives | Den pipes | [den/patterns.nix](modules/den/patterns.nix) |
+| a pipeline stage between producers and consumers | Den pipes | [den/patterns.nix](modules/den/patterns.nix) |
+| one class into both NixOS and home-manager, and per-user home classes (`classes = [ maid ]`) | Den | [den/patterns.nix](modules/den/patterns.nix), [den/custom-classes.nix](modules/den/custom-classes.nix) |
+| a value that reads its producer's realized config | Den #713 | [den/patterns.nix](modules/den/patterns.nix) |
+| structure from presence: a child scope only where an aspect holds | Den #525 | [den/presence-structure.nix](modules/den/presence-structure.nix) |
 | discovery: k3s nodes per cluster, ingest across environments | sini | [sini/clusters.nix](modules/sini/clusters.nix) |
 | recursive kinds: domains under domains | sini | [sini/domains.nix](modules/sini/domains.nix) |
 | conditional receivers: terranix, unifi | sini | [sini/network.nix](modules/sini/network.nix) |
@@ -238,7 +256,7 @@ The home reads stage's `monitor` sink like any child. It still builds its own `h
 
 ## sven, Den and Den on Gen
 
-[Den](https://github.com/denful/den) has 1,365 CI tests. [den-hoag](https://github.com/sini/den-hoag), Den's next version on the [Gen](https://github.com/sini/gen) libraries, has 18 laws. This fleet shows each of their capabilities with sven's four words. Every row has a check in `tests.nix`.
+[Den](https://github.com/denful/den) has 1,365 CI tests in 289 files. Every one was read for the usage pattern it pins ([vic/den-patterns.md](https://github.com/vic/sven/blob/main/vic/den-patterns.md): 168 patterns). [den-hoag](https://github.com/sini/den-hoag), Den's next version on the [Gen](https://github.com/sini/gen) libraries, has 18 laws. This fleet shows each of their capabilities with sven's four words. Every row has a check in `tests.nix`.
 
 | Den / den-hoag | sven | File |
 |---|---|---|
@@ -301,7 +319,7 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 
 ## This fleet, live
 
-Generated from the fleet's queries: 43 scopes, 23 kinds, 113 aspects, 606 routed elements.
+Generated from the fleet's queries: 47 scopes, 25 kinds, 131 aspects, 682 routed elements.
 
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
@@ -312,20 +330,22 @@ Generated from the fleet's queries: 43 scopes, 23 kinds, 113 aspects, 606 routed
 | `domain` | `mail`, `under` | `domain` |  | 3 |
 | `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
 | `export` |  |  | `os` | 1 |
-| `fleet` |  | `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `colmena`, `db-claims`, `dns-records`, `flake-file`, `globals`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `records`, `replicate-home`, `scrape`, `syncthing-peers`, `templates`, `vars`, `xmsg-nodes` | 1 |
+| `fleet` |  | `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `colmena`, `db-claims`, `dns-records`, `flake-file`, `globals`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `scrape`, `syncthing-peers`, `templates`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
 | `group` | `members` |  |  | 0 |
 | `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `on`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |
 | `home` | `channel`, `on`, `system`, `user` | `user` | `homeManager`, `os` | 2 |
-| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `backup`, `guest`, `home`, `host`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `monitor`, `nixos`, `os`, `persist`, `service-domains`, `tags`, `unfree` | 5 |
+| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `backup`, `guest`, `home`, `host`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `unfree` | 5 |
 | `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `darwin`, `os` | 1 |
 | `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` |  |  | 0 |
+| `pet` | `of` | `toy` |  | 2 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |
 | `region` | `zone` |  |  | 0 |
 | `replica` | `db`, `region` |  |  | 1 |
 | `secret` | `sopsKey` |  |  | 0 |
 | `system` |  | `vim` | `checks`, `devshell`, `files`, `git-hooks`, `no-gui`, `packages`, `treefmt` | 3 |
-| `user` | `groups`, `phone`, `shell` |  | `account`, `age-secrets`, `files`, `git`, `homeDarwin`, `homeLinux`, `homeManager`, `secrets` | 13 |
+| `toy` | `of` |  |  | 2 |
+| `user` | `classes`, `groups`, `phone`, `shell` |  | `account`, `age-secrets`, `both`, `git`, `hmvals`, `homeDarwin`, `homeLinux`, `homeManager`, `maid`, `secrets` | 13 |
 | `variant` | `of` |  | `nixos` | 1 |
 | `vim` | `features`, `theme` |  | `vim` | 2 |
 
@@ -360,6 +380,10 @@ flowchart LR
   scb25ae93["user:bob"]
   sc323d023["home:alice@stage"]
   sdcbb6559["user:alice"]
+  s9dc85016["pet:fido"]
+  sbb628669["pet:rex"]
+  s6a2516ba["toy:ball"]
+  s266ef398["toy:bone"]
   sd081aeb7["user:alice"]
   s22a49c85["user:bob"]
   s2ed910d1["mac:studio"]
@@ -402,6 +426,10 @@ flowchart LR
   s6c189246 --> scb25ae93
   s6d0ac6bd --> sc323d023
   sc323d023 --> sdcbb6559
+  s6d0ac6bd --> s9dc85016
+  s6d0ac6bd --> sbb628669
+  sbb628669 --> s6a2516ba
+  sbb628669 --> s266ef398
   s6d0ac6bd --> sd081aeb7
   s6d0ac6bd --> s22a49c85
   s6a423160 --> s2ed910d1
