@@ -39,6 +39,36 @@
         "type": "github"
       }
     },
+    "files": {
+      "locked": {
+        "lastModified": 1780084175,
+        "narHash": "sha256-hmXRqcp+rWLW8GEYgrBDFHPGziP1R59oQbG+Imji2kE=",
+        "owner": "sini",
+        "repo": "files",
+        "rev": "b79ab01ba5394ddf3c1d0fadafbcc1ccb9536c5f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "sini",
+        "repo": "files",
+        "type": "github"
+      }
+    },
+    "flake-file": {
+      "locked": {
+        "lastModified": 1792905615,
+        "narHash": "sha256-KdGEzlRQPHBbNPD+AChjry8eWEx0TCrGKy1Hkacj+bA=",
+        "owner": "vic",
+        "repo": "flake-file",
+        "rev": "7b08dbc223bb1a758a515aad9653a6bf196bc772",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vic",
+        "repo": "flake-file",
+        "type": "github"
+      }
+    },
     "flake-parts": {
       "inputs": {
         "nixpkgs-lib": [
@@ -502,6 +532,8 @@
       "inputs": {
         "agenix": "agenix",
         "colmena": "colmena",
+        "files": "files",
+        "flake-file": "flake-file",
         "home-manager": "home-manager",
         "home-manager-unstable": "home-manager-unstable",
         "impermanence": "impermanence",

@@ -53,7 +53,7 @@ let
     substitute-web2 = !r.active.motd.${web2} && r.active.motd-short.${web2} && r.active.motd.${web1};
     has-docker = lib.sort (a: b: a < b) (on "docker") == [ stage ci ];
     parent-devices = names (hmAt "${lb}/user:alice" [ "services" "syncthing" "settings" "devices" ])
-      == lib.sort (a: b: a < b) [ "web-1" "web-2" "stage" "ci" "studio" "pixel" "alice-laptop" ];
+      == [ "alice-laptop" "alice@stage" "ci" "lb-minimal" "pixel" "stage" "studio" "web-1" "web-2" ];
     per-system = lib.attrNames out.packages == [ "aarch64-darwin" "aarch64-linux" "x86_64-linux" ] && lib.all (p: p ? hello) (lib.attrValues out.packages);
     overlays-once = lib.length (red "overlays" "fleet:main") == 1;
     persist-stage = lib.sort (a: b: a < b) (red "persist" stage) == [ "/home/alice/.local/state/syncthing" "/home/bob/.local/state/syncthing" "/var/lib/docker" "/var/lib/nginx" ];
@@ -63,11 +63,11 @@ let
     bare-overlay-refused = hasMsg (with' ({ sven, ... }: { sven.aspects.bare = { at = sven.fleet.main; overlays = final: prev: { }; }; })) ".*bare function.*";
     home-darwin-only-studio = lib.attrNames r.reduced.homeDarwin == [ "${studio}/user:alice" "${studio}/user:bob" ];
     tags-stage-web = lib.elem "web" (red "tags" stage);
-    flake-file-inputs = lib.attrNames out.flake-file.inputs == [ "agenix" "microvm" "nixpkgs" ];
+    flake-file-inputs = lib.attrNames (red "flake-file" "fleet:main").inputs == lib.attrNames (import ./flake.nix).inputs; # the generated flake.nix has exactly the declared inputs
     flake-file-conflict = hasMsg (with' ({ sven, ... }: { sven.aspects.agenix2 = { at = sven.fleet.main; flake-file.inputs.agenix.url = "github:other/agenix"; }; })) "merge conflict at inputs.agenix.url";
-    recursive-attrs-deploy = lib.attrNames out.deploy.nodes == [ "lb" "stage" "web-1" "web-2" ];
-    recursive-attrs-colmena = lib.attrNames r.reduced.colmena."fleet:main" == [ "lb" "stage" "web-1" "web-2" ];
-    root-emission = out.flake-file.inputs.nixpkgs.url == "github:nixos/nixpkgs/nixos-25.05";
+    recursive-attrs-deploy = lib.attrNames out.deploy.nodes == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
+    recursive-attrs-colmena = lib.attrNames r.reduced.colmena."fleet:main" == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
+    root-emission = (red "flake-file" "fleet:main").inputs.nixpkgs.url == "github:nixos/nixpkgs/nixos-25.05";
     spawn-pixel-only-alice = lib.filter (s: s.parent != null && s.parent.id == "${S}/phone:pixel") r.scopes != [ ] && map (s: s.name) (lib.filter (s: s.parent != null && s.parent.id == "${S}/phone:pixel") r.scopes) == [ "alice" ];
     spawn-lb-only-alice = map (s: s.name) (lib.filter (s: s.parent != null && s.parent.id == lb && s.kind == "user") r.scopes) == [ "alice" ];
     data-kinds-no-scopes = !(lib.any (s: lib.elem s.kind [ "group" "machine" "channel" "db" "region" ]) r.scopes);
@@ -75,14 +75,14 @@ let
     into-outputs = out ? colmenaHive && out ? ageManifest && out ? packages && out ? terraformConfigurations;
     inventory-json = (scope web1) != null && (scope web2).buildHost == "10.0.1.1";
     inventory-string-ref-refused = hasMsg (with' { sven.host.bad = { environment = "prod"; addr = "x"; }; }) ".*environment wants a environment ref.*";
-    vars = out.vars.shared.ca.files == [ "ca.crt" "ca.key" ] && lib.attrNames out.vars.per-machine == [ "lb" "stage" "web-1" "web-2" ];
-    checks-names = lib.attrNames out.checks.x86_64-linux == [ "lb-no-gui" "pre-commit" "web" ] && !(out.checks.aarch64-linux ? web) && out.checks.aarch64-linux ? pre-commit;
+    vars = out.vars.shared.ca.files == [ "ca.crt" "ca.key" ] && lib.attrNames out.vars.per-machine == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
+    checks-names = lib.attrNames out.checks.x86_64-linux == [ "files/README.md" "files/ci.json" "flake-file" "infra-lb" "infra-stage" "infra-web-1" "infra-web-2" "lb-no-gui" "pre-commit" "web" ] && !(out.checks.aarch64-linux ? web) && out.checks.aarch64-linux ? pre-commit;
     buildhost = (red "deploy" web2).buildHost == "10.0.1.1" && (red "deploy" lb).buildHost == null && red "deploy" ci == null;
-    facter-metal = on "facter" == [ lb web1 web2 stage ];
+    facter-metal = on "facter" == [ lb "${lb}/host:lb-minimal" web1 web2 stage ];
     typed-scrape = red "scrape" "fleet:main" == [ { job = "r1"; target = "eu.eu:9090"; } ];
     typed-scrape-bad = hasMsg (with' ({ sven, ... }: { sven.aspects.bad-scrape = { at = sven.host.lb; scrape.job = 1; }; })) ".*fails `of`.*";
     diamond-nginx-once = lib.length (nixosAt web1 [ "services" "nginx" "enable" ]) == 1 && lib.length (nixosAt stage [ "services" "nginx" "enable" ]) == 1;
-    merge-across-files = r.active.base.${lb} && lib.attrNames (red "records" "fleet:main") == [ "ci" "lb" "stage" "studio" "web-1" "web-2" ];
+    merge-across-files = r.active.base.${lb} && lib.attrNames (red "records" "fleet:main") == [ "ci" "lb" "lb-minimal" "stage" "studio" "web-1" "web-2" ];
     recursive-kinds = scope "fleet:main/domain:example.org/domain:api.example.org/domain:v1.api.example.org" != null;
     twice-on-path = hasMsg (with' ({ sven, ... }: { sven.kinds.fleet.spawns.ring = _: { r = { }; }; sven.kinds.ring.spawns.ring = s: { r = { }; }; })) ".*instance ring:r twice on path.*";
     nearest-bob-ci = (upTo [ "host" "guest" "mac" ] (scope "${ci}/user:bob")).id == ci && (upTo [ "environment" ] (scope "${ci}/user:bob")).name == "staging" && upTo [ "environment" ] (scope "fleet:main") == null;
@@ -96,9 +96,9 @@ let
     terranix-conditional = out ? terranixConfigurations.dns-prod && !(out.terranixConfigurations ? dns-staging);
     unifi-forwards = out.unifiTerranixModules.prod != [ ] && lib.length (red "port-forwards" P) == 1;
     home-linux = r.reduced.homeLinux ? "${lb}/user:alice" && !(r.reduced.homeLinux ? "${studio}/user:alice") && !(r.reduced.homeLinux ? "${laptop}/user:alice");
-    primary-user = on "primary-user" == [ "${lb}/user:alice" ];
+    primary-user = on "primary-user" == [ "${lb}/host:lb-minimal/user:alice" "${lb}/user:alice" ];
     syncthing-hub = on "syncthing-hub" == [ stage ] && names (nixosAt stage [ "services" "syncthing" "settings" "folders" ]) == [ "alice-home" "bob-home" ];
-    syncthing-peers = first (hmAt "${lb}/user:alice" [ "home" "file" ".syncthing-peers" "text" ]) == builtins.toJSON [ "web-1" "web-2" "ci" "stage" ]; # path order: guest:ci sorts before user:alice
+    syncthing-peers = first (hmAt "${lb}/user:alice" [ "home" "file" ".syncthing-peers" "text" ]) == builtins.toJSON [ "lb-minimal" "web-1" "web-2" "ci" "alice@stage" "stage" ]; # scope order: guest:ci and home:alice@stage sort before user:alice
     unpersist-web2 = let d = id: first (nixosAt id [ "environment" "persistence" "/persist" "directories" ]); in !(lib.elem "/var/lib/nginx" (d web2)) && lib.elem "/var/lib/nginx" (d web1) && lib.elem "/var/lib/nginx" (red "persist" web2);
     tags-from-roles = r.reduced.colmena."fleet:main".stage.deployment.tags == [ "staging" "web" "workstation" "laptop" ] && r.reduced.colmena."fleet:main".lb.deployment.tags == [ "prod" "server" ];
     profile-not-guests = r.active.desktop.${stage} && !r.active.desktop.${ci} && r.active.thermald.${stage};
@@ -110,9 +110,32 @@ let
 
     # ── Den ──
     den-specialisation = edge "nixos" "${lb}/variant:debug" lb && nixosAt lb [ "specialisation" "debug" "configuration" "imports" ] != [ ];
-    den-ids = nixosAt lb [ "services" "openssh" "ports" ] == [ [ 2200 ] ] && nixosAt web2 [ "services" "openssh" "ports" ] == [ [ 2203 ] ];
+    den-ids = nixosAt lb [ "services" "openssh" "ports" ] == [ [ 2200 ] ] && nixosAt web2 [ "services" "openssh" "ports" ] == [ [ 2204 ] ];
     den-module-outside = lib.isList (red "nixos" lb) && lib.length (red "nixos" lb) > 10; # moduleOf: a query gives the module list
-    den-nested-groups = lib.length (lib.filter (s: s.kind == "user" && s.name == "alice") r.scopes) == 8;
+    den-nested-groups = lib.length (lib.filter (s: s.kind == "user" && s.name == "alice") r.scopes) == 10;
+    den-739-home-on-host = edge "homeManager" "${stage}/home:alice@stage/user:alice" "${stage}/home:alice@stage"
+      && hmAt "${stage}/home:alice@stage" [ "home" "sessionVariables" "MONITORRES" ] == [ "2560x1440" ]
+      && hmAt "${stage}/user:alice" [ "home" "sessionVariables" "MONITORRES" ] == [ ];
+    den-739-not-in-host-hm = !(edge "os" "${stage}/home:alice@stage/user:alice" stage);
+
+    # ── swarsel ──
+    swarsel-variant = scope "${lb}/host:lb-minimal" != null && !r.active.haproxy."${lb}/host:lb-minimal" && out.nixosConfigurations ? lb-minimal;
+    swarsel-nodes = let xs = id: map (m: m.networking.extraHosts or null) (lib.concatLists (nixosAt id [ "imports" ])); in lib.elem "10.0.1.1 lb.internal" (xs web1) && !(lib.elem "10.0.1.1 lb.internal" (xs stage));
+    swarsel-globals = (first (nixosAt lb [ "networking" "hosts" ])).${"10.0.1.10"} == [ "web-1.fleet" ];
+    swarsel-export = lib.length out.nixosModules.base.imports == 2;
+
+    # ── sini mesh, adda, vix ──
+    sini-mesh-peers = map (p: p.endpoint) (first (nixosAt web1 [ "networking" "wireguard" "interfaces" "mesh" "peers" ])) == [ "10.0.1.1:51820" "10.0.1.11:51820" ];
+    sini-nix-builders = first (nixosAt lb [ "nix" "buildMachines" ]) == [ { hostName = "10.0.1.10"; system = "x86_64-linux"; } ] && first (nixosAt web1 [ "nix" "buildMachines" ]) == [ ];
+    adda-caddy = names (nixosAt lb [ "services" "caddy" "virtualHosts" ]) == [ "grafana.example.org" "status.example.org" ];
+    adda-templates = out.templates.default.description == "A sven fleet";
+    vix-vim-features = red "vim" "${"fleet:main/system:x86_64-linux"}/vim:dev" == [ "vim.o.number = true" "require('gitsigns').setup()" "vim.lsp.enable('nixd')" "vim.cmd.colorscheme('tokyonight')" ]
+      && red "vim" "fleet:main/system:x86_64-linux/vim:min" == [ "vim.o.number = true" ] && out.packages.x86_64-linux ? vim-dev;
+    vix-secrets = map (s: s.name) (red "secrets" "${stage}/user:bob") == [ "gh-token" "gpg-key" ] && map (s: s.name) (red "secrets" "${lb}/user:alice") == [ "gh-token" ];
+
+    # ── checks derived from the infra ──
+    ci-matrix = map (j: j.name) out.ci.matrix == [ "alice-laptop" "alice@stage" "devshell-aarch64-darwin" "devshell-aarch64-linux" "devshell-x86_64-linux" "lb" "stage" "studio" "web-1" "web-2" ];
+    infra-facts = lib.attrNames (red "infra" "fleet:main").lb == [ "hostname" "persist /home/alice/.local/state/syncthing" ] && lib.attrNames (red "infra" "fleet:main").web-1 == [ "hostname" "nginx" "persist /home/alice/.local/state/syncthing" "persist /var/lib/nginx" "port80" ];
   };
 
   e2e = rec {
@@ -130,6 +153,11 @@ let
       lb-no-gui-firefox-fails = lib.hasInfix "exit 1" (with' ({ pkgs ? null, ... }: { sven.aspects.firefox = { at = { kind = "host"; name = "lb"; }; nixos = { pkgs, ... }: { environment.systemPackages = [ pkgs.firefox ]; }; }; })).flake.checks.x86_64-linux.lb-no-gui.drvAttrs.buildCommand;
       studio-darwin = let c = out.darwinConfigurations.studio.config; in c.system.defaults.dock.autohide && c.networking.hostName == "studio" && c.home-manager.users.bob.programs.aerospace.enable;
       home-edge = let c = out.homeConfigurations.alice-laptop.config; in c.programs.git.enable && !c.services.ssh-agent.enable && c.home.username == "alice";
+      den-739-standalone-home = out.homeConfigurations."alice@stage".config.home.sessionVariables.MONITORRES == "2560x1440";
+      infra-lb-passes = out.checks.x86_64-linux.infra-lb.drvAttrs.buildCommand == "touch $out";
+      infra-lb-drift-fails = lib.hasInfix "networking.hostName" (with' { sven.aspects.drift = { at = { kind = "host"; name = "lb"; }; nixos = { lib, ... }: { networking.hostName = lib.mkForce "drifted"; }; }; }).flake.checks.x86_64-linux.infra-lb.drvAttrs.buildCommand;
+      lb-minimal-built = lib.hasSuffix ".drv" out.nixosConfigurations.lb-minimal.config.system.build.toplevel.drvPath && !out.nixosConfigurations.lb-minimal.config.services.haproxy.enable;
+      export-module = (inputs.nixpkgs.lib.nixosSystem { system = "x86_64-linux"; modules = [ out.nixosModules.base { boot.loader.grub.device = "nodev"; fileSystems."/".device = "x"; system.stateVersion = "25.05"; } ]; }).config.environment.etc.motd.text == "managed by sven";
     };
     failed = lib.filter (n: !checks.${n}) (lib.attrNames checks);
   };

@@ -24,6 +24,6 @@ in
       inputs.nixpkgs.legacyPackages.${system.name}.runCommand "${h}-no-gui" { } (if hit == [ ] then "touch $out" else "echo 'gui on ${h}: ${toString hit}'; exit 1");
     mermaid = g: let n = id: "s${builtins.hashString "md5" id}[\"${id}\"]"; in
       lib.concatLines ([ "flowchart TD" ] ++ map (s: "  ${n s.id}") g.scopes ++ map (e: "  ${n e.from} -->|${e.sink}| ${n e.to}") (lib.filter (e: e.from != e.to) g.edges));
-    ids = lib.listToAttrs (lib.imap0 (i: n: lib.nameValuePair n i) (lib.attrNames sven.host)); # deterministic: sorted names
+    ids = lib.listToAttrs (lib.imap0 (i: n: lib.nameValuePair n i) (lib.sort (a: b: a < b) (map (s: s.name) (lib.filter (s: s.kind == "host") sven.lib.graph.scopes)))); # deterministic: sorted host scope names
   };
 }

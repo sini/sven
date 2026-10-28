@@ -1,7 +1,7 @@
 # Users and standalone homes. A user's homeManager goes to its machine's os, or up to a phone or home.
 { sven, lib, ... }:
 let
-  inherit (sven.lib) within opt;
+  inherit (sven.lib) within opt all not;
   inherit (sven.helpers) machines pkgsOf flatten listOf;
 in
 {
@@ -15,7 +15,7 @@ in
   sven.kinds.user = {
     fields = { groups = listOf sven.kinds.group; phone = opt lib.types.bool false; };
     sinks = {
-      homeManager = { at = within machines; os = { user, homeManager, ... }: { home-manager.users.${user.name}.imports = homeManager; }; };
+      homeManager = { at = all [ (within machines) (not (within sven.kinds.home)) ]; os = { user, homeManager, ... }: { home-manager.users.${user.name}.imports = homeManager; }; };
       homeDarwin = { at = within sven.kinds.mac; homeManager = { homeDarwin, ... }: { imports = homeDarwin; }; };
       account = { at = within machines; os = { user, account, ... }: { pkgs, ... }@a: { users.users.${user.name} = flatten a account; }; };
     };

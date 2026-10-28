@@ -8,12 +8,11 @@ in
     spawns = {
       environment = _: sven.environment;
       system = _: sven.system;
-      home = _: sven.home;
+      home = _: lib.filterAttrs (_: h: h.on == null) sven.home; # homes on a host live under it (den#739)
       replica = _: lib.filterAttrs (_: r: r.db.zone == r.region.zone) sven.replica; # a relation kind: only matching pairs
     };
     sinks = {
       out.reduce = merge;
-      flake-file = { reduce = merge; out = { flake-file, ... }: { inherit flake-file; }; };
       vars = { reduce = merge; out = { vars, ... }: { inherit vars; }; };
       colmena = {
         reduce = merge;

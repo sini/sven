@@ -5,6 +5,8 @@
       flake = false;
     };
     import-tree.url = "github:denful/import-tree";
+    files.url = "github:sini/files";
+    flake-file.url = "github:vic/flake-file";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     home-manager = {
