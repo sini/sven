@@ -248,6 +248,18 @@ let
     clan-cross-service-exports = out.cnames == [ { name = "docs.example.org"; target = "web-1"; } ];
     clan-vars-deploy-false = !lib.any (f: f.file == "ca-key") out.varsPlan.stage.files && lib.any (f: f.file == "password") out.varsPlan.stage.files;
     clan-recipients = out.varsPlan.lb.recipients == [ "age1lb" "age1admin" ] && out.varsPlan.web-1.recipients == [ "age1admin" ];
+    graphs-impact = out.impact == { lb = [ "stage" "web-1" "web-2" ]; stage = [ ]; web-1 = [ "stage" ]; web-2 = [ ]; }
+      && hasMsg (with' ({ sven, ... }: { sven.host.lb.dependsOn = [ sven.host.stage ]; })) "deploy: hosts depend on each other in a cycle: lb -> stage -> web-1";
+    datalog-serving = let etc = r: f: lib.filter (v: v != null) (map (m: m.environment.etc.${f}.text or null) (list (r.reduced.nixos.${lb} or null))); in
+      etc r "lb/serving" == [ "stage web-1 web-2" ] && etc r "db/primary" == [ "lb" ]
+      && etc (with' ({ ... }: { sven.host.web-2.maintenance = true; })) "lb/serving" == [ "stage web-1" ]
+      && etc (with' ({ ... }: { sven.host.web-1.maintenance = true; })) "lb/serving" == [ "web-2" ]   # stage depends on web-1: drained too
+      && lib.hasInfix "web:web-1" (lib.head (etc r "lb/why-web-1"));
+    krn-ports = let p = builtins.fromJSON (lib.head (lib.filter (v: v != null) (map (m: m.environment.etc."apps/ports".text or null) (list (red "nixos" lb))))); in
+      p == { grafana = 8080; loki = 8081; prometheus = 8082; } && lib.length (lib.unique (lib.attrValues p)) == 3
+      && hasMsg (with' ({ ... }: { sven.host.stage = { apps = [ "a" "b" ]; portRange = [ 9000 ]; }; })) ".*no allocation for stage: 2 apps, ports 9000.*";
+    krn-placement = out.dbPlacement == { lb = [ "lb" ]; stage = [ "stage" ]; web-1 = [ "lb" ]; web-2 = [ "lb" ]; }
+      && lib.sort (a: b: a < b) out.takes8081 == [ "grafana" "loki" "prometheus" ];
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };

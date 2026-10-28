@@ -68,6 +68,10 @@ rec {
     ns = b.attrNames (b.functionArgs f);
     vs = b.listToAttrs (b.genList (i: { name = b.elemAt ns i; value = var (st.c + i); }) (b.length ns));
   in goal (f vs) (st // { c = st.c + b.length ns; });
+  # freshNamed [ "grafana" "loki" ] (vs: goals): variables named by data, as an attrset
+  freshNamed = names: f: st: let
+    vs = b.listToAttrs (b.genList (i: { name = b.elemAt names i; value = var (st.c + i); }) (b.length names));
+  in goal (f vs) (st // { c = st.c + b.length names; });
   # read a term's current value to build a goal (non-relational: use it on terms that earlier goals ground)
   project = x: f: st: goal (f (walkStar st.s x)) st;
   # x differs from y: decided once both are ground (no constraint store), so place it after the goals that ground them
