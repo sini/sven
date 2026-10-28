@@ -41,7 +41,7 @@ in
         sven has no batteries and no vocabulary. It does not know what a host, a user or NixOS is. You name your own nouns,
         so it configures NixOS, nix-darwin, home-manager, clusters, terraform or anything else you can model as Nix values.
 
-        ${link "Documentation" "/"} · ${link "Getting started" "/start/getting-started/"} · [Reference fleet](https://github.com/vic/sven/tree/main/templates/fleet) · [Sponsor vic](https://dendritic.oeiuwq.com/sponsor)
+        ${link "Documentation" "/"} · ${link "Getting started" "/start/getting-started/"} · [Reference fully-featured fleet](https://github.com/vic/sven/tree/main/templates/fleet) · [vic/vix on sven](https://github.com/vic/vix/tree/svn) · [Sponsor vic](https://dendritic.oeiuwq.com/sponsor)
 
         ## Four words
 

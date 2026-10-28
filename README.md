@@ -9,7 +9,7 @@ the errors, the graph of who gives what to whom, and whether your rules hold acr
 sven has no batteries and no vocabulary. It does not know what a host, a user or NixOS is. You name your own nouns,
 so it configures NixOS, nix-darwin, home-manager, clusters, terraform or anything else you can model as Nix values.
 
-[Documentation](https://sven.oeiuwq.com/) · [Getting started](https://sven.oeiuwq.com/start/getting-started/) · [Reference fleet](https://github.com/vic/sven/tree/main/templates/fleet) · [Sponsor vic](https://dendritic.oeiuwq.com/sponsor)
+[Documentation](https://sven.oeiuwq.com/) · [Getting started](https://sven.oeiuwq.com/start/getting-started/) · [Reference fully-featured fleet](https://github.com/vic/sven/tree/main/templates/fleet) · [vic/vix on sven](https://github.com/vic/vix/tree/svn) · [Sponsor vic](https://dendritic.oeiuwq.com/sponsor)
 
 ## Four words
 
