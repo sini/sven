@@ -36,6 +36,50 @@ rec {
   # the rules that make an atom true in a model (one step of provenance)
   why = rules: model: atom: let t = set model.true; f = set model.false; in
     b.filter (r: r.head == atom && b.all (p: t ? ${p}) (r.pos or [ ]) && b.all (n: f ? ${n}) (r.neg or [ ])) rules;
+  # proof tree of a true atom: its first supporting rule, recursively; a positive-support revisit is { cycle = true; };
+  # a non-true atom is { status = "false" | "undefined"; }
+  proof = rules: model: atom:
+    let
+      f = set model.false;
+      go = seen: a:
+        if !b.elem a model.true then { atom = a; status = if f ? ${a} then "false" else "undefined"; }
+        else if b.elem a seen then { atom = a; cycle = true; }
+        else
+          let rs = why rules model a; in
+          if rs == [ ] then { atom = a; rule = null; pos = [ ]; neg = [ ]; }
+          else let r = b.head rs; in { atom = a; rule = r; pos = map (go (seen ++ [ a ])) (r.pos or [ ]); neg = r.neg or [ ]; };
+    in go [ ] atom;
+  # why an atom is not true: per rule with that head, the body atoms that stop it firing
+  whyNot = rules: model: atom:
+    let
+      t = set model.true;
+      u = set model.undefined;
+      rs = b.filter (r: r.head == atom) rules;
+    in
+    if t ? ${atom} then [ ]
+    else if rs == [ ] then [ { rule = null; reason = "no rule has this head"; } ]
+    else map (r: {
+      rule = r;
+      missing = b.filter (p: !(t ? ${p})) (r.pos or [ ]);
+      blocking = b.filter (n: t ? ${n}) (r.neg or [ ]);
+      undefinedBody = b.filter (x: u ? ${x}) ((r.pos or [ ]) ++ (r.neg or [ ]));
+    }) rs;
+  # verdict on a pair of atoms (atomPos for, atomNeg against) in the well-founded model:
+  #   "supported" atomPos true, atomNeg not true    "refuted" atomNeg true, atomPos not true
+  #   "both"      both true                          "unknown" otherwise, if either is undefined
+  #   "neither"   both false
+  judge = rules: atomPos: atomNeg:
+    let
+      w = wfs rules;
+      p = w.holds atomPos;
+      n = w.holds atomNeg;
+      und = a: b.elem a w.undefined;
+    in
+    if p && n then "both"
+    else if p then "supported"
+    else if n then "refuted"
+    else if und atomPos || und atomNeg then "unknown"
+    else "neither";
   # facts: atoms with no body
   facts = map (a: { head = a; });
 }

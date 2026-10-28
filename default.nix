@@ -55,6 +55,7 @@ let
     derive = t: f: t // { defaultFrom = f; };                         # a default computed from the instance itself (Den schema defaults)
     maybe = t: { check = v: v == null || checkOf t v; default = null; };
     graphs = import ./lib/graphs.nix;     # reach, transpose, topo, layers, sccs, cycles, paths, shortest over succ attrsets
+    rdf = import ./lib/rdf.nix;           # triples, ntriples, share: an eval result as sorted N-Triples with a content hash
     datalog = import ./lib/datalog.nix;   # ground rules with negation: wfs (three values), stable, why
     # JSON-safe: functions and derivations become strings; toJSON then never fails
     jsonSafe = v: if b.isFunction v then "<function>" else if b.isPath v then toString v else if b.isList v then map static.jsonSafe v
