@@ -140,7 +140,31 @@ let
   dag = { app = [ "db" "cache" ]; cache = [ "net" ]; db = [ "net" ]; net = [ ]; };
   choice = [ { head = "a"; neg = [ "b" ]; } { head = "b"; neg = [ "a" ]; } { head = "c"; pos = [ "a" ]; } { head = "s"; } { head = "t"; pos = [ "u" ]; } ];
 
+  # agent surface fixtures
+  ports = extra: sven.eval ({ sven, ... }: {
+    imports = [ extra ];
+    sven.kinds.top.spawns.host = _: sven.host;
+    sven.kinds.host = { fields.port = { check = p: b.isInt p && p < 65536; name = "Port"; }; sinks.fw = { }; };
+    sven.top.t = { };
+    sven.host = { a.port = 22; b.port = 80; };
+    sven.aspects.firewall = { at = sven.host.a; fw = "on"; };
+    sven.invariants.fw = { scopes, ... }: map (s: { head = "bad:no-firewall:${s.id}"; pos = [ "kind:host:${s.id}" ]; neg = [ "has:firewall:${s.id}" ]; }) scopes;
+  });
+  rec1 = r: code: b.head (b.filter (e: e.code == code) r.errors);
+
   checks = {
+    errors-v2-check = let e = rec1 (ports { sven.host.c.port = 70000; }) "check"; in
+      e.want == "Port" && e.path == [ "port" ] && e.got == 70000 && e.class == "fixable" && e.from == "host:c" && e.error == "port fails its check";
+    errors-v2-near = (rec1 (ports { sven.host.b.prot = 1; }) "unknown-field").near == [ "port" ]
+      && (rec1 (ports { sven.host.b.zzzzzz = 1; }) "unknown-field").near == [ ];
+    errors-v2-two-answers = let e = rec1 (ports { sven.host.a.port = 23; }) "two-answers"; in e.path == [ "host" "a" "port" ] && e.got == 2;
+    declared-in = let r = ports { sven.aspects.firewall.nixos = { }; }; in
+      b.length (r.declaredIn [ "aspects" "firewall" ]) == 2 && r.declaredIn [ "aspects" "nope" ] == [ ];
+    invariants-check = let r = ports { }; in r.check.violations == [ "bad:no-firewall:top:t/host:b" ] && r.check.incomplete == [ ] && !r.check.ok
+      && (ports ({ sven, ... }: { sven.aspects.fw-b = { at = sven.host.b; fw = "on"; }; sven.aspects.firewall.at = sven.host.b; })).check.ok;
+    invariants-incomplete = let r = ports { sven.invariants.loop = [ { head = "bad:loop"; neg = [ "ok:loop" ]; } { head = "ok:loop"; neg = [ "bad:loop" ]; } ]; }; in
+      r.check.incomplete == [ "bad:loop" ] && !b.elem "bad:loop" r.check.violations && !r.check.ok;
+    invariants-why = (b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
       && (G.topo ring).ok == false && (G.topo ring).stuck == [ "a" "b" "c" "d" ];
