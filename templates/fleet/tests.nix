@@ -338,6 +338,17 @@ let
     lbCfg = out.nixosConfigurations.lb.config;
     checks = {
       lb-toplevel = lib.hasSuffix ".drv" lbCfg.system.build.toplevel.drvPath;
+      # trimmed base module lists: the same toplevel as the full list; a list without nginx fails for a host that sets it
+      modlist-same-drv = let d = c: c.config.system.build.toplevel.drvPath; in
+        lib.attrNames out.nixosConfigurationsFull == [ "app-2" "web-1" ]
+        && lib.all (n: d out.nixosConfigurations.${n} == d out.nixosConfigurationsFull.${n}) [ "app-2" "web-1" ];
+      modlist-negative = let
+        np = inputs.nixpkgs;
+        all = import "${np}/nixos/modules/module-list.nix";
+        keep = lib.genAttrs (map (p: builtins.unsafeDiscardStringContext "${np}/nixos/modules/${p}") (import ./modules/platforms/_modlists.nix).checked.web-1) (_: true);
+        pick = dropNginx: lib.filter (p: !(builtins.isPath p) || (keep ? ${builtins.unsafeDiscardStringContext (toString p)} && !(dropNginx && lib.hasInfix "web-servers/nginx/default.nix" (toString p)))) all;
+        sys = dropNginx: np.lib.nixosSystem { system = "x86_64-linux"; baseModules = pick dropNginx; modules = list (red "nixos" web1); };
+      in !(builtins.tryEval (sys true).config.system.build.toplevel.drvPath).success && (builtins.tryEval (sys false).config.system.build.toplevel.drvPath).success;   # the same list with nginx builds
       shared-pkgs-same-drv = let d = c: c.config.system.build.toplevel.drvPath; in
         # every follower: its toplevel on the shared pkgs equals its toplevel on its own pkgs
         lib.all (n: out.sharedPkgs.${n}.follower) (lib.attrNames out.nixosConfigurationsOwnPkgs)
