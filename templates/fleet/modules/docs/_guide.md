@@ -293,6 +293,21 @@ sven.lib.stage { base = fleet; change = { sven.aspects.attic.at = [ { kind = "ma
 
 **Knowledge packs.** `sven.lib.rdf.share r` gives the eval result as sorted N-Triples with a sha256 and a count: scopes, kinds, parents, active aspects, every routed element as a node with its origin, and errors. The same fleet gives the same hash in every file order, so two revisions compare by hash first. [agent/rdf.nix](modules/agent/rdf.nix) packs the routing graph as `out.rdfPack`.
 
+**Stored queries.** `sven.queries.<name> = { host, r }: …` names a question. `r` is the eval result; the other formal args are its parameters, required unless they have a default. `r.queries` lists them with `required` and `optional`, and `r.ask name args` answers, or gives an error record for an unknown query, a missing parameter or an unknown one ([agent/queries.nix](modules/agent/queries.nix)).
+
+**What else breaks, and what if it were gone.** `r.impact id { hops; sinks; max; }` follows routed elements from a scope, by depth, with `truncated`. `sven.lib.without { files; path; args; }` evaluates the fleet without the files that declare `path`: a whole file goes, there is no hook to remove part of one.
+
+**History and valid time.** `sven.lib.asOf { url; rev; module; }` evaluates the fleet at a git revision; `sven.lib.history { url; revs; module; }` lists each revision with the field changes from the one before (`diffData` over `r.data`). Valid time is data: an instance with `validFrom` or `validTo` holds at a date the caller passes, `sven.lib.validAt "2026-11-15"`. Pure evaluation has no clock.
+
+**Labels.** `sven.labels."agent/" = { trust = 1; }` labels the content of files whose path contains `agent/`. An aspect declared in several files takes the lowest trust of them (the meet). `r.labels` gives each aspect's label and `r.floor 3` every routed element of an aspect below trust 3, with the file.
+
+**A knowledge pack per revision.** An agent that keeps a store such as quipu knots `sven.lib.rdf.share r` into a named graph under one snapshot key, with `replace_snapshot`. Each revision replaces the last; the old one stays readable by transaction:
+
+```
+SELECT ?name WHERE { ?s rdf:type <https://sven.dev/fleet/kind/host> ; <https://sven.dev/fleet/sven/name> ?name }
+# at the first revision's tx: db, web.   Now: web.
+```
+
 **Grants only narrow.** `sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where an agent may give elements. `narrow g h` keeps what both allow. No function makes a grant wider. A staged change that gives an element outside its grant is refused.
 
 ## Patterns in this fleet
