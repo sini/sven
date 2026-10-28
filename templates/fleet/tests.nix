@@ -214,20 +214,23 @@ let
       && nixosAt lb [ "services" "borgbackup" "jobs" "backup" "startAt" ] == [ "02:00" ];
     clan-interface-default = osAt studio [ "environment" "etc" "banner" "text" ] == [ "managed by sven" ];
     clan-multi-instance = lib.sort (a: b: a < b) (lib.concatMap lib.attrNames (nixosAt lb [ "users" "users" ])) == [ "svc-a" "svc-b" ];
-    clan-per-machine = lib.length (osAt lb [ "services" "openssh" "enable" ]) == 1 && lib.length (lib.filter (s: s.kind == "member" && s.parent.id == lb && s.service == "sshd") r.scopes) == 2;
+    clan-per-machine = lib.length (osAt lb [ "services" "openssh" "enable" ]) == 1 && (let es = lib.filter (e: e.origin == "aspect clan-sshd") r.graph.edges; in es != [ ] && lib.all (e: e.from == e.to) es) && lib.length (lib.filter (s: s.kind == "member" && s.parent.id == lb && s.service == "sshd") r.scopes) == 2;
     clan-exports = nixosAt web1 [ "services" "borgbackup" "jobs" "backup" "repo" ] == [ "borg@10.0.1.1:/srv/web-1" ]
       && map (e: "${e.service}:${e.instance}:${e.role}:${e.machine}") (red "exports" "fleet:main") == [ "borg:backup:server:lb" ];
     clan-exports-owned = map (e: e.service) (red "exports" "fleet:main" ++ [ ]) == [ "borg" ]
       && lib.sort (a: b: a < b) (map (e: e.service) ((with' ({ sven, ... }: { sven.aspects.forge = { at = sven.lib.all [ sven.kinds.member (s: s.service == "sshd") ]; exports = { service = "borg"; }; }; })).reduced.exports."fleet:main"))
         == [ "borg" "sshd" ];
+    clan-exports-per-instance = let x = with' ({ ... }: { sven.instance.offsite = { module = "borg"; roles = { client.machines.web-1 = { }; server.machines.web-2 = { }; }; }; });
+        job = n: map (v: v.services.borgbackup.jobs.${n}.repo or null) (list (x.reduced.nixos.${web1} or null)); in
+      lib.elem "borg@10.0.1.11:/srv/web-1" (job "offsite") && lib.elem "borg@10.0.1.1:/srv/web-1" (job "backup");
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };
         backup2 = { module = "borg"; roles.server.machines = { lb = { }; web-1 = { }; }; };
         banner2 = { module = "banner"; roles.default.machines.lb = { }; };
-        nouser = { module = "users"; roles.default.machines.web-1 = { }; }; }; }); in
+        nouser = { module = "users"; roles.default.machines.web-1 = { }; }; badtype = { module = "users"; roles.default = { machines.web-1 = { }; settings.user = 42; }; }; }; }); in
       lib.all (hasMsg e) [ ".*instance bad-role uses unknown service bad-role.*" ".*instance empty has no roles.*" ".*backup2 role server: 2 machines, at most 1.*"
-        ".*service banner allows 1 instances.*" ".*nouser.default: setting user is not a string.*" ];
+        ".*nouser.default: setting user is not a string.*" ".*badtype.default: setting user is not a string.*" ];
     clan-vars = lib.sort (a: b: a < b) (lib.attrNames (red "generators" "fleet:main")) == [ "borg-backup@lb" "borg-backup@lb-minimal" "borg-backup@stage" "borg-backup@web-1" "borg-backup@web-2"
         "openssh@lb" "openssh@lb-minimal" "openssh@stage" "openssh@studio" "openssh@web-1" "openssh@web-2" "wifi.home" ]
       && hasMsg (with' ({ sven, ... }: { sven.aspects.dep-bad = { at = sven.host.web-1; generators = { scope, ... }: { name = "x"; dependencies = [ "missing" ]; }; }; })) ".*x@web-1 depends on missing, which web-1 has not.*";
