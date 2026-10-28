@@ -156,7 +156,8 @@ let
       && K.run 1 (q: K.appendo [ 1 ] [ 2 3 ] q) == [ [ 1 2 3 ] ];
     krn-unify-records = K.runAll (q: K.fresh ({ x }: [ (K.eq q { addr = x; port = 443; }) (K.membero x [ "10.0.1.1" "10.0.1.2" ]) ]))
       == [ { addr = "10.0.1.1"; port = 443; } { addr = "10.0.1.2"; port = 443; } ]
-      && K.runAll (q: K.eq { a = q; } { b = 1; }) == [ ] && K.runAll (q: K.eq [ q 1 ] [ 2 3 ]) == [ ];
+      && K.runAll (q: K.eq { a = q; } { b = 1; }) == [ ] && K.runAll (q: K.eq [ q 1 ] [ 2 3 ]) == [ ]
+      && K.runAll (q: K.eq { addr = q; port = 443; } { addr = "10.0.1.1"; port = 443; }) == [ "10.0.1.1" ];   # record against record
     krn-fresh-occurs = K.run 1 (q: K.fresh ({ x }: K.eq q [ x x ])) == [ [ "_.0" "_.0" ] ] && K.run 1 (q: K.eq q [ q ]) == [ ];
     krn-interleave = let fives = x: K.disj [ (K.eq x 5) (fives x) ]; sixes = x: K.disj [ (K.eq x 6) (sixes x) ]; in
       K.run 4 (q: K.disj [ (fives q) (sixes q) ]) == [ 5 6 5 6 ];
