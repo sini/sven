@@ -189,7 +189,7 @@ let
     stage-refuses = let base = { imports = [ portsBase ]; }; ch = sven.change.set [ "host" "a" "port" ] 23; s = sven.stage { inherit base; change = ch; }; in
       !s.ok && b.any (e: e.code == "two-answers") s.errors
       && (b.head (sven.stage { inherit base; change = ch; rejected = [ s.sha ]; }).refused).class == "authority"
-      && (sven.stage { inherit base; change = sven.change.set [ "host" "c" "port" ] 1; invariants = true; }).violations == [ "bad:no-firewall:top:t/host:c" ];
+      && (let v = sven.stage { inherit base; change = sven.change.set [ "host" "c" "port" ] 1; }; in v.violations == [ "bad:no-firewall:top:t/host:c" ] && v.errors == [ ] && !v.ok);
     grants-narrow = let g = sven.grant { scopes = [ "top:t/host:a" ]; sinks = [ "fw" ]; }; all' = sven.grant { scopes = [ "top:t" ]; };
         e = to: sink: { inherit to sink; }; in
       sven.allowed g (e "top:t/host:a" "fw") && !sven.allowed g (e "top:t/host:b" "fw") && !sven.allowed g (e "top:t/host:a" "nixos")
