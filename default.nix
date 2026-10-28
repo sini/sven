@@ -307,18 +307,25 @@ let
       facts = map (s: "scope:${s.id}") scopes ++ map (s: "kind:${s.kind}:${s.id}") scopes
         ++ concatMap (n: map (s: "has:${n}:${s.id}") (filter (s: active.${n}.${s.id}) unsorted)) aspectNames
         ++ map (e: "edge:${e.sink}:${e.from}:${e.to}") graph.edges
-        ++ map (e: "error:${e.code or "error"}:${e.from}") errorsAll;
+        ++ map (e: "error:${e.code or "error"}:${e.from}") errorsAll
+        # field values of each scope's instance: `ref:FIELD:ID:KIND:NAME` for a ref, `val:FIELD:ID:VALUE` for a string, int or bool
+        ++ concatMap (s: concatMap (f: let v = s.${f}; in
+            if isAttrs v && v ? kind && v ? name && b.isString v.kind then [ "ref:${f}:${s.id}:${v.kind}:${v.name}" ]
+            else if isList v then concatMap (x: if isAttrs x && x ? kind && x ? name && b.isString x.kind then [ "ref:${f}:${s.id}:${x.kind}:${x.name}" ] else if b.isString x || b.isInt x then [ "val:${f}:${s.id}:${toString x}" ] else [ ]) v
+            else if b.isString v || b.isInt v then [ "val:${f}:${s.id}:${toString v}" ] else if b.isBool v then [ "val:${f}:${s.id}:${if v then "true" else "false"}" ] else [ ])
+          (filter (f: !elem f [ "kind" "name" "key" "parent" "path" "id" "up" "rup" "__here" ]) (attrNames s))) unsorted;
       check = let
         D = static.datalog;
         invs = top.invariants or { };
-        rulesOf = n: let f = invs.${n}; in if isFunction f then f { inherit scopes graph active; sven = sven; } else f;
+        rulesOf = n: let f = invs.${n}; in if isFunction f then f { inherit scopes graph active facts; sven = sven; } else f;
         rules = concatMap rulesOf (attrNames invs);
         mentioned = listToAttrs (map (a: { name = a; value = true; }) (concatMap (r: r.pos or [ ] ++ r.neg or [ ]) rules));
         m = D.wfs (rules ++ D.facts (filter (a: mentioned ? ${a}) facts));
         isBad = a: b.substring 0 4 a == "bad:";
         violations = filter isBad m.true;
         incomplete = filter isBad m.undefined;
-      in { inherit violations incomplete; ok = violations == [ ] && incomplete == [ ]; why = a: D.why (rules ++ D.facts facts) m a; invariants = attrNames invs; };
+      in { inherit violations incomplete; ok = violations == [ ] && incomplete == [ ]; why = a: D.why (rules ++ D.facts facts) m a; whyNot = a: D.whyNot (rules ++ D.facts facts) m a;
+           proof = a: D.proof (rules ++ D.facts facts) m a; invariants = attrNames invs; };
       lib = static // {
         inherit holds graph declaredIn;   # the graph query, readable inside the fleet (docs)
         all = ps: { __all = ps; __functor = self: holds self; };
