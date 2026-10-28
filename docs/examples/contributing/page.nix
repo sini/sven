@@ -50,7 +50,8 @@
 
         ## Set up
 
-        `nix develop` in `docs/` gives a devshell with every command below. `menu` lists them.
+        `nix develop ./docs` from the repository root (or `nix develop` in `docs/`) gives a devshell with every command below.
+        `menu` lists them. Each command runs from the repository root, whatever your directory.
       ''
       (docs.table [ "Command" "Group" "What it does" ] (lib.concatMap (g: map (c: [ "`${c.name}`" g c.help ]) byCategory.${g}) (lib.attrNames byCategory)))
       ''

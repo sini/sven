@@ -16,7 +16,8 @@ Every page is generated. Do not edit `src/content/docs/` or `src/sidebar.json`.
 
 ## Commands
 
-`nix develop` gives a devshell. `menu` lists its commands: `docs-write`, `docs-test`, `docs-e2e`, `docs-check`,
+`nix develop ./docs` from the repository root (or `nix develop` here) gives a devshell. Its commands run from the root,
+whatever the directory. `menu` lists them: `docs-write`, `docs-test`, `docs-e2e`, `docs-check`,
 `docs-dev`, `docs-build`, the engine and fleet tests and generators, and `ci` (every CI job, in order).
 The commands are a sink of the docs fleet: see `modules/devshell.nix`.
 
