@@ -85,7 +85,7 @@ in
   sven.host.web-1 = { via = [ sven.host.lb ]; motd = "w1"; };
   sven.host.web-2.motd = "w2";
   sven.host.lb.motd = "lb";
-  sven.aspects.visible-motd = { at = sven.fleet.main; out = { ... }: { visibleMotd = { a = visible [ "web-1" "web-2" ] "stage"; b = visible [ "web-2" "web-1" ] "stage"; w = visible [ ] "web-1"; }; }; };
+  sven.aspects.visible-motd = { at = sven.fleet.main; out = { ... }: { visibleMotd = { a = visible [ "lb" "web-1" "web-2" ] "stage"; b = visible [ "web-2" "web-1" ] "stage"; w = visible [ ] "web-1"; }; }; };
 
   # H99: suppression chain: a suppresses b, b suppresses c, c suppresses d
   sven.aspects.sup-a.at = sven.host.lb;
