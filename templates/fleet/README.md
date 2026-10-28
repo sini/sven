@@ -320,7 +320,7 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 
 ## This fleet, live
 
-Generated from the fleet's queries: 73 scopes, 28 kinds, 170 aspects, 764 routed elements.
+Generated from the fleet's queries: 73 scopes, 28 kinds, 172 aspects, 778 routed elements.
 
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
@@ -332,15 +332,15 @@ Generated from the fleet's queries: 73 scopes, 28 kinds, 170 aspects, 764 routed
 | `domain` | `mail`, `under` | `domain` |  | 3 |
 | `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `idm-users`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
 | `export` |  |  | `os` | 1 |
-| `fleet` |  | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `exports`, `flake-file`, `gateway-upstreams`, `generators`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
+| `fleet` | `secretStore` | `database`, `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `class-members`, `colmena`, `connect-claims`, `db-claims`, `dns-records`, `dns-zones`, `exports`, `flake-file`, `gateway-upstreams`, `generators`, `globals`, `host-addrs`, `inference-clients`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `peer-dev`, `public-reads`, `records`, `replicate-home`, `route-claims`, `scrape`, `secret-claims`, `served-domains`, `syncthing-peers`, `templates`, `token-claims`, `unit-checks`, `user-packages`, `vars`, `xmsg-nodes` | 1 |
 | `group` | `label`, `members` |  |  | 0 |
-| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `on`, `passthrough`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
+| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `on`, `passthrough`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
 | `hive` | `environment` |  | `meta` | 2 |
 | `home` | `channel`, `on`, `system`, `user` | `user` | `homeManager`, `os` | 2 |
-| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `member`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
+| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `backup`, `guest`, `home`, `host`, `member`, `pet`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `dev`, `fw`, `fw-tcp`, `isNixos`, `monitor`, `nixos`, `os`, `pairs`, `persist`, `platform`, `service-domains`, `tags`, `tuning`, `unfree` | 5 |
 | `instance` | `module`, `roles` |  |  | 0 |
-| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `member`, `user` | `darwin`, `os` | 1 |
-| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
+| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` | `member`, `user` | `darwin`, `os` | 1 |
+| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `demands`, `dependsOn`, `environment`, `gates`, `grants`, `labels`, `minimal`, `motd`, `secretStore`, `settings`, `system`, `system-owner`, `tokens`, `unpersist`, `via` |  |  | 0 |
 | `member` |  |  |  | 17 |
 | `pet` | `of` | `toy` |  | 2 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |

@@ -241,6 +241,10 @@ let
     clan-darwin-restart = hasMsg (with' ({ ... }: { sven.instance.backup-mac = { module = "borg"; roles = { client.machines.studio = { }; server.machines.lb = { }; }; }; }))
       ".*borg-backup-mac: restartUnits is NixOS only.*";
     clan-dir-hosts = lib.elem "from-dir" (scope web2).labels && !(lib.any (s: s.name == "notes.txt") r.scopes);
+    clan-unknown-tag-warns = lib.flatten (red "warnings" "fleet:main") == [ ]
+      && (let x = with' ({ ... }: { sven.instance.ghost = { module = "banner"; roles.default.tags = [ "nobody" ]; }; }); in
+        lib.flatten (x.reduced.warnings."fleet:main") == [ "clan: instance ghost role default: tag nobody matches no machine" ]
+        && !lib.any (e: lib.hasInfix "nobody" e.error) x.errors);
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };

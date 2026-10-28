@@ -67,6 +67,13 @@ in
         ++ lib.optional (c ? maxInstances && lib.length (lib.attrNames (lib.filterAttrs (_: j: j.module == i.module) all)) > c.maxInstances)
              "clan: instance ${n}: service ${i.module} allows ${toString c.maxInstances} instances") all);
   };
+  # a tag that names no machine is a warning, not an error (clan resolveTags): a user sink anyone may read
+  sven.kinds.fleet.sinks.warnings.reduce = sven.lib.reduce.list;
+  sven.aspects.clan-unknown-tags = {
+    at = sven.kinds.fleet;
+    warnings = { ... }: lib.concatLists (lib.mapAttrsToList (n: i: lib.concatLists (lib.mapAttrsToList (r: role: map (t: "clan: instance ${n} role ${r}: tag ${t} matches no machine")
+      (lib.filter (t: !lib.any (m: lib.elem t (labelsOf m)) (lib.attrValues sven.host ++ lib.attrValues sven.mac)) (role.tags or [ ]))) i.roles)) all);
+  };
   sven.aspects.clan-settings-typed = {
     at = sven.kinds.member;
     errors = { member, ... }: lib.concatLists (lib.mapAttrsToList (k: o: lib.optional (member.settings.${k} == null || !o.type.check member.settings.${k})
