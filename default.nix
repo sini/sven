@@ -379,4 +379,49 @@ let
       flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
     };
 in
-{ lib = static // { inherit eval; mkFlake = m: (eval m).flake; }; }
+let
+  # grants that only narrow: a grant names scope id prefixes and sinks (null: every sink). Two grants meet: a scope
+  # stays when one prefix holds the other (the longer is kept), sinks intersect. There is no way to widen.
+  hasPrefix = p: s: b.substring 0 (b.stringLength p) s == p;
+  grants = rec {
+    grant = { scopes, sinks ? null }: { inherit scopes sinks; };
+    narrow = g: h: {
+      scopes = uniq (concatMap (p: concatMap (q: if hasPrefix p q then [ q ] else if hasPrefix q p then [ p ] else [ ]) h.scopes) g.scopes);
+      sinks = if g.sinks == null then h.sinks else if h.sinks == null then g.sinks else filter (x: elem x h.sinks) g.sinks;
+    };
+    allowed = g: e: any (p: hasPrefix p e.to) g.scopes && (g.sinks == null || elem e.sink g.sinks);
+  };
+  # data with no functions: it can be hashed, rendered as JSON and read back
+  isData = v: if isFunction v then false else if isList v then all isData v else if isAttrs v then (if v ? __functor then false else all (k: isData v.${k}) (attrNames v)) else true;
+  # stage: an agent's change, in quarantine. Nothing changes; two evals compare. `ok` only when nothing new is wrong.
+  stage = { base, change, rejected ? [ ], grant ? null, invariants ? true }:
+    let
+      r0 = eval base;
+      r1 = eval { imports = [ base change ]; };
+      keyE = e: "${e.from}|${e.error}";
+      keyG = e: "${e.sink}|${e.from}|${e.to}|${e.origin}";
+      minus = k: xs: ys: let has = listToAttrs (map (y: { name = k y; value = true; }) ys); in filter (x: !(has ? ${k x})) xs;
+      ids = r: map (s: s.id) r.scopes;
+      activeList = r: concatMap (n: map (id: "${n}@${id}") (filter (id: r.active.${n}.${id}) (attrNames r.active.${n}))) (attrNames r.active);
+      sha = if isPath change then b.hashFile "sha256" change else if isData change then b.hashString "sha256" (b.toJSON change) else null;
+      newEdges = minus keyG r1.graph.edges r0.graph.edges;
+      errors = minus keyE r1.errors r0.errors;
+      bad = if invariants then filter (a: !elem a r0.check.violations) r1.check.violations else [ ];
+      refused = (if sha != null && elem sha rejected then [ (errWith "stage" "this change was rejected before" { code = "rejected"; class = "authority"; got = sha; }) ] else [ ])
+        ++ (if grant == null then [ ] else map (e: errWith e.from "the change gives ${e.sink} to ${e.to}, outside the grant" { code = "outside-grant"; class = "authority"; got = e; })
+          (filter (e: !grants.allowed grant e) newEdges));
+    in {
+      inherit errors refused sha;
+      violations = bad;
+      ok = errors == [ ] && bad == [ ] && refused == [ ];
+      diff = {
+        scopes = { added = minus (x: x) (ids r1) (ids r0); removed = minus (x: x) (ids r0) (ids r1); };
+        edges = { added = newEdges; removed = minus keyG r0.graph.edges r1.graph.edges; };
+        active = { added = minus (x: x) (activeList r1) (activeList r0); removed = minus (x: x) (activeList r0) (activeList r1); };
+      };
+      render = if isData change then b.toJSON change else null;   # read back with builtins.fromJSON
+    };
+  # a change as data: set one declaration path (`change.set [ "host" "web-1" "port" ] 8080`)
+  change = { set = path: value: { sven = b.foldl' (acc: k: { ${k} = acc; }) value (reverse path); }; };
+in
+{ lib = static // { inherit eval stage change grants; inherit (grants) grant narrow allowed; mkFlake = m: (eval m).flake; }; }

@@ -141,6 +141,14 @@ let
   choice = [ { head = "a"; neg = [ "b" ]; } { head = "b"; neg = [ "a" ]; } { head = "c"; pos = [ "a" ]; } { head = "s"; } { head = "t"; pos = [ "u" ]; } ];
 
   # agent surface fixtures
+  portsBase = { sven, ... }: {
+    sven.kinds.top.spawns.host = _: sven.host;
+    sven.kinds.host = { fields.port = { check = p: b.isInt p && p < 65536; name = "Port"; }; sinks.fw = { }; };
+    sven.top.t = { };
+    sven.host = { a.port = 22; b.port = 80; };
+    sven.aspects.firewall = { at = sven.host.a; fw = "on"; };
+    sven.invariants.fw = { scopes, ... }: map (s: { head = "bad:no-firewall:${s.id}"; pos = [ "kind:host:${s.id}" ]; neg = [ "has:firewall:${s.id}" ]; }) scopes;
+  };
   ports = extra: sven.eval ({ sven, ... }: {
     imports = [ extra ];
     sven.kinds.top.spawns.host = _: sven.host;
@@ -175,6 +183,19 @@ let
       && (b.head (r.explain "both" "top:t/host:a" 1).at.kids).kids == "cut"
       && (r.explain "bth" "top:t/host:a" 1).near == [ "both" ] && (r.explain "both" "top:t/host:z" 1).code == "unknown-scope"
       && (r.explain "firewall" "top:t/host:a" 2).gives == [ { sink = "fw"; to = "top:t/host:a"; } ];
+    stage-ok-and-diff = let base = { imports = [ portsBase ]; }; s = sven.stage { inherit base; change = { sven = { host.c.port = 443; aspects.firewall.at = [ { kind = "host"; name = "c"; } ]; }; }; }; in
+      s.ok && s.diff.scopes.added == [ "top:t/host:c" ] && s.diff.scopes.removed == [ ] && b.isString s.sha && s.diff.active.added == [ "firewall@top:t/host:c" ]
+      && (sven.stage { inherit base; change = b.fromJSON s.render; }).diff == s.diff;
+    stage-refuses = let base = { imports = [ portsBase ]; }; ch = sven.change.set [ "host" "a" "port" ] 23; s = sven.stage { inherit base; change = ch; }; in
+      !s.ok && b.any (e: e.code == "two-answers") s.errors
+      && (b.head (sven.stage { inherit base; change = ch; rejected = [ s.sha ]; }).refused).class == "authority"
+      && (sven.stage { inherit base; change = sven.change.set [ "host" "c" "port" ] 1; invariants = true; }).violations == [ "bad:no-firewall:top:t/host:c" ];
+    grants-narrow = let g = sven.grant { scopes = [ "top:t/host:a" ]; sinks = [ "fw" ]; }; all' = sven.grant { scopes = [ "top:t" ]; };
+        e = to: sink: { inherit to sink; }; in
+      sven.allowed g (e "top:t/host:a" "fw") && !sven.allowed g (e "top:t/host:b" "fw") && !sven.allowed g (e "top:t/host:a" "nixos")
+      && sven.narrow all' g == g && sven.narrow g all' == g
+      && (sven.narrow g (sven.grant { scopes = [ "top:t/host:b" ]; })).scopes == [ ]
+      && (sven.stage { base = { imports = [ portsBase ]; }; change = { sven.aspects.firewall.at = [ { kind = "host"; name = "b"; } ]; }; grant = g; }).refused != [ ];
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
@@ -256,6 +277,6 @@ let
   };
 in
 {
-  inherit checks logic ports;
+  inherit checks logic ports portsBase;
   failed = b.filter (n: !checks.${n}) (b.attrNames checks);
 }
