@@ -6,7 +6,7 @@ sven is a small Nix file with no dependencies. It uses builtins only. It does no
 
 sven follows [Cycle.js](https://cycle.js.org): a component reads sources and writes sinks, and drivers answer the sinks. In Nix, laziness closes the loop. There is no `evalModules` fixpoint and no merge step. A value is computed only when something reads it.
 
-This fleet is the reference example. It models the [Ren](https://github.com/vic/ren) fleet template, the [Den](https://github.com/denful/den) patterns, and the advanced cases of four real configurations (sini, swarsel, adda, vix). Every section below points to the file that shows it.
+This fleet is the reference example. It models the [Ren](https://github.com/vic/ren) fleet template, every capability of [Den](https://github.com/denful/den) and of den-hoag (Den on Gen), and the advanced cases of four real configurations (sini, swarsel, adda, vix). Every section below points to the file that shows it.
 
 ## Start
 
@@ -231,6 +231,33 @@ sven.aspects.monitor-env.homeManager = { monitor ? null, ... }: { home.sessionVa
 ```
 
 The home reads stage's `monitor` sink like any child. It still builds its own `homeConfigurations."alice@stage"`. Its `os` sink is a wall, so its users do not change stage's NixOS.
+
+## sven, Den and Den on Gen
+
+[Den](https://github.com/denful/den) has 1,365 CI tests. [den-hoag](https://github.com/sini/den-hoag), Den's next version on the [Gen](https://github.com/sini/gen) libraries, has 18 laws. This fleet shows each of their capabilities with sven's four words. Every row has a check in `tests.nix`.
+
+| Den / den-hoag | sven | File |
+|---|---|---|
+| `den.default`, schema includes, batteries | an aspect with `at = sven.kinds.<kind>` | [den/batteries.nix](modules/den/batteries.nix) |
+| includes, excludes, substitute, instance-side includes | `at` with aspect refs, `not`, `at` from any file | [features/motd.nix](modules/features/motd.nix), [sini/roles.nix](modules/sini/roles.nix) |
+| custom classes, chained forwards (hjem, maid) | a user sink whose keys feed other sinks | [den/custom-classes.nix](modules/den/custom-classes.nix) |
+| `hasAspect`, projected `hasAspect` | `sven.lib.holds`, and `graph` edges with `origin` | [sini/roles.nix](modules/sini/roles.nix) |
+| a policy gated on `hasAspect` that creates structure (#525) | `spawns` that reads `holds` at the parent | [den/presence-structure.nix](modules/den/presence-structure.nix) |
+| quirks and pipes: collect, expose, broadcast, provenance | a sink at a common ancestor with `entries`, and a filter in the reader | [sini/clusters.nix](modules/sini/clusters.nix) |
+| a value that reads a realized config (#713, `osConfig`) | read `out.nixosConfigurations.<host>.config`, lazily | [den/standalone-home-on-host.nix](modules/den/standalone-home-on-host.nix) |
+| settings layers with authority, the projects facet (A8, A14) | a sink with your own reduce | [hoag/settings.nix](modules/hoag/settings.nix) |
+| claim and provide, "who claims me" | an `entries` sink and a reader filter | [hoag/claims.nix](modules/hoag/claims.nix) |
+| collectors: an aggregate with its own content | a `hive` kind that selects its members | [hoag/collectors.nix](modules/hoag/collectors.nix) |
+| relations and the query calculus (`rel*`, layers) | plain Nix over ref fields, with `genericClosure` | [hoag/relations.nix](modules/hoag/relations.nix) |
+| permutation-stable output (A12), per-member laziness (A17) | file order never changes a result, and sinks are lazy per receiver | `tests.nix`: `den-permutation-stable`, `den-sibling-laziness` |
+
+sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
+
+Three families of Den bugs cannot happen in sven:
+
+- **Double delivery.** An element has one id per receiver.
+- **Lost content when one aspect is in two files.** A read queries all files. Nothing merges early.
+- **A host's home-manager content leaking to its users.** Elements go up the tree, never down.
 
 ## Generated files and checks
 

@@ -10,7 +10,7 @@ sven is a small Nix file with no dependencies. It uses builtins only. It does no
 
 sven follows [Cycle.js](https://cycle.js.org): a component reads sources and writes sinks, and drivers answer the sinks. In Nix, laziness closes the loop. There is no `evalModules` fixpoint and no merge step. A value is computed only when something reads it.
 
-This fleet is the reference example. It models the [Ren](https://github.com/vic/ren) fleet template, the [Den](https://github.com/denful/den) patterns, and the advanced cases of four real configurations (sini, swarsel, adda, vix). Every section below points to the file that shows it.
+This fleet is the reference example. It models the [Ren](https://github.com/vic/ren) fleet template, every capability of [Den](https://github.com/denful/den) and of den-hoag (Den on Gen), and the advanced cases of four real configurations (sini, swarsel, adda, vix). Every section below points to the file that shows it.
 
 ## Start
 
@@ -236,6 +236,33 @@ sven.aspects.monitor-env.homeManager = { monitor ? null, ... }: { home.sessionVa
 
 The home reads stage's `monitor` sink like any child. It still builds its own `homeConfigurations."alice@stage"`. Its `os` sink is a wall, so its users do not change stage's NixOS.
 
+## sven, Den and Den on Gen
+
+[Den](https://github.com/denful/den) has 1,365 CI tests. [den-hoag](https://github.com/sini/den-hoag), Den's next version on the [Gen](https://github.com/sini/gen) libraries, has 18 laws. This fleet shows each of their capabilities with sven's four words. Every row has a check in `tests.nix`.
+
+| Den / den-hoag | sven | File |
+|---|---|---|
+| `den.default`, schema includes, batteries | an aspect with `at = sven.kinds.<kind>` | [den/batteries.nix](modules/den/batteries.nix) |
+| includes, excludes, substitute, instance-side includes | `at` with aspect refs, `not`, `at` from any file | [features/motd.nix](modules/features/motd.nix), [sini/roles.nix](modules/sini/roles.nix) |
+| custom classes, chained forwards (hjem, maid) | a user sink whose keys feed other sinks | [den/custom-classes.nix](modules/den/custom-classes.nix) |
+| `hasAspect`, projected `hasAspect` | `sven.lib.holds`, and `graph` edges with `origin` | [sini/roles.nix](modules/sini/roles.nix) |
+| a policy gated on `hasAspect` that creates structure (#525) | `spawns` that reads `holds` at the parent | [den/presence-structure.nix](modules/den/presence-structure.nix) |
+| quirks and pipes: collect, expose, broadcast, provenance | a sink at a common ancestor with `entries`, and a filter in the reader | [sini/clusters.nix](modules/sini/clusters.nix) |
+| a value that reads a realized config (#713, `osConfig`) | read `out.nixosConfigurations.<host>.config`, lazily | [den/standalone-home-on-host.nix](modules/den/standalone-home-on-host.nix) |
+| settings layers with authority, the projects facet (A8, A14) | a sink with your own reduce | [hoag/settings.nix](modules/hoag/settings.nix) |
+| claim and provide, "who claims me" | an `entries` sink and a reader filter | [hoag/claims.nix](modules/hoag/claims.nix) |
+| collectors: an aggregate with its own content | a `hive` kind that selects its members | [hoag/collectors.nix](modules/hoag/collectors.nix) |
+| relations and the query calculus (`rel*`, layers) | plain Nix over ref fields, with `genericClosure` | [hoag/relations.nix](modules/hoag/relations.nix) |
+| permutation-stable output (A12), per-member laziness (A17) | file order never changes a result, and sinks are lazy per receiver | `tests.nix`: `den-permutation-stable`, `den-sibling-laziness` |
+
+sven needs no strata, no effect runtime and no registry of merge algebras. The Nix lazy `let` is the only fixpoint. Structure can depend on presence at a parent, and two hosts can point at each other with no cycle error.
+
+Three families of Den bugs cannot happen in sven:
+
+- **Double delivery.** An element has one id per receiver.
+- **Lost content when one aspect is in two files.** A read queries all files. Nothing merges early.
+- **A host's home-manager content leaking to its users.** Elements go up the tree, never down.
+
 ## Generated files and checks
 
 `flake.nix`, `README.md` and `ci.json` are generated. Do not edit them. Edit `modules/`, then run:
@@ -274,29 +301,31 @@ nix eval --impure --file tests.nix e2e.failed   # [ ]: real NixOS, darwin and ho
 
 ## This fleet, live
 
-Generated from the fleet's queries: 38 scopes, 21 kinds, 95 aspects, 511 routed elements.
+Generated from the fleet's queries: 43 scopes, 23 kinds, 113 aspects, 606 routed elements.
 
 | Kind | Fields | Spawns | Sinks | Scopes |
 |---|---|---|---|---|
+| `backup` |  |  | `nixos` | 3 |
 | `channel` | `darwin`, `home-manager`, `nixpkgs` |  |  | 0 |
 | `cluster` | `environment`, `hosts`, `ingestUrl` |  | `age-secrets`, `k8s-manifests` | 1 |
 | `db` | `zone` |  |  | 0 |
 | `domain` | `mail`, `under` | `domain` |  | 3 |
 | `environment` | `base`, `delegates`, `dns`, `edge`, `grants`, `monitoring`, `settings`, `unifi` | `cluster`, `host`, `mac`, `phone` | `backends`, `k3s-nodes`, `mesh-peers`, `port-forwards`, `terraform`, `terranix`, `unifi` | 2 |
 | `export` |  |  | `os` | 1 |
-| `fleet` |  | `domain`, `environment`, `export`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `colmena`, `dns-records`, `flake-file`, `globals`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `records`, `replicate-home`, `scrape`, `syncthing-peers`, `templates`, `vars`, `xmsg-nodes` | 1 |
+| `fleet` |  | `domain`, `environment`, `export`, `hive`, `home`, `replica`, `system` | `certificate-domains`, `ci`, `colmena`, `db-claims`, `dns-records`, `flake-file`, `globals`, `infra`, `monitoring-ingest`, `nodes`, `out`, `overlays`, `records`, `replicate-home`, `scrape`, `syncthing-peers`, `templates`, `vars`, `xmsg-nodes` | 1 |
 | `group` | `members` |  |  | 0 |
-| `guest` | `addr`, `buildHost`, `builder`, `channel`, `environment`, `minimal`, `on`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
+| `guest` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `on`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `age-secrets`, `nixos`, `os`, `persist`, `unfree` | 1 |
+| `hive` | `environment` |  | `meta` | 2 |
 | `home` | `channel`, `on`, `system`, `user` | `user` | `homeManager`, `os` | 2 |
-| `host` | `addr`, `buildHost`, `builder`, `channel`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `guest`, `home`, `host`, `user`, `variant` | `age-secrets`, `deploy`, `monitor`, `nixos`, `os`, `persist`, `service-domains`, `tags`, `unfree` | 5 |
-| `mac` | `addr`, `buildHost`, `builder`, `channel`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `darwin`, `os` | 1 |
-| `machine` | `addr`, `buildHost`, `builder`, `channel`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` |  |  | 0 |
+| `host` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `backup`, `guest`, `home`, `host`, `user`, `variant` | `age-secrets`, `aspect-settings`, `deploy`, `monitor`, `nixos`, `os`, `persist`, `service-domains`, `tags`, `unfree` | 5 |
+| `mac` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` | `user` | `darwin`, `os` | 1 |
+| `machine` | `addr`, `buildHost`, `builder`, `channel`, `dbOn`, `dependsOn`, `environment`, `minimal`, `settings`, `system`, `system-owner`, `unpersist` |  |  | 0 |
 | `phone` | `channel`, `environment`, `system` | `user` | `droid`, `homeManager` | 1 |
 | `region` | `zone` |  |  | 0 |
 | `replica` | `db`, `region` |  |  | 1 |
 | `secret` | `sopsKey` |  |  | 0 |
 | `system` |  | `vim` | `checks`, `devshell`, `files`, `git-hooks`, `no-gui`, `packages`, `treefmt` | 3 |
-| `user` | `groups`, `phone` |  | `account`, `age-secrets`, `homeDarwin`, `homeLinux`, `homeManager`, `secrets` | 13 |
+| `user` | `groups`, `phone`, `shell` |  | `account`, `age-secrets`, `files`, `git`, `homeDarwin`, `homeLinux`, `homeManager`, `secrets` | 13 |
 | `variant` | `of` |  | `nixos` | 1 |
 | `vim` | `features`, `theme` |  | `vim` | 2 |
 
@@ -313,13 +342,16 @@ flowchart LR
   s4a308930["environment:prod"]
   s4fab1871["cluster:axon"]
   sc1312ce7["host:lb"]
+  sf9f17122["backup:nightly"]
   s701b3a10["host:lb-minimal"]
   sc0428e06["user:alice"]
   sa830f4b8["user:alice"]
   s3459c6cb["variant:debug"]
   s348d4306["host:web-1"]
+  s4fa72356["backup:nightly"]
   sc7ac250a["user:alice"]
   s83e8ed4e["host:web-2"]
+  sb74b34b1["backup:nightly"]
   sc13f188c["user:alice"]
   s6a423160["environment:staging"]
   s6d0ac6bd["host:stage"]
@@ -336,6 +368,8 @@ flowchart LR
   sde1685e5["phone:pixel"]
   s5601dfa6["user:alice"]
   sc26f9795["export:base"]
+  se7af5a76["hive:prod"]
+  s3c61e6cb["hive:staging"]
   s6b74e236["home:alice-laptop"]
   s7a797ce6["user:alice"]
   s977ffe77["replica:r1"]
@@ -350,13 +384,16 @@ flowchart LR
   s6c4c773b --> s4a308930
   s4a308930 --> s4fab1871
   s4a308930 --> sc1312ce7
+  sc1312ce7 --> sf9f17122
   sc1312ce7 --> s701b3a10
   s701b3a10 --> sc0428e06
   sc1312ce7 --> sa830f4b8
   sc1312ce7 --> s3459c6cb
   s4a308930 --> s348d4306
+  s348d4306 --> s4fa72356
   s348d4306 --> sc7ac250a
   s4a308930 --> s83e8ed4e
+  s83e8ed4e --> sb74b34b1
   s83e8ed4e --> sc13f188c
   s6c4c773b --> s6a423160
   s6a423160 --> s6d0ac6bd
@@ -373,6 +410,8 @@ flowchart LR
   s6a423160 --> sde1685e5
   sde1685e5 --> s5601dfa6
   s6c4c773b --> sc26f9795
+  s6c4c773b --> se7af5a76
+  s6c4c773b --> s3c61e6cb
   s6c4c773b --> s6b74e236
   s6b74e236 --> s7a797ce6
   s6c4c773b --> s977ffe77
