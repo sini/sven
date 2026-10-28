@@ -42,7 +42,7 @@ in
           in
           {
             nixosConfigurations.${host.name} = sys;
-            nixosConfigurationsOwnPkgs = lib.optionalAttrs follower { ${host.name} = build nixos; };
+            nixosConfigurationsOwnPkgs = lib.optionalAttrs follower { ${host.name} = build' true nixos; };   # a reference build: own pkgs, full module list
             nixosConfigurationsFull = lib.optionalAttrs trimmed { ${host.name} = build' true (nixos ++ lib.optionals follower readOnly); };   # the oracle: same drvPath as the trimmed build
             sharedPkgs = lib.optionalAttrs host.sharedPkgs { ${host.name} = { inherit leader; follower = follower; }; };
             deploy.nodes.${host.name} = { hostname = deploy.address; sshUser = deploy.user; };
