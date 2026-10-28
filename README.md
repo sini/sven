@@ -1,39 +1,198 @@
-# sven - **Nix configurations you can ask questions about, and prove things about, before you deploy.**
+# sven: Nix fleets you can query, and prove things about, before you deploy
 
-A cycle.js inspired pure-Nix language for advanced fleet configurations where everything is a query.
+<!-- Generated from docs/examples/one-page-fleet/page.nix. Edit there, then run `nix run .#write-files` in docs/. -->
 
-![sven](./docs/public/sven.png)
+**sven is a query language for Nix configurations**: one file of Nix builtins, no dependencies, no module system,
+no fixpoint, and no `throw`. You describe a fleet as data and behavior. sven answers queries on it: the systems to build,
+the errors, the graph of who gives what to whom, and whether your rules hold across machines.
 
-sven is a small _~500loc_, dependency free _-Nix builtins only-_ query language over nix data, _inspired by [reactive-streams](https://cycle.js.org)_ for configuring fleets of machines: NixOS, nix-darwin, home-manager, terraform, clusters and anything else you can model as plain nix values. You write plain Nix data and behavior. sven answers queries on it: the systems to build, the errors, the graph of who gives what to whom, and whether your rules hold.
+sven has no batteries and no vocabulary. It does not know what a host, a user or NixOS is. You name your own nouns,
+so it configures NixOS, nix-darwin, home-manager, clusters, terraform or anything else you can model as Nix values.
 
-It is one file with no dependencies: Nix builtins only. No nixpkgs, no module system, no fixpoint. An error is data you can read, never a `throw`.
+[Documentation](https://sven.oeiuwq.com/) · [Getting started](https://sven.oeiuwq.com/start/getting-started/) · [Reference fleet](https://github.com/vic/sven/tree/main/templates/fleet) · [Sponsor vic](https://dendritic.oeiuwq.com/sponsor)
 
-```nix
-{ sven, lib, ... }:
+## Four words
+
+- **Kinds**: your nouns, typed. `sven.kinds.host.fields.addr = lib.types.str;`
+- **Scopes**: where things live. `spawns` builds a tree from your data: a user under each host it is on.
+- **Aspects**: behavior, active where a predicate holds: a kind, an instance, another aspect, or any fact.
+- **Sinks**: where elements go. An element goes up to the nearest scope that collects it, and the sink reduces them.
+
+Data is queried, not merged: each read is a query on the files that answer it, so content in many files never
+overwrites itself, and an error is a record you can read.
+
+## A fleet on one page
+
+Two environments, three NixOS hosts, a user on two of them, postgres placed by a fact (some host names it as its
+database), and a rule that holds across machines. Every line runs: these files are a tested template
+(plus a `hardware.nix` stub so NixOS evaluates).
+
+
+```nix title="modules/kinds.nix"
+# Kinds are your nouns. `spawns` builds the tree from data. Sinks collect what aspects give.
 {
-  sven.kinds.host.fields.addr = lib.types.str;
-  sven.host.lb.addr = "10.0.1.1";
-  sven.aspects.motd = {
-    at = sven.kinds.host;                                  # where it applies: a predicate
-    nixos.environment.etc.motd.text = "managed by sven";   # what it gives: an element for the `nixos` sink
+  sven,
+  lib,
+  inputs,
+  ...
+}:
+let
+  inherit (sven.lib) same is maybe;
+in
+{
+  sven.kinds.fleet.spawns.env = _: sven.env;
+  sven.kinds.fleet.sinks.out.reduce = sven.lib.reduce.merge;
+  sven.kinds.env.fields.domain = lib.types.str;
+  sven.kinds.env.spawns.host = s: lib.filterAttrs (_: h: same h.env s) sven.host;
+  sven.kinds.host.fields = {
+    env = sven.kinds.env;
+    db = maybe sven.kinds.host;
+  };
+  sven.kinds.host.spawns.user = s: lib.filterAttrs (_: u: lib.any (same s) u.on) sven.user;
+  sven.kinds.host.sinks.os.nixos =
+    { os, ... }:
+    {
+      imports = os;
+    }; # os feeds nixos
+  sven.kinds.host.sinks.nixos.out =
+    { host, nixos, ... }:
+    {
+      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { modules = nixos; };
+    };
+  sven.kinds.user.fields.on = is lib.isList;
+  sven.flake = { out, ... }: out;
+}
+```
+
+```nix title="modules/data.nix"
+# Instances: plain data, refs between them.
+{ sven, ... }:
+{
+  sven.fleet.main = { };
+  sven.env.prod.domain = "example.com";
+  sven.env.lab.domain = "lab.example.com";
+  sven.host.web = {
+    env = sven.env.prod;
+    db = sven.host.db;
+  };
+  sven.host.db.env = sven.env.prod;
+  sven.host.box.env = sven.env.lab;
+  sven.user.ana.on = [
+    sven.host.web
+    sven.host.box
+  ];
+}
+```
+
+```nix title="modules/behavior.nix"
+# Aspects are active where a predicate holds; each element goes up to the nearest `os` sink.
+{ sven, lib, ... }:
+let
+  inherit (sven.lib) same;
+in
+{
+  sven.aspects.names = {
+    at = sven.kinds.host;
+    os =
+      { host, env, ... }:
+      {
+        networking = {
+          hostName = host.name;
+          domain = env.domain;
+        };
+      };
+  };
+  sven.aspects.account = {
+    at = sven.kinds.user; # no `os` sink on a user: the account lands on each host ana is on
+    os =
+      { user, ... }:
+      {
+        users.users.${user.name}.isNormalUser = true;
+      };
+  };
+  sven.aspects.postgres = {
+    at = s: lib.any (h: same h.db s) (lib.attrValues sven.host); # a fact: some host uses me as its db
+    os.services.postgresql.enable = true;
+  };
+  # a rule across machines, checked before deploy: a host's db lives in its environment
+  sven.invariants.db-same-env =
+    { scopes, ... }:
+    map (s: {
+      head = "bad:db-other-env:${s.name}";
+      pos = [ "ref:db:${s.id}:host:${s.db.name}" ];
+    }) (lib.filter (s: s.kind == "host" && s.db != null && !(same s.db.env s.env)) scopes);
+}
+```
+
+Ask it. The tree comes from the data:
+
+
+```nix title="result"
+[
+  "fleet:main"
+  "fleet:main/env:lab"
+  "fleet:main/env:lab/host:box"
+  "fleet:main/env:lab/host:box/user:ana"
+  "fleet:main/env:prod"
+  "fleet:main/env:prod/host:db"
+  "fleet:main/env:prod/host:web"
+  "fleet:main/env:prod/host:web/user:ana"
+]
+```
+
+## Change it safely
+
+An agent proposes a host in `lab` that uses the prod database. `sven.lib.stage` evaluates the fleet without and with
+the change, applies nothing, and refuses it with the rule it breaks:
+
+
+```nix title="changes/api-in-lab.nix"
+# A change, as an agent proposes it: a lab host that uses the prod database.
+{ sven, ... }:
+{
+  sven.host.api = {
+    env = sven.env.lab;
+    addr = "10.0.1.2";
+    db = sven.host.db;
   };
 }
 ```
 
-## What it does
+```nix title="result"
+{
+  added = [
+    "fleet:main/env:lab/host:api"
+  ];
+  ok = false;
+  violations = [
+    "bad:db-other-env:api"
+  ];
+}
+```
 
-- **Data is queried, not merged.** Kinds, instances and typed fields are data. Each read is a query, so content in many files never overwrites itself. [More](templates/fleet/README.md#data-is-queried-not-merged)
-- **Behavior lands where you say.** An aspect is active where its predicate holds, and its elements go to the nearest scope that collects them. [Aspects](templates/fleet/README.md#aspects-behavior-at-scopes) · [Sinks](templates/fleet/README.md#sinks-where-elements-go)
-- **Questions have answers.** Graph algorithms, Datalog with a well-founded semantics, and µKanren with constraints, all in pure Nix. [Graphs, Datalog and krn](templates/fleet/README.md#graphs-datalog-and-krn)
-- **Agents can work on it safely.** Rules across machines are checked before deploy. A change is staged, explained, and refused with its reason. An MCP server answers agents. [For agents](templates/fleet/README.md#for-agents-ask-prove-change)
-- **It is fast where it counts.** It evaluates 10,000 modules in about 20 s. The fleet shares one nixpkgs per channel (-30% CPU) and can trim NixOS module lists, with the same built systems. [Shared pkgs](templates/fleet/README.md#shared-pkgs-one-nixpkgs-per-channel-and-system)
+## What else it does
 
-## It covers what you use today
-
-The reference fleet shows every capability of [Den](https://github.com/denful/den), den-hoag and [clan](https://clan.lol), and the advanced usage patterns of several real world fleets (vic, sini, and others). Each one has a check. [sven, Den and den-hoag](templates/fleet/README.md#sven-den-and-den-on-gen) · [sven and clan](templates/fleet/README.md#sven-and-clan) · [Patterns](templates/fleet/README.md#patterns-in-this-fleet)
+- **Graphs, Datalog and µKanren, in pure Nix**: deploy waves, well-founded models with proofs and why-not, and values
+  synthesized under constraints (a free port, guest memory that fits). [Ask and prove](https://sven.oeiuwq.com/query/queries/)
+- **Agents as team members**: every answer is JSON-safe data. Changes are staged, checked by invariants, limited by
+  grants that only narrow, and written as change programs. An MCP server answers agents. [For agents](https://sven.oeiuwq.com/agents/agent-surface/)
+- **Errors with fixes**: `code`, `path`, `got`, `want`, `fix`, and `near` for typos. [Errors as data](https://sven.oeiuwq.com/concepts/errors/)
+- **Fast where it counts**: one nixpkgs per system across hosts, and trimmed NixOS module lists, with drvPath oracles
+  that prove the systems are the same. [Performance](https://sven.oeiuwq.com/perf/shared-pkgs/)
+- **Every capability of Den, den-hoag and clan**, and the patterns of real fleets, each with a check, in the
+  [reference fleet](https://github.com/vic/sven/tree/main/templates/fleet). [From Den](https://sven.oeiuwq.com/migrate/from-den/)
 
 ## Start
 
-Read the [fleet guide](templates/fleet/README.md): start with [Start](templates/fleet/README.md#start). Then see [the fleet, live](templates/fleet/README.md#this-fleet-live), which has diagrams generated from its own queries, and the [capability index](templates/fleet/README.md#capability-index-generated), which lists everything sven can do.
 
-Every test runs in GitHub Actions on each push: [.github/workflows/test.yml](.github/workflows/test.yml).
+```sh frame="terminal"
+nix flake init -t github:vic/sven#one-page-fleet
+```
+
+Then read the [documentation](https://sven.oeiuwq.com/): every page is a tested example. Coming from `configuration.nix`, a flake or Den?
+The [migration guides](https://sven.oeiuwq.com/migrate/from-configuration-nix/) build the same systems before and after.
+
+sven is made by [vic](https://github.com/vic), with love, as part of the [Dendritic ecosystem](https://dendritic.oeiuwq.com).
+If it helps you, please [sponsor vic](https://dendritic.oeiuwq.com/sponsor). Issues and pull requests are welcome:
+see [CONTRIBUTING.md](CONTRIBUTING.md).
+

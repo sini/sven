@@ -220,7 +220,7 @@ let
     page:
     lib.concatStringsSep "\n\n" (
       [
-        "# ${page.title}"
+        "# ${(sven.helpers.example page.dir).page.plainTitle or page.title}"
         "<!-- Generated from docs/examples/${page.name}/page.nix. Edit there, then run `nix run .#write-files` in docs/. -->"
       ]
       ++ bodyOf page

@@ -8,7 +8,7 @@
     { docs, ... }:
     [
       ''
-        sven is about 550 lines of Nix builtins. Its own cost is small next to nixpkgs and the module system, and it stays
+        sven is one file of Nix builtins. Its own cost is small next to nixpkgs and the module system, and it stays
         small as a fleet grows:
 
         - Each scope computes each aspect ref once, so aspects that read aspects cost linear time, however deep they nest.

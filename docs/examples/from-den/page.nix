@@ -109,6 +109,67 @@
           body = docs.file "modules/defaults.nix";
         }
       ])
+      ''
+        ## Quirks and pipes are sinks
+
+        In Den, a quirk is structured data that aspects emit on a key registered in `den.quirks`, and pipes are policy effects
+        that route it: `pipe.expose` up to the host, `pipe.collect` across hosts, `pipe.filter`, `pipe.as`. By default a quirk stays
+        in its own scope. From [Den's docs](https://github.com/denful/den/blob/main/docs/src/content/docs/explanation/quirks-and-pipes.mdx):
+      ''
+      (docs.nix ''
+        den.quirks.firewall = { description = "Firewall port declarations"; };
+        den.aspects.nginx = { firewall = { ports = [ 80 443 ]; }; };
+        den.aspects.networking.nixos = { firewall, lib, ... }: {
+          networking.firewall.allowedTCPPorts = lib.concatMap (f: f.ports or []) firewall;
+        };
+      '')
+      ''
+        In sven a quirk is a sink. Where its values land is the tree: an element goes up to the nearest scope that has the sink.
+        A user's ports reach its host with no policy, which is Den's `pipe.expose`. `entries` keeps who gave each value, so a
+        filter or a rename is a plain function in the reader:
+      ''
+      (docs.fileWith "{6-13,22}" "modules/quirks.nix")
+      (docs.table
+        [ "Den" "sven" ]
+        [
+          [
+            "`den.quirks.<q>`"
+            "a sink `<q>` on the kind that consumes it"
+          ]
+          [
+            "emit on a quirk key"
+            "an aspect key with the sink's name"
+          ]
+          [
+            "consume with `{ firewall, ... }:`"
+            "the same: a sink is an arg"
+          ]
+          [
+            "`pipe.expose` (user to host)"
+            "routing: the user has no such sink, its host has one"
+          ]
+          [
+            "`pipe.collect`, `pipe.broadcast`"
+            "a sink at a common ancestor (the fleet), read by each host"
+          ]
+          [
+            "`pipe.filter`, `pipe.as`"
+            "a function over the reduced value, with `entries` for provenance"
+          ]
+          [
+            "a wall: a value that must not leave its scope"
+            "a sink with no keys"
+          ]
+        ]
+      )
+      ''
+        ## Policies are `spawns`
+
+        A Den policy is a function from context to effects, such as `host-to-users` that resolves each user under its host.
+        The policy graph (flake, system, host, user, home) is Den's structure. In sven you write that structure as `spawns`:
+        `sven.kinds.host.spawns.user` in `fleet.nix` above is Den's `host-to-users`. Conditional policies are a `spawns`
+        that reads data or `sven.lib.holds`. Include and exclude effects are `at`, and `not`.
+      ''
       (docs.note "Three Den bug families that cannot happen" ''
         - **Double delivery.** An element has one id per receiver.
         - **Lost content when one aspect is in two files.** A read queries all files. Nothing merges early.
@@ -121,6 +182,12 @@
         }.
       '')
     ];
+
+  checks =
+    { r, ... }:
+    {
+      quirk-up = r.flake.userPorts == { igloo = [ 3000 ]; };
+    };
 
   e2e =
     {
@@ -155,5 +222,10 @@
     in
     {
       same-facts = fp den == fp flake.nixosConfigurations.igloo.config;
+      ports =
+        flake.nixosConfigurations.igloo.config.networking.firewall.allowedTCPPorts == [
+          22
+          3000
+        ];
     };
 }

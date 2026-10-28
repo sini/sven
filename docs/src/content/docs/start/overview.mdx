@@ -34,6 +34,30 @@ Where elements go. An element goes up to the nearest scope that collects it, and
 </Card>
 </CardGrid>
 
+## The four words
+
+Everything in sven is one of four words. Read them once, in order, before any code:
+
+1. **Kind.** A type of thing you configure, and the fields each one has. You name your kinds: `host`, `user`,
+   `cluster`, `printer`, `editor`. An **instance** is one thing of a kind: `sven.host.web`.
+2. **Scope.** One instance at one place in a tree. A kind's `spawns` says which instances live under it: a user
+   under each host it logs in to, a host under its environment. The kind that nothing spawns is the root.
+3. **Aspect.** One feature: "ssh on", "nginx with these sites". Its `at` is a predicate that says at which scopes
+   it is active. Its other keys each give one **element**: a value, or a function of the data.
+4. **Sink.** Where elements go. A kind declares sinks. An element goes up the tree to the nearest scope with a sink
+   of the same name, and the sink reduces all its elements to one value: a list, a set, a merged attrset, one value.
+
+So: kinds say what exists, scopes say where it lives, aspects say what to do, and sinks say who collects the result.
+Sinks also build the outputs: the sink of a host can call `nixosSystem` on the modules it collected.
+
+
+:::note[No batteries, no vocabulary]
+sven knows no nouns. It has no `host`, no `user`, no `nixos` class, no NixOS or flake-parts options, and no
+batteries such as Den's `define-user`. It is agnostic: you define the kinds, fields and sinks of what you configure,
+in your own language. A fleet of NixOS hosts, a set of dev shells and a printer inventory use the same four words.
+Every example in these docs declares its own kinds, so you can read each one top to bottom.
+:::
+
 ## The four words in one example
 
 This example has no NixOS. An office has two machines. Each machine collects a set of package names.
