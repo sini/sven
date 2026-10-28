@@ -14,7 +14,7 @@
         };
       };
     in
-    { inherit (flake) packages checks templates tests devShells; }; # literal names: `self` is readable while the outputs evaluate
+    { inherit (flake) packages checks tests devShells; templates = import ./templates.nix; }; # literal names: `self` is readable while the outputs evaluate
 
   inputs = {
     den.url = "github:denful/den";

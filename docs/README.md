@@ -37,5 +37,5 @@ New files are visible to Nix only when the VCS tracks them.
 Each template is published as a flake template:
 
 ```sh
-nix flake init -t 'github:vic/sven?dir=docs#getting-started'
+nix flake init -t github:vic/sven#getting-started
 ```

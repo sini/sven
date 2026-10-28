@@ -23,7 +23,6 @@ in
     sinks = {
       out.reduce = merge;
       sidebar = { reduce = list; of = is (v: v ? section && v ? item); };
-      templates = { reduce = merge; out = { templates, ... }: { inherit templates; }; };
       # `nix flake check` runs the oracles too: one check for the fast ones, one for the NixOS evaluations
       tests = {
         reduce = merge;

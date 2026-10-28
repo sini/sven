@@ -13,7 +13,7 @@
       ''
         Get the template. It has a `flake.nix` and a `modules/` directory.
 
-        ${docs.sh "nix flake init -t 'github:vic/sven?dir=docs#getting-started'"}
+        ${docs.sh "nix flake init -t github:vic/sven#getting-started"}
       ''
       ''
         Read `flake.nix`. sven is a plain Nix file, so the input has `flake = false`.

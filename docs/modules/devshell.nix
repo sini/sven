@@ -22,14 +22,14 @@ in
       (cmd "docs" "docs-test" "the checks of every example (fast)" "cd docs && ${empty "failed" "nix eval --impure --file tests.nix failed"}")
       (cmd "docs" "docs-e2e" "real NixOS, nix-darwin and home-manager evaluations of the examples" "cd docs && ${empty "e2e.failed" "nix eval --impure --file tests.nix e2e.failed"}")
       (cmd "docs" "docs-check" "nix flake check of docs/: pages current, examples, e2e" "cd docs && nix flake check -L")
-      (cmd "docs" "docs-dev" "the site at localhost:4321, live" "cd docs && pnpm install && pnpm dev")
-      (cmd "docs" "docs-build" "build the site to docs/dist" "cd docs && pnpm install --frozen-lockfile && pnpm build")
+      (cmd "docs" "docs-dev" "the site at localhost:4321, live" "cd docs && CI=true pnpm install --config.confirmModulesPurge=false && pnpm dev")
+      (cmd "docs" "docs-build" "build the site to docs/dist" "cd docs && CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false && pnpm build")
     ];
   };
   sven.aspects.fmt-commands = {
     at = sven.kinds.site;
     commands = [
-      (cmd "fmt" "fmt-check" "every tracked nix file is formatted (nixfmt), as CI checks" "git ls-files -z '*.nix' | xargs -0 nix run nixpkgs#nixfmt-rfc-style -- --check")
+      (cmd "fmt" "fmt-check" "every tracked nix file is formatted (nixfmt), as CI checks" "git ls-files -z '*.nix' | timeout 60 xargs -0 nix run nixpkgs#nixfmt-rfc-style -- --check")
       (cmd "fmt" "fmt" "format every tracked nix file (nixfmt)" "git ls-files -z '*.nix' | xargs -0 nix run nixpkgs#nixfmt-rfc-style --")
     ];
   };

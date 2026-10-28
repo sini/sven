@@ -54,7 +54,7 @@ let
   runIt = page: d: d.tip "Run this example" ''
     Every block on this page is a file of the template `${page.name}`. Copy it and run it:
 
-    ${d.sh "nix flake init -t 'github:vic/sven?dir=docs#${page.name}'"}
+    ${d.sh "nix flake init -t github:vic/sven#${page.name}"}
 
     ${d.tree}
   '';
@@ -81,7 +81,6 @@ in
     at = sven.kinds.page;
     files = { page, ... }: { files.file = { "src/content/docs/${page.route}.mdx".text = render page; } // lib.optionalAttrs ((sven.helpers.example page.dir).page ? alsoAt) { ${(sven.helpers.example page.dir).page.alsoAt}.text = plain page; }; };
     sidebar = { page, ... }: { section = page.section; inherit (page) order; item = { label = page.title; slug = page.route; } // lib.optionalAttrs (page.badge != null) { badge = page.badge; }; };
-    templates = { page, ... }: lib.optionalAttrs (sven.helpers.example page.dir).template { ${page.name} = { path = page.dir; inherit (page) description; }; };
     tests = { page, ... }: { ${page.name} = testsOf page; };
   };
   # every internal link of every page resolves to a page: `/route/` or `/route/#anchor`

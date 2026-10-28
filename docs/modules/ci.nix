@@ -55,7 +55,7 @@ in
   sven.aspects.ci-fmt = {
     at = sven.kinds.site;
     workflow.fmt = job { steps = [
-      (run "every nix file is formatted (nixfmt)" null "git ls-files -z '*.nix' | xargs -0 nix run nixpkgs#nixfmt-rfc-style -- --check")
+      (run "every nix file is formatted (nixfmt)" null "git ls-files -z '*.nix' | timeout 60 xargs -0 nix run nixpkgs#nixfmt-rfc-style -- --check")
       (run "the generated workflows are valid (actionlint)" null "nix run nixpkgs#actionlint -- .github/workflows/*.yml")
     ]; };
   };
@@ -71,7 +71,7 @@ in
     workflow.docs = job { needs = [ "engine" ]; timeout = 60; steps = [
       (run "docs examples" "docs" (empty "failed" "nix eval --impure --file tests.nix failed"))
       (run "docs flake check: pages and this workflow current, examples, e2e" null "nix flake check -L \"git+file://\${{ github.workspace }}?dir=docs\"")
-      (run "site build" "docs" "nix shell nixpkgs#nodejs nixpkgs#pnpm -c sh -c 'pnpm install --frozen-lockfile && pnpm build'")
+      (run "site build" "docs" "nix shell nixpkgs#nodejs nixpkgs#pnpm -c sh -c 'CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false && pnpm build'")
     ]; };
   };
   sven.aspects.ci-fleet = {

@@ -30,7 +30,7 @@
       ''
         Get the template, and copy your two files over the ones in `machines/laptop/`:
 
-        ${docs.sh "nix flake init -t 'github:vic/sven?dir=docs#from-configuration-nix'"}
+        ${docs.sh "nix flake init -t github:vic/sven#from-configuration-nix"}
       ''
       ''
         Declare the fleet. A host builds NixOS from its `nixos` sink. A user lives under the hosts it logs in to.
