@@ -6,6 +6,8 @@ let
   inherit (inputs.nixpkgs) lib;
   sven = (import inputs.sven).lib;
   b = builtins;
+  # the shared-pkgs comparison hosts (environment lab) stay out of checks that list the original fleet
+  noApps = xs: if lib.isAttrs xs then lib.filterAttrs (n: _: !lib.hasPrefix "app-" n && !lib.hasPrefix "infra-app-" n) xs else lib.filter (n: let s = if lib.isString n then n else ""; in !(lib.hasInfix "app-" s)) xs;
   fleet = extra: {
     imports = [ (inputs.import-tree ./modules) ] ++ extra;
     _module.args = { inherit inputs lib; };
@@ -68,8 +70,8 @@ let
     tags-stage-web = lib.elem "web" (red "tags" stage);
     flake-file-inputs = lib.attrNames (red "flake-file" "fleet:main").inputs == lib.attrNames (import ./flake.nix).inputs; # the generated flake.nix has exactly the declared inputs
     flake-file-conflict = hasMsg (with' ({ sven, ... }: { sven.aspects.agenix2 = { at = sven.fleet.main; flake-file.inputs.agenix.url = "github:other/agenix"; }; })) "merge conflict at inputs.agenix.url";
-    recursive-attrs-deploy = lib.attrNames out.deploy.nodes == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
-    recursive-attrs-colmena = lib.attrNames r.reduced.colmena."fleet:main" == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
+    recursive-attrs-deploy = noApps (lib.attrNames out.deploy.nodes) == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
+    recursive-attrs-colmena = noApps (lib.attrNames r.reduced.colmena."fleet:main") == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
     root-emission = (red "flake-file" "fleet:main").inputs.nixpkgs.url == "github:nixos/nixpkgs/nixos-25.05";
     spawn-pixel-only-alice = lib.filter (s: s.parent != null && s.parent.id == "${S}/phone:pixel") r.scopes != [ ] && map (s: s.name) (lib.filter (s: s.parent != null && s.parent.id == "${S}/phone:pixel") r.scopes) == [ "alice" ];
     spawn-lb-only-alice = map (s: s.name) (lib.filter (s: s.parent != null && s.parent.id == lb && s.kind == "user") r.scopes) == [ "alice" ];
@@ -78,14 +80,14 @@ let
     into-outputs = out ? colmenaHive && out ? ageManifest && out ? packages && out ? terraformConfigurations;
     inventory-json = (scope web1) != null && (scope web2).buildHost == "10.0.1.1";
     inventory-string-ref-refused = hasMsg (with' { sven.host.bad = { environment = "prod"; addr = "x"; }; }) ".*environment wants a environment ref.*";
-    vars = out.vars.shared.ca.files == [ "ca.crt" "ca.key" ] && lib.attrNames out.vars.per-machine == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
-    checks-names = lib.attrNames out.checks.x86_64-linux == [ "files/README.md" "files/ci.json" "flake-file" "guard-pod" "infra-lb" "infra-stage" "infra-web-1" "infra-web-2" "lb-no-gui" "pre-commit" "web" ] && !(out.checks.aarch64-linux ? web) && out.checks.aarch64-linux ? pre-commit;
+    vars = out.vars.shared.ca.files == [ "ca.crt" "ca.key" ] && noApps (lib.attrNames out.vars.per-machine) == [ "lb" "lb-minimal" "stage" "web-1" "web-2" ];
+    checks-names = noApps (lib.attrNames out.checks.x86_64-linux) == [ "files/README.md" "files/ci.json" "flake-file" "guard-pod" "infra-lb" "infra-stage" "infra-web-1" "infra-web-2" "lb-no-gui" "pre-commit" "web" ] && !(out.checks.aarch64-linux ? web) && out.checks.aarch64-linux ? pre-commit;
     buildhost = (red "deploy" web2).buildHost == "10.0.1.1" && (red "deploy" lb).buildHost == null && red "deploy" ci == null;
-    facter-metal = on "facter" == [ lb "${lb}/host:lb-minimal" web1 web2 stage ];
+    facter-metal = noApps (on "facter") == [ lb "${lb}/host:lb-minimal" web1 web2 stage ];
     typed-scrape = red "scrape" "fleet:main" == [ { job = "r1"; target = "eu.eu:9090"; } ];
     typed-scrape-bad = hasMsg (with' ({ sven, ... }: { sven.aspects.bad-scrape = { at = sven.host.lb; scrape.job = 1; }; })) ".*fails `of`.*";
     diamond-nginx-once = lib.length (nixosAt web1 [ "services" "nginx" "enable" ]) == 1 && lib.length (nixosAt stage [ "services" "nginx" "enable" ]) == 1;
-    merge-across-files = r.active.base.${lb} && lib.attrNames (red "records" "fleet:main") == [ "ci" "lb" "lb-minimal" "stage" "studio" "web-1" "web-2" ];
+    merge-across-files = r.active.base.${lb} && noApps (lib.attrNames (red "records" "fleet:main")) == [ "ci" "lb" "lb-minimal" "stage" "studio" "web-1" "web-2" ];
     recursive-kinds = scope "fleet:main/domain:example.org/domain:api.example.org/domain:v1.api.example.org" != null;
     twice-on-path = hasMsg (with' ({ sven, ... }: { sven.kinds.fleet.spawns.ring = _: { r = { }; }; sven.kinds.ring.spawns.ring = s: { r = { }; }; })) ".*instance ring:r twice on path.*";
     nearest-bob-ci = (upTo [ "host" "guest" "mac" ] (scope "${ci}/user:bob")).id == ci && (upTo [ "environment" ] (scope "${ci}/user:bob")).name == "staging" && upTo [ "environment" ] (scope "fleet:main") == null;
@@ -135,7 +137,7 @@ let
 
     # ── Den ──
     den-specialisation = edge "nixos" "${lb}/variant:debug" lb && nixosAt lb [ "specialisation" "debug" "configuration" "imports" ] != [ ];
-    den-ids = nixosAt lb [ "services" "openssh" "ports" ] == [ [ 2200 ] ] && nixosAt web2 [ "services" "openssh" "ports" ] == [ [ 2204 ] ];
+    den-ids = nixosAt lb [ "services" "openssh" "ports" ] == [ [ 2204 ] ] && nixosAt web2 [ "services" "openssh" "ports" ] == [ [ 2208 ] ];   # app-1..4 sort first
     den-module-outside = lib.isList (red "nixos" lb) && lib.length (red "nixos" lb) > 10; # moduleOf: a query gives the module list
     den-nested-groups = lib.length (lib.filter (s: s.kind == "user" && s.name == "alice") r.scopes) == 10;
     den-739-home-on-host = edge "homeManager" "${stage}/home:alice@stage/user:alice" "${stage}/home:alice@stage"
@@ -159,7 +161,7 @@ let
     vix-secrets = map (s: s.name) (red "secrets" "${stage}/user:bob") == [ "gh-token" "gpg-key" ] && map (s: s.name) (red "secrets" "${lb}/user:alice") == [ "gh-token" ];
 
     # ── checks derived from the infra ──
-    ci-matrix = map (j: j.name) out.ci.matrix == [ "alice-laptop" "alice@stage" "devshell-aarch64-darwin" "devshell-aarch64-linux" "devshell-x86_64-linux" "lb" "stage" "studio" "web-1" "web-2" ];
+    ci-matrix = noApps (map (j: j.name) out.ci.matrix) == [ "alice-laptop" "alice@stage" "devshell-aarch64-darwin" "devshell-aarch64-linux" "devshell-x86_64-linux" "lb" "stage" "studio" "web-1" "web-2" ];
     infra-facts = lib.attrNames (red "infra" "fleet:main").lb == [ "hostname" "persist /home/alice/.local/state/syncthing" ] && lib.attrNames (red "infra" "fleet:main").web-1 == [ "hostname" "nginx" "persist /home/alice/.local/state/syncthing" "persist /var/lib/nginx" "port80" ];
 
     # ── Den CI capabilities (templates/ci/modules) ──
@@ -249,7 +251,7 @@ let
     clan-cross-service-exports = out.cnames == [ { name = "docs.example.org"; target = "web-1"; } ];
     clan-vars-deploy-false = !lib.any (f: f.file == "ca-key") out.varsPlan.stage.files && lib.any (f: f.file == "password") out.varsPlan.stage.files;
     clan-recipients = out.varsPlan.lb.recipients == [ "age1lb" "age1admin" ] && out.varsPlan.web-1.recipients == [ "age1admin" ];
-    graphs-impact = out.impact == { lb = [ "stage" "web-1" "web-2" ]; stage = [ ]; web-1 = [ "stage" ]; web-2 = [ ]; }
+    graphs-impact = noApps out.impact == { lb = [ "stage" "web-1" "web-2" ]; stage = [ ]; web-1 = [ "stage" ]; web-2 = [ ]; }
       && hasMsg (with' ({ sven, ... }: { sven.host.lb.dependsOn = [ sven.host.stage ]; })) "deploy: hosts depend on each other in a cycle: lb -> stage -> web-1";
     datalog-serving = let etc = r: f: lib.filter (v: v != null) (map (m: m.environment.etc.${f}.text or null) (list (r.reduced.nixos.${lb} or null))); in
       etc r "lb/serving" == [ "stage web-1 web-2" ] && etc r "db/primary" == [ "lb" ]
@@ -264,7 +266,7 @@ let
       mem r == [ (builtins.toJSON { ci = 8; }) ]
       && mem (with' (guest "build" [ 4 8 ])) == [ (builtins.toJSON { build = 8; ci = 2; }) ]
       && hasMsg (with' (guest "big" [ 9 12 ])) ".*the guests of stage do not fit in 16 GiB with 6 reserved.*";
-    krn-placement = out.dbPlacement == { lb = [ "lb" ]; stage = [ "stage" ]; web-1 = [ "lb" ]; web-2 = [ "lb" ]; }
+    krn-placement = noApps out.dbPlacement == { lb = [ "lb" ]; stage = [ "stage" ]; web-1 = [ "lb" ]; web-2 = [ "lb" ]; }
       && lib.sort (a: b: a < b) out.takes8081 == [ "grafana" "loki" "prometheus" ];
     agent-check = r.check.ok && r.check.invariants == [ "attic" "base" "ssh" ] && r.check.violations == [ ];
     agent-stage = let s = sven.stage { base = fleet [ ]; change = { sven.aspects.attic.at = [ { kind = "mac"; name = "studio"; } ]; }; }; in
@@ -297,7 +299,7 @@ let
         nouser = { module = "users"; roles.default.machines.web-1 = { }; }; badtype = { module = "users"; roles.default = { machines.web-1 = { }; settings.user = 42; }; }; }; }); in
       lib.all (hasMsg e) [ ".*instance bad-role uses unknown service bad-role.*" ".*instance empty has no roles.*" ".*backup2 role server: 2 machines, at most 1.*"
         ".*nouser.default: setting user is not a string.*" ".*badtype.default: setting user is not a string.*" ];
-    clan-vars = lib.sort (a: b: a < b) (lib.attrNames (red "generators" "fleet:main")) == [ "borg-backup@lb" "borg-backup@lb-minimal" "borg-backup@stage" "borg-backup@web-1" "borg-backup@web-2"
+    clan-vars = noApps (lib.sort (a: b: a < b) (lib.attrNames (red "generators" "fleet:main"))) == [ "borg-backup@lb" "borg-backup@lb-minimal" "borg-backup@stage" "borg-backup@web-1" "borg-backup@web-2"
         "from-exports@web-1" "openssh@lb" "openssh@lb-minimal" "openssh@stage" "openssh@studio" "openssh@web-1" "openssh@web-2" "wifi.home" ]
       && hasMsg (with' ({ sven, ... }: { sven.aspects.dep-bad = { at = sven.host.web-1; generators = { scope, ... }: { name = "x"; dependencies = [ "missing" ]; }; }; })) ".*x@web-1 depends on missing, which web-1 has not.*";
     clan-public-value = osAt lb [ "environment" "etc" "ssh/host-key.pub" "text" ] == [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFleetTestKeyNotReal lb" ]
@@ -309,13 +311,18 @@ let
       && first (nixosAt web1 [ "environment" "etc" "app/database-url" "text" ]) == "postgres://10.0.1.1/app_web_1";
     hoag-collectors = lib.attrNames out.colmenaHives.prod == [ "lb" "meta" "web-1" "web-2" ] && lib.attrNames out.colmenaHives.staging == [ "meta" "stage" ]
       && out.colmenaHives.staging.meta.allowApplyAll;
-    hoag-query-layers = out.deployWaves == [ [ "lb" ] [ "web-1" "web-2" ] [ "stage" ] ] && out.dependents.lb == [ "web-1" "web-2" ] && out.dependents.stage == [ ];
+    hoag-query-layers = map noApps out.deployWaves == [ [ "lb" ] [ "web-1" "web-2" ] [ "stage" ] ] && out.dependents.lb == [ "web-1" "web-2" ] && out.dependents.stage == [ ];
   };
 
   e2e = rec {
     lbCfg = out.nixosConfigurations.lb.config;
     checks = {
       lb-toplevel = lib.hasSuffix ".drv" lbCfg.system.build.toplevel.drvPath;
+      shared-pkgs-same-drv = let d = c: c.config.system.build.toplevel.drvPath; in
+        out.sharedPkgs == { app-1 = { leader = "app-1"; follower = false; }; app-2 = { leader = "app-1"; follower = true; }; app-3 = { leader = "app-1"; follower = true; }; }
+        && lib.attrNames out.nixosConfigurationsOwnPkgs == [ "app-2" "app-3" ]
+        && lib.all (n: d out.nixosConfigurations.${n} == d out.nixosConfigurationsOwnPkgs.${n}) [ "app-2" "app-3" ]
+        && out.sharedPkgs ? app-4 == false;
       clan-built = lbCfg.services.borgbackup.jobs.backup.repo == "borg@10.0.1.1:/srv/lb" && lbCfg.users.users ? svc-a && lbCfg.users.users ? svc-b
         && lbCfg.services.openssh.enable && lbCfg.environment.etc.extra.text == "svc-a"
         && out.nixosConfigurations.web-2.config.environment.etc.autoinclude.text == "web-2"

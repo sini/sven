@@ -21,4 +21,5 @@ in
   };
   sven.environment.prod = { grants = [ sven.group.admin sven.group.sso ]; edge = true; settings.kernel.channel = "lts"; };
   sven.environment.staging = { grants = [ sven.group.admin sven.group.deploy ]; base = sven.environment.prod; };
+  sven.environment.lab = { grants = [ ]; };   # apps for the shared-pkgs comparison: no users, no edge
 }

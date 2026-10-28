@@ -10,6 +10,7 @@ in
     system = sven.kinds.system;
     addr = lib.types.str;
     buildHost = maybe lib.types.str;
+    sharedPkgs = sven.lib.opt lib.types.bool false;   # reuse one pkgs per (channel, system): platforms/nixos.nix
     settings.kernel.channel = maybe (sven.helpers.enum [ "lts" "latest" ]);
   };
 }
