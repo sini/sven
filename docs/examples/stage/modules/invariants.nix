@@ -1,0 +1,13 @@
+# Rules over `r.facts`. A true `bad:` atom is a violation. Facts: kind:K:ID, has:ASPECT:ID, val:FIELD:ID:VALUE, …
+{ sven, lib, ... }:
+{
+  # no server runs a desktop
+  sven.invariants.no-desktop-on-servers = { scopes, ... }:
+    map (s: { head = "bad:desktop-on-server:${s.name}"; pos = [ "has:desktop:${s.id}" ]; })
+      (lib.filter (s: s.kind == "host" && s.form == "server") scopes);
+  # no two hosts share an address: a rule across machines
+  sven.invariants.unique-addr = { scopes, ... }:
+    let hosts = lib.filter (s: s.kind == "host") scopes; in
+    lib.concatMap (a: map (b: { head = "bad:same-addr:${a.name}:${b.name}"; pos = [ "val:addr:${a.id}:${a.addr}" "val:addr:${b.id}:${a.addr}" ]; })
+      (lib.filter (b: a.name < b.name) hosts)) hosts;
+}

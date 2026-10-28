@@ -1,0 +1,183 @@
+---
+{"description":"`at` takes a predicate: a function, a kind, an instance, an aspect, a list, and `all`, `not`, `within`, `has`.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/predicates/page.nix","title":"Predicates"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+A predicate is a function `scope: bool`. A kind ref, an instance ref, an aspect ref and a list are predicates too.
+
+
+| Predicate | Holds at a scope when |
+|---|---|
+| `s: …` | the function gives `true` |
+| `sven.kinds.host` | the scope is a host |
+| `sven.host.web` | the scope is the instance `web` |
+| `sven.aspects.cuda` | the aspect `cuda` is active there |
+| `[ p q ]` | any of the list holds |
+| `all [ p q ]` | all of the list hold |
+| `not p` | `p` does not hold |
+| `within p` | `p` holds at a proper ancestor |
+| `has p` | `p` holds at a child |
+
+This example has two hosts and one guest (a VM) on `big`:
+
+
+```nix title="modules/fleet.nix"
+# Hosts with facts, guests (VMs) under hosts. An `active` output lists each aspect's scopes.
+{ sven, lib, ... }:
+{
+  sven.kinds.fleet = {
+    spawns.host = _: sven.host;
+  };
+  sven.kinds.host = {
+    fields = { cores = lib.types.int; gpu = sven.lib.opt lib.types.bool false; };
+    spawns.guest = s: lib.filterAttrs (_: g: sven.lib.same g.on s) sven.guest;
+  };
+  sven.kinds.guest.fields.on = sven.kinds.host;
+
+  sven.fleet.main = { };
+  sven.host.big = { cores = 32; gpu = true; };
+  sven.host.small.cores = 4;
+  sven.guest.ci.on = sven.host.big;
+
+}
+```
+
+```nix title="modules/aspects.nix"
+{ sven, ... }:
+let
+  inherit (sven.lib) all not within has;
+in
+{
+  sven.aspects = {
+    builder.at = s: (s.cores or 0) >= 16;                       # a function of the scope: a fact test
+    cuda.at = all [ sven.kinds.host (s: s.gpu) ];               # all of a list
+    tiny.at = all [ sven.kinds.host (not sven.aspects.builder) ]; # an aspect ref, negated
+    vm-tools.at = within sven.aspects.cuda;                     # a proper ancestor holds
+    vm-host.at = has sven.kinds.guest;                          # a child holds
+    monitored.at = [ sven.host.small sven.aspects.vm-host ];    # a list is "any"
+  };
+}
+```
+
+Where each aspect is active (the output comes from `modules/report.nix`, an `entries` sink):
+
+
+```nix title="result"
+{
+  builder = [
+    "big"
+  ];
+  cuda = [
+    "big"
+  ];
+  monitored = [
+    "big"
+    "small"
+  ];
+  tiny = [
+    "small"
+  ];
+  vm-host = [
+    "big"
+  ];
+  vm-tools = [
+    "ci"
+  ];
+}
+```
+
+Ask any predicate at a scope with `sven.lib.holds p scope`. A `spawns` function can use it too:
+structure can depend on which aspects are active at the parent.
+
+## Cycles and mistakes
+
+Each scope computes each aspect ref once, so aspects that read aspects cost linear time.
+Refs can form cycles. A cycle through `not` has no answer: the aspects on it are not active,
+and the `undefined` query lists them. A cycle with no `not` is false.
+
+A value in `at` that is not a predicate, such as a string, is an error record. It is never a silent `false`.
+
+
+```nix title="variants/cycle.nix"
+# Two aspects that each hold where the other does not: no answer.
+{ sven, ... }:
+{
+  sven.aspects.left.at = sven.lib.all [ sven.kinds.host (sven.lib.not sven.aspects.right) ];
+  sven.aspects.right.at = sven.lib.all [ sven.kinds.host (sven.lib.not sven.aspects.left) ];
+  sven.aspects.typo.at = "host";
+}
+```
+
+<Tabs>
+<TabItem label="r.undefined">
+
+```nix title="result"
+[
+  {
+    aspect = "left";
+    scope = "fleet:main/host:big";
+  }
+  {
+    aspect = "right";
+    scope = "fleet:main/host:big";
+  }
+  {
+    aspect = "left";
+    scope = "fleet:main/host:small";
+  }
+  {
+    aspect = "right";
+    scope = "fleet:main/host:small";
+  }
+]
+```
+
+</TabItem>
+<TabItem label="r.errors">
+
+```nix title="result"
+[
+  {
+    class = "fixable";
+    code = "at";
+    error = "`at` holds a string, not a predicate";
+    from = "aspect typo";
+    got = "string";
+    path = [
+      "aspects"
+      "typo"
+      "at"
+    ];
+    want = "a predicate: a function, a kind, instance or aspect ref, or a list";
+  }
+]
+```
+
+</TabItem>
+</Tabs>
+
+:::note[Well-founded semantics]
+This is the well-founded semantics of logic programs. You never get an arbitrary answer for a cycle:
+you get "undefined", and a query that says where.
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `predicates`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#predicates'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - aspects.nix
+  - fleet.nix
+  - report.nix
+- variants/
+  - cycle.nix
+
+</FileTree>
+:::

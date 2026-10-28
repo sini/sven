@@ -1,0 +1,132 @@
+---
+{"description":"Name a question once with `sven.queries`, then ask it with `r.ask` from Nix, the CLI or an agent.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/stored-queries/page.nix","title":"Stored queries"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+A stored query names a question about the fleet. `r` is the eval result. The other formal args are its parameters:
+required, unless they have a default.
+
+
+```nix title="modules/queries.nix"
+# A stored query names a question. `r` is the eval result; the other args are its parameters.
+{ sven, lib, ... }:
+{
+  sven.queries = {
+    aspectsOn = { r, host }: lib.sort (a: b: a < b) (lib.filter (a: r.active.${a}."fleet:main/host:${host}" or false) (lib.attrNames r.active));
+    hostsWith = { r, aspect, kind ? "host" }: map (s: s.name) (lib.filter (s: s.kind == kind && r.active.${aspect}.${s.id}) r.scopes);
+  };
+}
+```
+
+`r.queries` lists them with their parameters:
+
+
+```nix title="result"
+{
+  aspectsOn = {
+    optional = [ ];
+    required = [
+      "host"
+    ];
+  };
+  hostsWith = {
+    optional = [
+      "kind"
+    ];
+    required = [
+      "aspect"
+    ];
+  };
+}
+```
+
+`r.ask name args` answers:
+
+
+<Tabs>
+<TabItem label="ask &quot;aspectsOn&quot; { host = &quot;web&quot;; }">
+
+```nix title="result"
+[
+  "git"
+  "nginx"
+]
+```
+
+</TabItem>
+<TabItem label="ask &quot;hostsWith&quot; { aspect = &quot;git&quot;; kind = &quot;user&quot;; }">
+
+```nix title="result"
+[
+  "ana"
+]
+```
+
+</TabItem>
+</Tabs>
+
+A wrong call is an error record, never a throw: a missing parameter, an unknown one, or an unknown query with `near`.
+
+
+<Tabs>
+<TabItem label="missing parameter">
+
+```nix title="result"
+{
+  class = "fixable";
+  code = "missing-param";
+  error = "query aspectsOn: missing host";
+  from = "ask";
+  got = [ ];
+  path = [ ];
+  want = [
+    "host"
+  ];
+}
+```
+
+</TabItem>
+<TabItem label="unknown query">
+
+```nix title="result"
+{
+  class = "fixable";
+  code = "unknown-query";
+  error = "no query aspectsOff";
+  from = "ask";
+  near = [
+    "aspectsOn"
+  ];
+  path = [ ];
+}
+```
+
+</TabItem>
+</Tabs>
+
+```sh frame="terminal"
+nix eval --impure --json --expr '(import ./query.nix).ask "aspectsOn" { host = "web"; }' 
+```
+
+:::tip[Queries that synthesize]
+A stored query can return values that already meet your rules: a free port from [krn](/query/krn/), or the hosts where an
+aspect is safe from [Stage](/agents/stage/). The [MCP server](/agents/mcp/) serves stored queries to agents.
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `stored-queries`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#stored-queries'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - fleet.nix
+  - queries.nix
+
+</FileTree>
+:::

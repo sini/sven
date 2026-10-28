@@ -1,0 +1,34 @@
+---
+{"description":"Each sven word, in one line, with the page that explains it.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/glossary/page.nix","title":"Glossary"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+| Word | Meaning | Page |
+|---|---|---|
+| kind | a type of thing, with fields, spawns and sinks | [Kinds and fields](/concepts/kinds-fields/) |
+| instance | `sven.<kind>.<name>`: one thing of a kind | [Kinds and fields](/concepts/kinds-fields/) |
+| field | a typed datum of each instance | [Types and defaults](/concepts/types/) |
+| type | any value with `check = value: bool` | [Types and defaults](/concepts/types/) |
+| ref | a field value that is another instance | [Instances and refs](/concepts/instances-refs/) |
+| data kind | a kind that no kind spawns: instances with no scope | [Instances and refs](/concepts/instances-refs/#data-kinds) |
+| root kind | the kind that nothing spawns, and that spawns others | [Scopes and spawns](/concepts/scopes/) |
+| scope | one instance at one place in the tree; its id is its path | [Scopes and spawns](/concepts/scopes/) |
+| spawns | a function from a parent scope to the instances under it | [Scopes and spawns](/concepts/scopes/) |
+| aspect | behavior: active where `at` holds, gives elements by key | [Aspects](/concepts/aspects/) |
+| predicate | a function of a scope, or a kind, instance, aspect or list | [Predicates](/concepts/predicates/) |
+| element | one value an aspect gives to a sink | [Aspects](/concepts/aspects/) |
+| sink | collects elements at a receiver and reduces them | [Sinks and reduce](/concepts/sinks/) |
+| receiver | the nearest ancestor-or-self scope with the sink, where its `at` holds | [Routing and walls](/concepts/routing/) |
+| wall | a sink with no keys: elements stop there | [Routing and walls](/concepts/routing/#walls) |
+| forward | a sink key that names another sink and feeds it | [Forwards](/concepts/forwards/) |
+| arg | a named arg of an element: a kind, a sink, `scope`, or open | [Args](/concepts/args/) |
+| component | an aspect's `cycle`: sources in, sinks out, 0 to n elements | [The cycle form](/concepts/cycle/) |
+| error record | an error as data, with `code`, `fix` and `class` | [Errors as data](/concepts/errors/) |
+| query | an answer of `eval`: errors, graph, active, reduced, … | [Queries](/query/queries/) |
+| invariant | Datalog rules over the facts; a true `bad:` atom is a violation | [Invariants](/query/invariants/) |
+| stored query | a named question, asked with `r.ask` | [Stored queries](/query/stored-queries/) |
+| stage | the fleet without and with a change, compared | [Stage a change](/agents/stage/) |
+| grant | where a change may give elements; grants only narrow | [Stage a change](/agents/stage/#grants-only-narrow) |
+| change program | a change as data ops: set, ref, place, new | [Change programs](/agents/programs/) |
+| knowledge pack | the fleet as sorted N-Triples with a sha256 | [Knowledge packs](/agents/knowledge/) |

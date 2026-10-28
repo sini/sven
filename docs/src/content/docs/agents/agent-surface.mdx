@@ -1,0 +1,227 @@
+---
+{"description":"What an agent reads first: `agent`, `schema`, `context`, `explain`, and trust labels by file path.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/agent-surface/page.nix","title":"The agent surface"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+An agent that manages a fleet works through queries. Every answer is data that `builtins.toJSON` prints,
+so a tool, a script or a model reads it the same way.
+
+## One call to start
+
+`r.agent` is the schema, the errors, the invariant check and the counts, JSON-safe:
+
+
+```nix title="result"
+{
+  check = {
+    incomplete = [ ];
+    ok = true;
+    violations = [ ];
+  };
+  counts = {
+    aspects = 3;
+    edges = 4;
+    kinds = 2;
+    scopes = 4;
+  };
+  errors = [ ];
+  schema = {
+    aspects = {
+      desktop = {
+        activeAt = 1;
+        cycle = false;
+        files = [
+          "modules/fleet.nix"
+        ];
+        keys = [ ];
+      };
+      metrics = {
+        activeAt = 3;
+        cycle = false;
+        files = [
+          "modules/agent/metrics.nix"
+        ];
+        keys = [
+          "services"
+        ];
+      };
+      postgres = {
+        activeAt = 1;
+        cycle = false;
+        files = [
+          "modules/fleet.nix"
+        ];
+        keys = [
+          "services"
+        ];
+      };
+    };
+    invariants = [ ];
+    kinds = {
+      fleet = {
+        fields = { };
+        instances = 1;
+        scopes = 1;
+        sinks = {
+          out = {
+            conditional = false;
+            feeds = [ ];
+            of = null;
+            out = false;
+            reduce = "merge";
+          };
+        };
+        spawns = [
+          "host"
+        ];
+      };
+      host = {
+        fields = {
+          addr = {
+            type = "str";
+          };
+          form = {
+            type = "enum";
+          };
+        };
+        instances = 3;
+        scopes = 3;
+        sinks = {
+          services = {
+            conditional = false;
+            feeds = [ ];
+            of = null;
+            out = false;
+            reduce = "list";
+          };
+        };
+        spawns = [ ];
+      };
+    };
+    queries = [
+      "errors"
+      "graph"
+      "scopes"
+      "active"
+      "reduced"
+      "undefined"
+      "declaredIn"
+      "facts"
+      "check"
+      "schema"
+      "flake"
+    ];
+  };
+  undefined = [ ];
+}
+```
+
+## Why is an aspect active, or not?
+
+`r.explain aspect id depth` traces `at` at one scope: the value of each node of the predicate, what the aspect gives
+there, and its files. Past the depth, `kids = "cut"`.
+
+
+```nix title="result"
+{
+  active = false;
+  aspect = "postgres";
+  at = {
+    kids = [
+      {
+        instance = "host:db";
+        op = "instance";
+        value = false;
+      }
+    ];
+    op = "any";
+    value = false;
+  };
+  files = [
+    "modules/fleet.nix"
+  ];
+  gives = [ ];
+  scope = "fleet:main/host:web";
+}
+```
+
+An unknown aspect or scope is an error record with `near`: the names it was probably meant to be.
+
+## Trust labels
+
+`sven.labels."<path part>" = { trust = n; }` labels the content of files whose path contains that part.
+An aspect declared in several files takes the lowest trust of them.
+
+
+```nix title="modules/labels.nix"
+# Content gets the trust of the files that declare it: files under agent/ are written by agents.
+{ ... }:
+{
+  sven.labels."agent/" = { trust = 1; };
+}
+```
+
+```nix title="modules/agent/metrics.nix"
+# Written by an agent.
+{ sven, ... }:
+{
+  sven.aspects.metrics = { at = sven.kinds.host; services = "prometheus-node-exporter"; };
+}
+```
+
+`r.labels` gives each labelled aspect. `r.floor 3` lists every routed element of an aspect below trust 3,
+with its file: what a reviewer reads first.
+
+
+```nix title="result"
+[
+  {
+    aspect = "metrics";
+    file = "modules/agent/metrics.nix";
+    to = "fleet:main/host:db";
+    trust = 1;
+  }
+  {
+    aspect = "metrics";
+    file = "modules/agent/metrics.nix";
+    to = "fleet:main/host:thinkpad";
+    trust = 1;
+  }
+  {
+    aspect = "metrics";
+    file = "modules/agent/metrics.nix";
+    to = "fleet:main/host:web";
+    trust = 1;
+  }
+]
+```
+
+| Query | Answer |
+|---|---|
+| `agent` | `schema`, `errors`, `check` and counts |
+| `schema` | kinds, aspects (keys, files, how many scopes), invariants |
+| `context id { maxEdges; maxAspects; }` | one scope and its neighborhood, with `truncated` |
+| `explain aspect id depth` | a trace of `at` at a scope |
+| `declaredIn path` | the files that answer a declaration path |
+| `labels`, `floor n` | trust per aspect; elements below a trust |
+| `impact id { hops; sinks; max; }` | what a scope's elements reach, by depth |
+
+:::tip[Run this example]
+Every block on this page is a file of the template `agent-surface`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#agent-surface'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - agent/
+    - metrics.nix
+  - fleet.nix
+  - labels.nix
+
+</FileTree>
+:::

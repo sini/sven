@@ -1,0 +1,163 @@
+---
+{"description":"Rules with negation over fleet data: well-founded models, stable models, proofs and why-not.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/datalog/page.nix","title":"Datalog"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+Some questions are rules: "a host serves when it runs a web server and is not drained; a host is drained when a host
+it depends on is down." `sven.lib.datalog` solves ground rules with negation. Each rule is `{ head; pos; neg; }`.
+You ground the rules with Nix: one set per host.
+
+
+```nix title="modules/fleet.nix"
+{ sven, lib, ... }:
+let
+  inherit (sven.lib) opt is;
+in
+{
+  sven.kinds.fleet = {
+    spawns.host = _: sven.host;
+    sinks.out.reduce = sven.lib.reduce.merge;
+  };
+  sven.kinds.host.fields = {
+    web = opt lib.types.bool false;
+    maintenance = opt lib.types.bool false;
+    dependsOn = opt (is lib.isList) [ ];
+  };
+
+  sven.fleet.main = { };
+  sven.host.db-1 = { };
+  sven.host.db-2.maintenance = true;
+  sven.host.web-1 = { web = true; dependsOn = [ sven.host.db-1 ]; };
+  sven.host.web-2 = { web = true; dependsOn = [ sven.host.db-2 ]; };
+  sven.flake = { out, ... }: out;
+}
+```
+
+```nix title="modules/policy.nix" {7-12}
+# Ground rules { head; pos; neg; }, one set per host. You ground them with Nix.
+{ sven, lib, ... }:
+let
+  D = sven.lib.datalog;
+  hosts = lib.attrValues sven.host;
+  rules = lib.concatMap (h: let n = h.name; in
+    lib.optional h.web { head = "web:${n}"; }
+    ++ lib.optional (!h.maintenance) { head = "up:${n}"; }
+    ++ [ { head = "serves:${n}"; pos = [ "web:${n}" ]; neg = [ "drained:${n}" ]; } ]
+    ++ map (d: { head = "drained:${n}"; neg = [ "up:${d.name}" ]; }) h.dependsOn) hosts
+    # a choice: exactly one primary database, and the policy does not say which
+    ++ [ { head = "primary:db-1"; neg = [ "primary:db-2" ]; } { head = "primary:db-2"; neg = [ "primary:db-1" ]; } ];
+  model = D.wfs rules;
+in
+{
+  sven.aspects.serving = {
+    at = sven.kinds.fleet;
+    out.serving = {
+      serves = map (lib.removePrefix "serves:") (lib.filter (lib.hasPrefix "serves:") model.true);
+      undefined = model.undefined; # well-founded: the choice stays open
+      choices = map (m: lib.filter (lib.hasPrefix "primary:") m) (D.stable rules); # stable models: each choice
+      whyNot = D.whyNot rules model "serves:web-2";
+      proof = D.proof rules model "serves:web-1";
+    };
+  };
+}
+```
+
+```nix title="result"
+{
+  choices = [
+    [
+      "primary:db-1"
+    ]
+    [
+      "primary:db-2"
+    ]
+  ];
+  proof = {
+    atom = "serves:web-1";
+    neg = [
+      "drained:web-1"
+    ];
+    pos = [
+      {
+        atom = "web:web-1";
+        neg = [ ];
+        pos = [ ];
+        rule = {
+          head = "web:web-1";
+        };
+      }
+    ];
+    rule = {
+      head = "serves:web-1";
+      neg = [
+        "drained:web-1"
+      ];
+      pos = [
+        "web:web-1"
+      ];
+    };
+  };
+  serves = [
+    "web-1"
+  ];
+  undefined = [
+    "primary:db-1"
+    "primary:db-2"
+  ];
+  whyNot = [
+    {
+      blocking = [
+        "drained:web-2"
+      ];
+      missing = [ ];
+      rule = {
+        head = "serves:web-2";
+        neg = [
+          "drained:web-2"
+        ];
+        pos = [
+          "web:web-2"
+        ];
+      };
+      undefinedBody = [ ];
+    }
+  ];
+}
+```
+
+| Function | Answer |
+|---|---|
+| `wfs rules` | the well-founded model: `{ true; false; undefined; }`. No strata needed. |
+| `stable rules` | every stable model: one per consistent choice |
+| `why rules model atom` | the rules that prove an atom |
+| `proof rules model atom` | a proof tree; a positive cycle shows `cycle = true` |
+| `whyNot rules model atom` | per rule: the `missing` positive atoms and the `blocking` negative ones |
+| `judge rules a notA` | `supported`, `refuted`, `both`, `neither` or `unknown` |
+| `facts atoms` | atoms as rules with no body |
+
+`web-2` does not serve: its database `db-2` is in maintenance, so `web-2` is drained. `whyNot` says so.
+The primary database is undefined in the well-founded model. The stable models list the two choices.
+
+
+:::note[Undefined is an answer]
+An atom the rules cannot decide is `undefined`, never a guess. When that matters, give an error record for it.
+[Invariants](/query/invariants/) use the same solver, and treat an undefined violation as `incomplete`, never a pass.
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `datalog`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#datalog'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - fleet.nix
+  - policy.nix
+
+</FileTree>
+:::

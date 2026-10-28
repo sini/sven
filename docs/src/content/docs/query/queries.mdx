@@ -1,0 +1,244 @@
+---
+{"description":"`sven.lib.eval` gives queries, not one value: errors, graph, scopes, active, reduced, facts, and more.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/queries/page.nix","title":"Queries"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+`(import sven).lib.eval module` gives a set of queries. Each one is lazy: you pay only for what you read.
+Every answer is plain data, so `builtins.toJSON` prints it. This small fleet answers each query below.
+
+
+```nix title="modules/fleet.nix"
+{ sven, lib, ... }:
+{
+  sven.kinds.fleet = {
+    spawns.host = _: sven.host;
+    sinks.out.reduce = sven.lib.reduce.merge;
+  };
+  sven.kinds.host = {
+    fields.addr = lib.types.str;
+    spawns.user = s: lib.filterAttrs (_: u: sven.lib.same u.on s) sven.user;
+    sinks.packages = { reduce = sven.lib.reduce.set; out = { host, packages, ... }: { packages.${host.name} = packages; }; };
+  };
+  sven.kinds.user.fields.on = sven.kinds.host;
+
+  sven.fleet.main = { };
+  sven.host.web.addr = "10.0.0.1";
+  sven.user.ana.on = sven.host.web;
+  sven.aspects.git = { at = [ sven.kinds.host sven.kinds.user ]; packages = "git"; };
+  sven.aspects.nginx = { at = sven.host.web; packages = "nginx"; };
+  sven.flake = { out, ... }: out;
+}
+```
+
+| Query | Answer |
+|---|---|
+| `errors` | `[ { error; from; code; … } ]`, empty when the fleet is valid |
+| `graph` | `{ scopes; edges; }`: every scope and every routed element, with its `origin` |
+| `scopes` | the scopes in order |
+| `active` | aspect, then scope id, then `true` or `false` |
+| `undefined` | aspects that `at` cannot decide (a cycle through `not`) |
+| `reduced` | sink, then receiver id, then the value |
+| `flake` | the answer of `sven.flake` |
+| `data` | every instance's declared fields |
+| `schema` | every kind, aspect and invariant, as JSON-safe data |
+| `declaredIn path` | the files that answer a declaration path |
+| `facts` | the fleet as ground atoms, for Datalog |
+| `context id { }` | one scope: parent, children, aspects, what it gives and receives |
+| `check` | the invariants: see [Invariants](/query/invariants/) |
+
+<Tabs>
+<TabItem label="reduced">
+
+```nix title="result"
+{
+  out = {
+    "fleet:main" = {
+      packages = {
+        web = [
+          "git"
+          "nginx"
+        ];
+      };
+    };
+  };
+  packages = {
+    "fleet:main/host:web" = [
+      "git"
+      "nginx"
+    ];
+  };
+}
+```
+
+</TabItem>
+<TabItem label="graph.edges">
+
+```nix title="result"
+[
+  {
+    from = "fleet:main/host:web";
+    origin = "aspect git";
+    sink = "packages";
+    to = "fleet:main/host:web";
+  }
+  {
+    from = "fleet:main/host:web";
+    origin = "aspect nginx";
+    sink = "packages";
+    to = "fleet:main/host:web";
+  }
+  {
+    from = "fleet:main/host:web/user:ana";
+    origin = "aspect git";
+    sink = "packages";
+    to = "fleet:main/host:web";
+  }
+  {
+    from = "fleet:main/host:web";
+    origin = "sink packages";
+    sink = "out";
+    to = "fleet:main";
+  }
+]
+```
+
+</TabItem>
+<TabItem label="facts">
+
+```nix title="result"
+[
+  "scope:fleet:main"
+  "scope:fleet:main/host:web"
+  "scope:fleet:main/host:web/user:ana"
+  "kind:fleet:fleet:main"
+  "kind:host:fleet:main/host:web"
+  "kind:user:fleet:main/host:web/user:ana"
+  "has:git:fleet:main/host:web"
+  "has:git:fleet:main/host:web/user:ana"
+  "has:nginx:fleet:main/host:web"
+  "edge:packages:fleet:main/host:web:fleet:main/host:web"
+  "edge:packages:fleet:main/host:web:fleet:main/host:web"
+  "edge:packages:fleet:main/host:web/user:ana:fleet:main/host:web"
+  "edge:out:fleet:main/host:web:fleet:main"
+  "val:addr:fleet:main/host:web:10.0.0.1"
+  "ref:on:fleet:main/host:web/user:ana:host:web"
+]
+```
+
+</TabItem>
+</Tabs>
+
+## One scope in context
+
+`r.context id { maxEdges; maxAspects; }` is what an agent or a person reads first about a scope.
+Each list says how much it shows of how much there is:
+
+
+```nix title="result"
+{
+  aspects = {
+    items = [
+      "git"
+      "nginx"
+    ];
+    truncated = {
+      of = 2;
+      shown = 2;
+    };
+  };
+  children = [
+    "fleet:main/host:web/user:ana"
+  ];
+  errors = [ ];
+  given = {
+    items = [
+      {
+        from = "fleet:main/host:web";
+        origin = "aspect git";
+        sink = "packages";
+        to = "fleet:main/host:web";
+      }
+      {
+        from = "fleet:main/host:web";
+        origin = "aspect nginx";
+        sink = "packages";
+        to = "fleet:main/host:web";
+      }
+      {
+        from = "fleet:main/host:web";
+        origin = "sink packages";
+        sink = "out";
+        to = "fleet:main";
+      }
+    ];
+    truncated = {
+      of = 3;
+      shown = 3;
+    };
+  };
+  kind = "host";
+  name = "web";
+  parent = "fleet:main";
+  received = {
+    items = [
+      {
+        from = "fleet:main/host:web";
+        origin = "aspect git";
+        sink = "packages";
+        to = "fleet:main/host:web";
+      }
+      {
+        from = "fleet:main/host:web";
+        origin = "aspect nginx";
+        sink = "packages";
+        to = "fleet:main/host:web";
+      }
+      {
+        from = "fleet:main/host:web/user:ana";
+        origin = "aspect git";
+        sink = "packages";
+        to = "fleet:main/host:web";
+      }
+    ];
+    truncated = {
+      of = 3;
+      shown = 3;
+    };
+  };
+  scope = "fleet:main/host:web";
+  undefined = [ ];
+}
+```
+
+## Which aspects reach this host?
+
+Each edge of `graph` has `origin`: the aspect that gave the element. "Which aspects reach `web`" is a filter,
+not a registry: `map (e: e.origin) (filter (e: e.to == "fleet:main/host:web") r.graph.edges)`.
+
+
+```sh frame="terminal"
+nix eval --impure --file query.nix errors
+nix eval --impure --json --file query.nix graph
+nix eval --impure --expr '(import ./query.nix).context "fleet:main/host:web" { }'
+```
+
+:::note[query.nix]
+The commands above use a `query.nix` that returns `eval` of your modules. See [Project layout](/start/project-layout/).
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `queries`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#queries'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - fleet.nix
+
+</FileTree>
+:::

@@ -1,0 +1,135 @@
+---
+{"description":"What a scope's elements reach, the fleet without the files of one declaration, and instances valid at a date.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/history/page.nix","title":"Impact, without, and time"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+Three questions an agent asks before a change: what else does this touch, what if this were gone, and what
+holds on a given day.
+
+
+```nix title="modules/fleet.nix"
+# fleet > environment > host. The fleet says which day it is: pure evaluation has no clock.
+{ sven, lib, ... }:
+let
+  inherit (sven.lib) same maybe;
+in
+{
+  sven.kinds.fleet = {
+    fields.today = lib.types.str;
+    spawns.environment = _: sven.environment;
+    sinks.out.reduce = sven.lib.reduce.merge;
+    sinks.dns.out = { dns, ... }: { inherit dns; };
+  };
+  sven.kinds.environment = {
+    spawns.host = s: lib.filterAttrs (_: h: same h.environment s && sven.lib.validAt sven.fleet.main.today h) sven.host;
+    sinks.backends.dns = { environment, backends, ... }: { ${environment.name} = backends; };
+  };
+  sven.kinds.host.fields = {
+    environment = sven.kinds.environment;
+    validFrom = maybe lib.types.str; # null: open, valid since always
+    validTo = maybe lib.types.str; # null: open, valid until always
+  };
+
+  sven.fleet.main.today = "2026-11-15";
+  sven.environment.prod = { };
+  sven.host.web-old = { environment = sven.environment.prod; validTo = "2026-10-31"; }; # retired
+  sven.host.web = { environment = sven.environment.prod; validFrom = "2026-10-01"; };
+  sven.host.web-next = { environment = sven.environment.prod; validFrom = "2026-12-01"; }; # not yet
+  sven.flake = { out, ... }: out;
+}
+```
+
+```nix title="modules/features/backend.nix"
+{ sven, ... }:
+{
+  sven.aspects.backend = {
+    at = sven.kinds.host;
+    backends = { host, ... }: host.name;
+  };
+}
+```
+
+## What does this scope reach?
+
+`r.impact id { hops; sinks; max; }` follows routed elements from a scope, by depth. `web` gives a backend
+to its environment, and the environment gives DNS to the fleet:
+
+
+```nix title="result"
+{
+  hops = 3;
+  reached = [
+    {
+      depth = 1;
+      scope = "fleet:main/environment:prod";
+      via = "backends";
+    }
+    {
+      depth = 2;
+      scope = "fleet:main";
+      via = "dns";
+    }
+  ];
+  truncated = {
+    of = 2;
+    shown = 2;
+  };
+}
+```
+
+## What if it were gone?
+
+`sven.lib.without { files; path; args; }` evaluates the fleet without the files that declare `path`.
+A whole file goes: there is no hook to remove part of one.
+
+
+```nix title="result"
+{
+  dns = null;
+  dropped = [
+    "backend.nix"
+  ];
+  errors = [ ];
+}
+```
+
+## Valid time
+
+Pure evaluation has no clock, so the date is data. An instance with `validFrom` and `validTo` holds at the date
+the caller passes: `sven.lib.validAt date scope`. Here the environment spawns only the hosts valid today,
+so `web-old` and `web-next` have no scope:
+
+
+```nix title="result"
+[
+  "fleet:main"
+  "fleet:main/environment:prod"
+  "fleet:main/environment:prod/host:web"
+]
+```
+
+## Transaction time
+
+`sven.lib.asOf { url; rev; module; }` evaluates the fleet at a git revision. `sven.lib.history { url; revs; module; }`
+lists each revision with the field changes from the one before (`diffData` over `r.data`). The engine's own tests
+run both on this repository: see [tests/default.nix](https://github.com/vic/sven/blob/main/tests/default.nix).
+
+
+:::tip[Run this example]
+Every block on this page is a file of the template `history`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#history'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - features/
+    - backend.nix
+  - fleet.nix
+
+</FileTree>
+:::

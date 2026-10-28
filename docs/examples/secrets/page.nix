@@ -1,0 +1,42 @@
+{
+  title = "Secrets as data";
+  description = "Secrets are instances of a data kind. Hosts get exactly the secrets that name them, as refs.";
+  section = "recipes";
+  order = 6;
+
+  body = { docs, r, variant, ... }: [
+    ''
+      sven never reads a secret. It plans which host gets which encrypted file, as data that a secrets tool
+      (agenix, sops-nix) reads. A secret is an instance of a data kind; its owners are host refs.
+    ''
+    (docs.fileWith "{12-17}" "modules/kinds.nix")
+    (docs.file "modules/data.nix")
+    ''
+      One component delivers each secret to its owners. Another reports secrets that nobody owns:
+    ''
+    (docs.file "modules/deliver.nix")
+    (docs.tabs [
+      { label = "secretsPlan"; body = docs.value r.flake.secretsPlan; }
+      { label = "errors"; body = docs.value (map (e: e.error) r.errors); }
+    ])
+    ''
+      ## Refs, not names
+
+      The sink's `of` is the secret kind, so only a ref passes. A name is refused, with the scope and the aspect:
+    ''
+    (docs.file "variants/by-name.nix")
+    (docs.value (map (e: e.error) (variant "variants/by-name.nix").errors))
+    (docs.tip "Guard who may read" ''
+      The plan is data, so a rule about it is a query. The [reference fleet](https://github.com/vic/sven/blob/main/templates/fleet/modules/clan/vars.nix)
+      adds shared and per-machine generators, a deploy plan, and a guard that refuses a secret read by the wrong host.
+    '')
+  ];
+
+  errors = true; # old-token has no owner, on purpose
+
+  checks = { r, variant, ... }: {
+    web = map (s: s.name) r.flake.secretsPlan.web == [ "db-password" "tls" ];
+    orphan = map (e: e.error) r.errors == [ "secret old-token (secrets/old-token.age) has no owner" ];
+    by-name = builtins.length (variant "variants/by-name.nix").errors == 2;
+  };
+}

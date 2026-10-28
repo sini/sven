@@ -1,0 +1,35 @@
+# flake.nix and README.md, generated from fleet data.
+{ sven, lib, ... }:
+let
+  input = n: v: "    ${n} = ${lib.generators.toPretty { multiline = false; } v};";
+  hosts = lib.filter (s: s.kind == "host") sven.lib.graph.scopes;
+in
+{
+  sven.aspects.write = {
+    at = sven.kinds.fleet;
+    files = { inputs, ... }: {
+      files.file."flake.nix".text = ''
+        # Generated from the `inputs` sink. Edit modules/, then run: nix run .#write-files
+        {
+          outputs = inputs:
+            (import inputs.sven).lib.mkFlake {
+              imports = [ (inputs.import-tree ./modules) ];
+              _module.args = {
+                inherit inputs;
+                inherit (inputs.nixpkgs) lib;
+              };
+            };
+
+          inputs = {
+        ${lib.concatStringsSep "\n" (lib.mapAttrsToList input inputs)}
+          };
+        }
+      '';
+      files.file."README.md".text = ''
+        # My fleet
+
+        Generated from the fleet. Hosts: ${lib.concatMapStringsSep ", " (s: "`${s.name}`") hosts}.
+      '';
+    };
+  };
+}

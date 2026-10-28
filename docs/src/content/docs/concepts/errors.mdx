@@ -1,0 +1,152 @@
+---
+{"description":"sven never throws. Errors are records you query; your own checks add to them.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/errors/page.nix","title":"Errors as data"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+sven never calls `throw`. When something is wrong, the read gives `null`, evaluation continues,
+and the `errors` query lists a record. An empty list means the fleet is valid.
+
+## Error records
+
+Each record has `error` and `from` for people, and `code`, `path`, `got`, `want`, `fix`, `class` and `near`
+for tools and agents. `class` is `fixable` when an edit to the data fixes it, and `authority` when no edit
+by this author can.
+
+
+```nix title="variants/typo.nix"
+{ sven, ... }:
+{
+  sven.host.cache = { addr = "10.0.0.5"; bakup = false; };
+}
+```
+
+```nix title="result"
+[
+  {
+    class = "fixable";
+    code = "unknown-field";
+    error = "unknown field bakup";
+    fix = "declare sven.kinds.host.fields.bakup, or use a declared field";
+    from = "host:cache";
+    near = [
+      "backup"
+    ];
+    path = [
+      "bakup"
+    ];
+  }
+  {
+    class = "fixable";
+    code = "duplicate-addr";
+    error = "10.0.0.1 is the address of db and web";
+    fix = "give each host its own addr";
+    from = "fleet:main";
+    got = "10.0.0.1";
+    path = [
+      "addr"
+    ];
+  }
+]
+```
+
+## Your own checks
+
+An aspect key `errors` gives records, or plain messages. sven sets `from` to the scope that gave it: an aspect cannot
+report for another scope. A record without `class` is `fixable`.
+This fleet has two hosts with one address:
+
+
+```nix title="modules/fleet.nix"
+{ sven, lib, ... }:
+{
+  sven.kinds.fleet = {
+    spawns.host = _: sven.host;
+    sinks.out.reduce = sven.lib.reduce.merge;
+    sinks.warnings.out = { warnings, ... }: { inherit warnings; }; # messages that do not fail the fleet
+  };
+  sven.kinds.host.fields = { addr = lib.types.str; backup = sven.lib.opt lib.types.bool true; };
+
+  sven.fleet.main = { };
+  sven.host.web.addr = "10.0.0.1";
+  sven.host.db.addr = "10.0.0.1";
+  sven.host.scratch = { addr = "10.0.0.9"; backup = false; };
+  sven.flake = { out, ... }: out;
+}
+```
+
+```nix title="modules/checks.nix" {9-15}
+# An aspect key `errors` gives error records, or plain messages. Nothing throws. `from` is always the giving scope.
+{ sven, lib, ... }:
+let
+  byAddr = lib.groupBy (h: h.addr) (lib.attrValues sven.host);
+in
+{
+  sven.aspects.unique-addr = {
+    at = sven.kinds.fleet;
+    errors = lib.concatLists (lib.mapAttrsToList (a: hs: lib.optional (lib.length hs > 1) {
+      code = "duplicate-addr";
+      error = "${a} is the address of ${lib.concatMapStringsSep " and " (h: h.name) hs}";
+      fix = "give each host its own addr";
+      path = [ "addr" ];
+      got = a;
+    }) byAddr);
+  };
+  sven.aspects.no-backup = {
+    at = sven.lib.all [ sven.kinds.host (s: !s.backup) ];
+    warnings = { host, ... }: "${host.name} has no backup";
+  };
+}
+```
+
+```nix title="result"
+[
+  {
+    class = "fixable";
+    code = "duplicate-addr";
+    error = "10.0.0.1 is the address of db and web";
+    fix = "give each host its own addr";
+    from = "fleet:main";
+    got = "10.0.0.1";
+    path = [
+      "addr"
+    ];
+  }
+]
+```
+
+## Warnings
+
+A warning is a message that does not fail the fleet. It is a plain sink with `list` reduce, here given
+to the flake as `warnings`:
+
+
+```nix title="result"
+[
+  "scratch has no backup"
+]
+```
+
+:::tip[Gate CI on it]
+In CI, fail when `errors` is not `[ ]`, before any build. A `query.nix` gives every query on the command line:
+see [Project layout](/start/project-layout/).
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `errors`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#errors'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - checks.nix
+  - fleet.nix
+- variants/
+  - typo.nix
+
+</FileTree>
+:::

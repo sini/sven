@@ -1,0 +1,138 @@
+---
+{"description":"Rules that must hold across the whole fleet, checked before deploy: `r.check`.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/invariants/page.nix","title":"Invariants"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+An invariant is a rule about the whole fleet: "no server runs a desktop", "no two hosts share an address".
+`sven.invariants.<name>` gives [Datalog](/query/datalog/) rules over the fleet's facts. A true `bad:` atom is a violation.
+
+
+```nix title="modules/fleet.nix"
+{ sven, lib, ... }:
+{
+  sven.kinds.fleet = {
+    spawns.host = _: sven.host;
+    sinks.out.reduce = sven.lib.reduce.merge;
+  };
+  sven.kinds.host.fields = {
+    addr = lib.types.str;
+    form = lib.types.enum [ "server" "laptop" ];
+  };
+
+  sven.fleet.main = { };
+  sven.host.web = { addr = "10.0.0.1"; form = "server"; };
+  sven.host.db = { addr = "10.0.0.2"; form = "server"; };
+  sven.host.thinkpad = { addr = "10.0.0.50"; form = "laptop"; };
+  sven.aspects.desktop.at = s: (s.form or null) == "laptop";
+  sven.aspects.postgres.at = sven.host.db;
+  sven.flake = { out, ... }: out;
+}
+```
+
+```nix title="modules/invariants.nix" {5-7,9-12}
+# Rules over `r.facts`. A true `bad:` atom is a violation. Facts: kind:K:ID, has:ASPECT:ID, val:FIELD:ID:VALUE, …
+{ sven, lib, ... }:
+{
+  # no server runs a desktop
+  sven.invariants.no-desktop-on-servers = { scopes, ... }:
+    map (s: { head = "bad:desktop-on-server:${s.name}"; pos = [ "has:desktop:${s.id}" ]; })
+      (lib.filter (s: s.kind == "host" && s.form == "server") scopes);
+  # no two hosts share an address: a rule across machines
+  sven.invariants.unique-addr = { scopes, ... }:
+    let hosts = lib.filter (s: s.kind == "host") scopes; in
+    lib.concatMap (a: map (b: { head = "bad:same-addr:${a.name}:${b.name}"; pos = [ "val:addr:${a.id}:${a.addr}" "val:addr:${b.id}:${a.addr}" ]; })
+      (lib.filter (b: a.name < b.name) hosts)) hosts;
+}
+```
+
+The function gets `scopes`, `graph`, `active` and `facts`. Facts are ground atoms:
+
+
+| Fact | Holds when |
+|---|---|
+| `scope:ID`, `kind:K:ID` | a scope exists, and its kind |
+| `has:ASPECT:ID` | the aspect is active at the scope |
+| `edge:SINK:FROM:TO` | an element is routed |
+| `val:FIELD:ID:VALUE` | a field has a scalar value |
+| `ref:FIELD:ID:KIND:NAME` | a field refers to an instance |
+| `error:CODE:FROM` | an error record |
+
+This fleet holds:
+
+
+```nix title="result"
+{
+  incomplete = [ ];
+  invariants = [
+    "no-desktop-on-servers"
+    "unique-addr"
+  ];
+  ok = true;
+  violations = [ ];
+}
+```
+
+## A change that breaks two rules
+
+
+```nix title="variants/mistakes.nix"
+# A desktop on a server, and a new host with a copied address.
+{ sven, ... }:
+{
+  sven.aspects.desktop.at = sven.host.web;
+  sven.host.spare = { addr = "10.0.0.2"; form = "server"; };
+}
+```
+
+```nix title="result"
+{
+  ok = false;
+  violations = [
+    "bad:desktop-on-server:web"
+    "bad:same-addr:db:spare"
+  ];
+}
+```
+
+`r.check.why atom` gives the rules that prove a violation. `whyNot` and `proof` work as in Datalog:
+
+
+```nix title="result"
+[
+  {
+    head = "bad:same-addr:db:spare";
+    pos = [
+      "val:addr:fleet:main/host:db:10.0.0.2"
+      "val:addr:fleet:main/host:spare:10.0.0.2"
+    ];
+  }
+]
+```
+
+:::caution[Incomplete is not a pass]
+A `bad:` atom on a cycle through `not` is undefined. It goes to `incomplete`, and `ok` is false.
+:::
+
+:::tip[Gate changes on it]
+[Stage](/agents/stage/) evaluates a change and refuses it when it adds a violation. CI can fail on `check.ok == false`.
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `invariants`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#invariants'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - fleet.nix
+  - invariants.nix
+- variants/
+  - mistakes.nix
+
+</FileTree>
+:::

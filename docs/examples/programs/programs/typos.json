@@ -1,0 +1,4 @@
+[
+  { "op": "set", "path": [ "host", "web", "adr" ], "value": "10.0.0.9" },
+  { "op": "place", "aspect": "postgress", "kind": "host", "name": "web" }
+]

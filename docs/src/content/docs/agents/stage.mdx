@@ -1,0 +1,141 @@
+---
+{"description":"Evaluate the fleet without and with a change. New errors, new violations, a diff, and refusals with their reason.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/stage/page.nix","title":"Stage a change"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+Before you apply a change, stage it. `sven.lib.stage { base; change; rejected; grant; }` evaluates the fleet
+without and with the change. Nothing is applied. `ok` is true only when nothing new is wrong.
+
+The fleet is the one from [Invariants](/query/invariants/). A change is plain data, so an agent can write it as JSON:
+
+
+```json title="changes/desktop-on-web.json"
+{ "sven": { "aspects": { "desktop": { "at": [ { "kind": "host", "name": "web" } ] } } } }
+```
+
+```nix title="stage.nix"
+# Stage a change file against the fleet. Nothing is applied.
+#   nix eval --impure --json --file stage.nix --argstr change changes/desktop-on-web.json
+{
+  change,
+  grant ? null, # where the change may give elements: sven.lib.grant { scopes = [ … ]; }
+  rejected ? [ ], # sha256 of changes refused before
+  sven ? builtins.fetchTarball "https://github.com/vic/sven/archive/main.tar.gz",
+  nixpkgs ? builtins.fetchTarball "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz",
+  import-tree ? import (builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"),
+}:
+let
+  base = { imports = [ (import-tree ./modules) ]; _module.args = { lib = import "${nixpkgs}/lib"; }; };
+  s = (import sven).lib.stage { inherit base grant rejected; change = builtins.fromJSON (builtins.readFile (./. + "/${change}")); };
+in
+removeAttrs s [ "render" ]
+```
+
+```sh frame="terminal"
+nix eval --impure --json --file stage.nix --argstr change changes/desktop-on-web.json
+```
+
+```nix title="result"
+{
+  diff = {
+    active = {
+      added = [
+        "desktop@fleet:main/host:web"
+      ];
+      removed = [ ];
+    };
+    edges = {
+      added = [ ];
+      removed = [ ];
+    };
+    scopes = {
+      added = [ ];
+      removed = [ ];
+    };
+  };
+  errors = [ ];
+  ok = false;
+  refused = [ ];
+  sha = "3206a6221c7432760f365fd457329a23093434a84f8ffaee8d0bf29b32092de2";
+  violations = [
+    "bad:desktop-on-server:web"
+  ];
+}
+```
+
+The change makes `desktop` active at the server `web`, and breaks an invariant. The answer has the violation,
+the diff (scopes, routed elements, active aspects) and the change's `sha`.
+
+## Grants only narrow
+
+`sven.lib.grant { scopes = [ id prefixes ]; sinks ? null; }` says where a change may give elements.
+`narrow g h` keeps what both allow. No function makes a grant wider. An element outside the grant is refused,
+with `class = "authority"`: no edit by this author can fix it.
+
+
+```json title="changes/postgres-on-thinkpad.json"
+{ "sven": { "aspects": { "postgres": { "at": [ { "kind": "host", "name": "thinkpad" } ] } } } }
+```
+
+```nix title="result"
+[
+  {
+    class = "authority";
+    code = "outside-grant";
+    error = "the change gives services to fleet:main/host:thinkpad, outside the grant";
+    from = "fleet:main/host:thinkpad";
+    got = {
+      from = "fleet:main/host:thinkpad";
+      origin = "aspect postgres";
+      sink = "services";
+      to = "fleet:main/host:thinkpad";
+    };
+    path = [ ];
+  }
+]
+```
+
+## Rejected before
+
+Pass the `sha` of changes refused before in `rejected`. The same change is refused again, whoever sends it:
+
+
+```nix title="result"
+[
+  {
+    class = "authority";
+    code = "rejected";
+    error = "this change was rejected before";
+    from = "stage";
+    got = "3206a6221c7432760f365fd457329a23093434a84f8ffaee8d0bf29b32092de2";
+    path = [ ];
+  }
+]
+```
+
+:::tip[Safe places for an aspect]
+A stored query can stage an aspect on each machine and return where it is safe, and why the others are refused.
+See `safeHostsFor` in the reference fleet's [agent/synthesis.nix](https://github.com/vic/sven/blob/main/templates/fleet/modules/agent/synthesis.nix).
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `stage`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#stage'
+```
+
+<FileTree>
+
+- changes/
+  - desktop-on-web.json
+  - postgres-on-thinkpad.json
+- flake.nix
+- modules/
+  - fleet.nix
+  - invariants.nix
+- stage.nix
+
+</FileTree>
+:::

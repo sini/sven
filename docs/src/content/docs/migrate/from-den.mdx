@@ -1,0 +1,246 @@
+---
+{"description":"Den's hosts, users, aspects, includes, defaults and batteries, in sven's four words.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/from-den/page.nix","title":"From Den"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+[Den](https://github.com/denful/den) and sven share the aspect idea. The difference is where structure comes from.
+Den gives you a schema: `den.hosts`, users, homes and context pipes. In sven you declare those kinds yourself, in
+plain Nix, and every rule of how content moves is a sink you can read.
+
+This page moves Den's default template to sven. The docs evaluate both and check that the host gets the same
+account, groups, home, packages and state versions.
+
+
+| Den | sven |
+|---|---|
+| `den.hosts.x86_64-linux.igloo.users.tux` | instances: `sven.host.igloo`, `sven.user.tux` with `hosts = [ … ]` |
+| `den.aspects.igloo.nixos` | an aspect with `at = sven.host.igloo` and a `nixos` key |
+| `den.default.nixos` | an aspect with `at = sven.kinds.host` |
+| `includes = [ den.batteries.x ]` | the included aspect's `at` names the includer, from any file |
+| `provides.to-users.homeManager` | an aspect at the users `within` the host |
+| `hasAspect` | `sven.lib.holds`, and `r.graph` edges with `origin` |
+| context pipes, `osConfig` | args: a kind, a sink or `out` (the built flake) |
+| `den.schema.*` | `sven.kinds.<kind>.fields` |
+
+## The template, side by side
+
+
+<Tabs>
+<TabItem label="Den: den.nix">
+
+```nix title="before/modules/den.nix"
+{ inputs, lib, ... }:
+{
+  imports = [ inputs.den.flakeModule ];
+  den.schema.user.classes = lib.mkDefault [ "homeManager" ];
+  den.default.nixos.system.stateVersion = "25.05";
+  den.default.homeManager.home.stateVersion = "25.05";
+  den.hosts.x86_64-linux.igloo.users.tux = { };
+}
+```
+
+</TabItem>
+<TabItem label="sven: fleet.nix">
+
+```nix title="modules/fleet.nix"
+# What Den gives you built in, declared: hosts build NixOS, users live on hosts, a user's home goes into its host.
+{ sven, lib, inputs, ... }:
+{
+  sven.kinds.fleet = {
+    spawns.host = _: sven.host;
+    sinks.out.reduce = sven.lib.reduce.merge;
+  };
+  sven.kinds.host = {
+    fields.system = lib.types.str;
+    spawns.user = s: lib.filterAttrs (_: u: lib.any (sven.lib.same s) u.hosts) sven.user;
+    sinks.nixos.out = { host, nixos, ... }: {
+      nixosConfigurations.${host.name} = inputs.nixpkgs.lib.nixosSystem { inherit (host) system; modules = nixos; };
+    };
+  };
+  sven.kinds.user = {
+    fields.hosts = sven.lib.is lib.isList;
+    sinks.homeManager.nixos = { user, homeManager, ... }: { home-manager.users.${user.name}.imports = homeManager; };
+  };
+  sven.aspects.home-manager = {
+    at = sven.lib.has sven.kinds.user;
+    nixos.imports = [ inputs.home-manager.nixosModules.home-manager ];
+  };
+
+  sven.fleet.main = { };
+  sven.flake = { out, ... }: out;
+}
+```
+
+</TabItem>
+</Tabs>
+
+Den's schema is built in. In sven, `fleet.nix` says the same in one short file: hosts build NixOS, users live under their
+hosts, a user's `homeManager` content goes into the host, and home-manager is active where a user lives.
+
+
+<Tabs>
+<TabItem label="Den: igloo.nix">
+
+```nix title="before/modules/igloo.nix"
+{
+  den.aspects.igloo = {
+    nixos = { pkgs, ... }: {
+      environment.systemPackages = [ pkgs.hello ];
+      boot.loader.grub.enable = false;
+      fileSystems."/" = { device = "/dev/fake"; fsType = "auto"; };
+    };
+    provides.to-users.homeManager = { pkgs, ... }: { home.packages = [ pkgs.vim ]; };
+  };
+}
+```
+
+</TabItem>
+<TabItem label="sven: igloo.nix">
+
+```nix title="modules/igloo.nix"
+# den.hosts.x86_64-linux.igloo.users.tux, and the igloo aspect.
+{ sven, ... }:
+{
+  sven.host.igloo.system = "x86_64-linux";
+  sven.aspects.igloo = {
+    at = sven.host.igloo;
+    nixos = { pkgs, ... }: {
+      environment.systemPackages = [ pkgs.hello ];
+      boot.loader.grub.enable = false;
+      fileSystems."/" = { device = "/dev/fake"; fsType = "auto"; };
+    };
+  };
+  # provides.to-users: content for the users of igloo, given at each user
+  sven.aspects.igloo-users = {
+    at = sven.lib.all [ sven.kinds.user (sven.lib.within sven.host.igloo) ];
+    homeManager = { pkgs, ... }: { home.packages = [ pkgs.vim ]; };
+  };
+}
+```
+
+</TabItem>
+</Tabs>
+
+<Tabs>
+<TabItem label="Den: tux.nix">
+
+```nix title="before/modules/tux.nix"
+{ den, ... }:
+{
+  den.aspects.tux = {
+    includes = [ den.batteries.define-user den.batteries.primary-user ];
+    homeManager = { pkgs, ... }: { home.packages = [ pkgs.htop ]; };
+  };
+}
+```
+
+</TabItem>
+<TabItem label="sven: tux.nix">
+
+```nix title="modules/tux.nix"
+# The tux aspect. `includes` becomes `at` on the included aspects.
+{ sven, ... }:
+{
+  sven.user.tux.hosts = [ sven.host.igloo ];
+  sven.aspects.define-user.at = sven.user.tux;
+  sven.aspects.primary-user.at = sven.user.tux;
+  sven.aspects.tux = {
+    at = sven.user.tux;
+    homeManager = { pkgs, ... }: { home.packages = [ pkgs.htop ]; };
+  };
+}
+```
+
+</TabItem>
+</Tabs>
+
+## Batteries are aspects
+
+A battery is an aspect that you include. In sven you write the aspect once, without `at`, and each user of it
+adds itself to `at`. `at` from several files is a union.
+
+
+<Tabs>
+<TabItem label="define-user.nix">
+
+```nix title="modules/batteries/define-user.nix"
+# den.batteries.define-user: an aspect. Who includes it is its `at`, from any file.
+{ sven, ... }:
+{
+  sven.aspects.define-user = {
+    nixos = { user, ... }: { users.users.${user.name} = { name = user.name; home = "/home/${user.name}"; isNormalUser = true; }; };
+    homeManager = { user, ... }: { home.username = user.name; home.homeDirectory = "/home/${user.name}"; };
+  };
+}
+```
+
+</TabItem>
+<TabItem label="primary-user.nix">
+
+```nix title="modules/batteries/primary-user.nix"
+{ sven, ... }:
+{
+  sven.aspects.primary-user.nixos = { user, ... }: { users.users.${user.name}.extraGroups = [ "wheel" "networkmanager" ]; };
+}
+```
+
+</TabItem>
+<TabItem label="defaults.nix">
+
+```nix title="modules/defaults.nix"
+# den.default: an aspect at every scope of a kind.
+{ sven, ... }:
+{
+  sven.aspects.state-version = {
+    at = sven.kinds.host;
+    nixos.system.stateVersion = "25.05";
+  };
+  sven.aspects.home-state-version = {
+    at = sven.kinds.user;
+    homeManager.home.stateVersion = "25.05";
+  };
+}
+```
+
+</TabItem>
+</Tabs>
+
+:::note[Three Den bug families that cannot happen]
+- **Double delivery.** An element has one id per receiver.
+- **Lost content when one aspect is in two files.** A read queries all files. Nothing merges early.
+- **A host's home content leaking to its users.** Elements go up the tree, never down.
+:::
+
+:::tip[Every Den capability]
+The [reference fleet](https://github.com/vic/sven/tree/main/templates/fleet) shows every capability that Den's CI tests pin
+(168 patterns), and den-hoag's laws, each with a check. See [den/patterns.nix](https://github.com/vic/sven/blob/main/templates/fleet/modules/den/patterns.nix).
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `from-den`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#from-den'
+```
+
+<FileTree>
+
+- before/
+  - flake.nix
+  - modules/
+    - den.nix
+    - igloo.nix
+    - tux.nix
+- flake.nix
+- modules/
+  - batteries/
+    - define-user.nix
+    - primary-user.nix
+  - defaults.nix
+  - fleet.nix
+  - igloo.nix
+  - tux.nix
+
+</FileTree>
+:::

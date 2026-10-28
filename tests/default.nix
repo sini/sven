@@ -211,6 +211,18 @@ let
     history = let h = sven.history { url = "file://${toString ./..}"; revs = [ "33010b09579939ebe344cc23ab2f1b5650e295d1" "5fa598ac90c560306d9ddcc80d8647798578e7e0" ]; module = "tests/fixtures/history.nix"; }; in
       (b.elemAt h 1).changes == [ { path = [ "host" "a" "port" ]; old = 22; new = 2222; } ] && (b.elemAt h 0).changes == [ ]
       && (sven.asOf { url = "file://${toString ./..}"; rev = "33010b09579939ebe344cc23ab2f1b5650e295d1"; module = "tests/fixtures/history.nix"; }).data.host.a.port == 22;
+    # reduce errors name their receiver and sink: a strategy cannot know them, the engine sets them
+    reduce-error-receiver = let r = sven.eval ({ sven, ... }: { sven.kinds.top = { spawns.h = _: sven.h; }; sven.kinds.h.sinks.admin.reduce = sven.lib.reduce.one;
+        sven.top.t = { }; sven.h.a = { }; sven.aspects.x = { at = sven.kinds.h; admin = "ana"; }; sven.aspects.y = { at = sven.kinds.h; admin = "bo"; }; }); in
+      b.map (e: { inherit (e) code from sink; }) r.errors == [ { code = "one"; from = "top:t/h:a"; sink = "admin"; } ];
+    # an aspect's `errors` key gives records too; `from` is always the giving scope
+    aspect-error-record = let r = sven.eval ({ sven, ... }: { sven.kinds.top = { spawns.h = _: sven.h; }; sven.kinds.h = { }; sven.top.t = { }; sven.h.a = { };
+        sven.aspects.x = { at = sven.kinds.h; errors = [ { code = "dup-addr"; error = "two hosts at 10.0.0.1"; fix = "change one"; from = "forged"; } "plain message" ]; }; }); in
+      b.map (e: { inherit (e) code error from class; }) r.errors == [ { code = "dup-addr"; error = "two hosts at 10.0.0.1"; from = "top:t/h:a"; class = "fixable"; } { code = "error"; error = "plain message"; from = "top:t/h:a"; class = "fixable"; } ]
+        && (b.head r.errors).fix == "change one";
+    # a declared bound that is null is open
+    valid-at-null = sven.validAt "2026-11-15" { validFrom = null; validTo = null; } && sven.validAt "2026-11-15" { validFrom = "2026-01-01"; validTo = null; }
+      && !sven.validAt "2026-11-15" { validFrom = null; validTo = "2026-10-31"; };
     valid-at = let r = sven.eval ({ sven, ... }: { imports = [ ./fixtures/history.nix ];
         sven.aspects.backup.at = sven.lib.all [ sven.kinds.host (sven.lib.validAt "2026-11-15") ]; sven.aspects.late.at = sven.lib.all [ sven.kinds.host (sven.lib.validAt "2027-01-01") ]; }); in
       r.active.backup."top:t/host:a" && r.active.backup."top:t/host:b" && !r.active.late."top:t/host:a" && r.active.late."top:t/host:b";

@@ -1,0 +1,144 @@
+---
+{"description":"A change as a list of data ops: set, ref, place, new. An agent writes a program, not Nix code.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/programs/page.nix","title":"Change programs"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+Writing Nix is a poor interface for an agent: it can write anything, and a typo is a parse error.
+`sven.lib.program` writes a change as data. Four ops cover a fleet change:
+
+
+| Op | Effect |
+|---|---|
+| `{ op = "set"; path; value; }` | one declaration path gets a value |
+| `{ op = "ref"; path; kind; name; }` | one declaration path gets an instance ref |
+| `{ op = "place"; aspect; kind; name; }` | the aspect is also active at that instance |
+| `{ op = "new"; kind; name; fields; }` | a new instance; a field `{ ref = { kind; name; }; }` is a ref |
+
+```json title="programs/new-cache.json"
+[
+  { "op": "new", "kind": "host", "name": "cache", "fields": { "addr": "10.0.0.3", "form": "server" } },
+  { "op": "place", "aspect": "postgres", "kind": "host", "name": "cache" }
+]
+```
+
+```nix title="dry-run.nix"
+# Validate and stage a change program. Nothing is applied.
+#   nix eval --impure --json --file dry-run.nix --argstr program programs/new-cache.json
+{
+  program,
+  sven ? builtins.fetchTarball "https://github.com/vic/sven/archive/main.tar.gz",
+  nixpkgs ? builtins.fetchTarball "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz",
+  import-tree ? import (builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"),
+}:
+(import sven).lib.program.dryRun {
+  base = { imports = [ (import-tree ./modules) ]; _module.args = { lib = import "${nixpkgs}/lib"; }; };
+  prog = builtins.fromJSON (builtins.readFile (./. + "/${program}"));
+}
+```
+
+```nix title="result"
+{
+  diff = {
+    active = {
+      added = [
+        "postgres@fleet:main/host:cache"
+      ];
+      removed = [ ];
+    };
+    edges = {
+      added = [
+        {
+          from = "fleet:main/host:cache";
+          origin = "aspect postgres";
+          sink = "services";
+          to = "fleet:main/host:cache";
+        }
+      ];
+      removed = [ ];
+    };
+    scopes = {
+      added = [
+        "fleet:main/host:cache"
+      ];
+      removed = [ ];
+    };
+  };
+  errors = [ ];
+  ok = true;
+  refused = [ ];
+  sha = "605593a3464e48fec6c8f1d9a44ac93798c9e8e2dda68e9d2dba5702dfd623eb";
+  valid = true;
+  violations = [ ];
+}
+```
+
+## Checked against the schema
+
+`validate r prog` checks each op before anything runs: kinds, fields and aspects must exist, with `near` for typos.
+`dryRun` validates first, and stages only a valid program:
+
+
+```json title="programs/typos.json"
+[
+  { "op": "set", "path": [ "host", "web", "adr" ], "value": "10.0.0.9" },
+  { "op": "place", "aspect": "postgress", "kind": "host", "name": "web" }
+]
+```
+
+```nix title="result"
+{
+  errors = [
+    {
+      class = "fixable";
+      code = "program";
+      error = "kind host has no field adr";
+      from = "program[0]";
+      near = [
+        "addr"
+      ];
+      path = [ ];
+    }
+    {
+      class = "fixable";
+      code = "program";
+      error = "no aspect postgress";
+      from = "program[1]";
+      near = [
+        "postgres"
+      ];
+      path = [ ];
+    }
+  ];
+  ok = false;
+  valid = false;
+}
+```
+
+| Function | Use |
+|---|---|
+| `validate r prog` | error records, `[ ]` when the program is valid |
+| `toModule prog` | the program as a sven module, to import |
+| `dryRun { base; prog; grant; rejected; }` | validate, then [stage](/agents/stage/) |
+| `render prog` | JSON, to store or send |
+
+:::tip[Run this example]
+Every block on this page is a file of the template `programs`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#programs'
+```
+
+<FileTree>
+
+- dry-run.nix
+- flake.nix
+- modules/
+  - fleet.nix
+  - invariants.nix
+- programs/
+  - new-cache.json
+  - typos.json
+
+</FileTree>
+:::

@@ -1,0 +1,122 @@
+---
+{"description":"A role is an aspect whose `at` tests a fact. No host file lists its roles.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/roles/page.nix","title":"Roles from data"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+Host files that list roles drift: someone adds a GPU and forgets the line. Put the facts on the host instead,
+and let each role test them.
+
+
+```nix title="modules/kinds.nix" {12-14}
+# Machines carry facts. No host file names its roles: the facts decide.
+{ sven, lib, ... }:
+let
+  inherit (sven.lib) opt is;
+in
+{
+  sven.kinds.fleet = {
+    spawns.host = _: sven.host;
+    sinks.out.reduce = sven.lib.reduce.merge;
+  };
+  sven.kinds.host.fields = {
+    form = lib.types.enum [ "server" "laptop" "desktop" ];
+    gpu = opt (lib.types.enum [ "none" "nvidia" "amd" ]) "none";
+    labels = opt (is (v: lib.isList v && lib.all lib.isString v)) [ ];
+  };
+
+  sven.fleet.main = { };
+  sven.host.rack-1 = { form = "server"; labels = [ "ci-runner" ]; };
+  sven.host.rack-2.form = "server";
+  sven.host.thinkpad.form = "laptop";
+  sven.host.tower = { form = "desktop"; gpu = "nvidia"; };
+  sven.flake = { out, ... }: out;
+}
+```
+
+```nix title="modules/roles.nix"
+# A role is an aspect whose `at` is a fact test. Roles build on roles.
+{ sven, lib, ... }:
+let
+  inherit (sven.lib) all not;
+in
+{
+  sven.aspects = {
+    server.at = s: (s.form or null) == "server";
+    workstation.at = s: lib.elem (s.form or null) [ "laptop" "desktop" ];
+    laptop.at = s: (s.form or null) == "laptop";
+    nvidia.at = s: (s.gpu or null) == "nvidia";
+    ci-runner.at = s: lib.elem "ci-runner" (s.labels or [ ]);
+    gaming.at = all [ sven.aspects.workstation sven.aspects.nvidia (not sven.aspects.laptop) ];
+    backups.at = [ sven.aspects.server sven.aspects.workstation ];
+  };
+}
+```
+
+Roles combine like any predicate: `gaming` is a workstation with an nvidia GPU that is not a laptop.
+A role gives content with the usual keys (`nixos`, `homeManager`, …), and other aspects can use it in `at`.
+
+## Tags for deploy tools
+
+`sven.lib.holds` asks a predicate at a scope. One aspect turns the active roles into tags:
+
+
+```nix title="modules/tags.nix"
+# Tags from active roles: `sven.lib.holds` asks an aspect at a scope. A deploy tool can read them.
+{ sven, lib, ... }:
+{
+  sven.aspects.tags = {
+    at = sven.kinds.host;
+    out = { host, scope, ... }: {
+      tags.${host.name} = lib.filter (r: sven.lib.holds sven.aspects.${r} scope) [ "server" "workstation" "laptop" "nvidia" "ci-runner" "gaming" "backups" ];
+    };
+  };
+}
+```
+
+```nix title="result"
+{
+  rack-1 = [
+    "server"
+    "ci-runner"
+    "backups"
+  ];
+  rack-2 = [
+    "server"
+    "backups"
+  ];
+  thinkpad = [
+    "workstation"
+    "laptop"
+    "backups"
+  ];
+  tower = [
+    "workstation"
+    "nvidia"
+    "gaming"
+    "backups"
+  ];
+}
+```
+
+:::tip[Change a fact, not a list]
+Give `rack-2` the label `ci-runner`, and it gets the role, its content and its tag. Nothing else changes.
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `roles`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#roles'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - kinds.nix
+  - roles.nix
+  - tags.nix
+
+</FileTree>
+:::

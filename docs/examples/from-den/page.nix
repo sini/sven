@@ -1,0 +1,77 @@
+{
+  title = "From Den";
+  description = "Den's hosts, users, aspects, includes, defaults and batteries, in sven's four words.";
+  section = "migrate";
+  order = 3;
+
+  body = { docs, ... }: [
+    ''
+      [Den](https://github.com/denful/den) and sven share the aspect idea. The difference is where structure comes from.
+      Den gives you a schema: `den.hosts`, users, homes and context pipes. In sven you declare those kinds yourself, in
+      plain Nix, and every rule of how content moves is a sink you can read.
+
+      This page moves Den's default template to sven. The docs evaluate both and check that the host gets the same
+      account, groups, home, packages and state versions.
+    ''
+    (docs.table [ "Den" "sven" ] [
+      [ "`den.hosts.x86_64-linux.igloo.users.tux`" "instances: `sven.host.igloo`, `sven.user.tux` with `hosts = [ … ]`" ]
+      [ "`den.aspects.igloo.nixos`" "an aspect with `at = sven.host.igloo` and a `nixos` key" ]
+      [ "`den.default.nixos`" "an aspect with `at = sven.kinds.host`" ]
+      [ "`includes = [ den.batteries.x ]`" "the included aspect's `at` names the includer, from any file" ]
+      [ "`provides.to-users.homeManager`" "an aspect at the users `within` the host" ]
+      [ "`hasAspect`" "`sven.lib.holds`, and `r.graph` edges with `origin`" ]
+      [ "context pipes, `osConfig`" "args: a kind, a sink or `out` (the built flake)" ]
+      [ "`den.schema.*`" "`sven.kinds.<kind>.fields`" ]
+    ])
+    ''
+      ## The template, side by side
+    ''
+    (docs.tabs [
+      { label = "Den: den.nix"; body = docs.file "before/modules/den.nix"; }
+      { label = "sven: fleet.nix"; body = docs.file "modules/fleet.nix"; }
+    ])
+    ''
+      Den's schema is built in. In sven, `fleet.nix` says the same in one short file: hosts build NixOS, users live under their
+      hosts, a user's `homeManager` content goes into the host, and home-manager is active where a user lives.
+    ''
+    (docs.tabs [
+      { label = "Den: igloo.nix"; body = docs.file "before/modules/igloo.nix"; }
+      { label = "sven: igloo.nix"; body = docs.file "modules/igloo.nix"; }
+    ])
+    (docs.tabs [
+      { label = "Den: tux.nix"; body = docs.file "before/modules/tux.nix"; }
+      { label = "sven: tux.nix"; body = docs.file "modules/tux.nix"; }
+    ])
+    ''
+      ## Batteries are aspects
+
+      A battery is an aspect that you include. In sven you write the aspect once, without `at`, and each user of it
+      adds itself to `at`. `at` from several files is a union.
+    ''
+    (docs.tabs [
+      { label = "define-user.nix"; body = docs.file "modules/batteries/define-user.nix"; }
+      { label = "primary-user.nix"; body = docs.file "modules/batteries/primary-user.nix"; }
+      { label = "defaults.nix"; body = docs.file "modules/defaults.nix"; }
+    ])
+    (docs.note "Three Den bug families that cannot happen" ''
+      - **Double delivery.** An element has one id per receiver.
+      - **Lost content when one aspect is in two files.** A read queries all files. Nothing merges early.
+      - **A host's home content leaking to its users.** Elements go up the tree, never down.
+    '')
+    (docs.tip "Every Den capability" ''
+      The [reference fleet](https://github.com/vic/sven/tree/main/templates/fleet) shows every capability that Den's CI tests pin
+      (168 patterns), and den-hoag's laws, each with a check. See ${docs.fleet "modules/den/patterns.nix" null "den/patterns.nix"}.
+    '')
+  ];
+
+  e2e = { inputs, dir, flake, ... }:
+    let
+      sort = builtins.sort builtins.lessThan;
+      fp = c: let u = c.users.users.tux; h = c.home-manager.users.tux; in {
+        user = { inherit (u) isNormalUser home name; groups = sort u.extraGroups; };
+        home = { inherit (h.home) username homeDirectory stateVersion; packages = sort (map (p: p.name) h.home.packages); };
+        system = { inherit (c.system) stateVersion; hello = builtins.any (p: (p.pname or "") == "hello") c.environment.systemPackages; };
+      };
+      den = ((import (dir + "/before/flake.nix")).outputs inputs).nixosConfigurations.igloo.config;
+    in { same-facts = fp den == fp flake.nixosConfigurations.igloo.config; };
+}

@@ -1,0 +1,12 @@
+# Validate and stage a change program. Nothing is applied.
+#   nix eval --impure --json --file dry-run.nix --argstr program programs/new-cache.json
+{
+  program,
+  sven ? builtins.fetchTarball "https://github.com/vic/sven/archive/main.tar.gz",
+  nixpkgs ? builtins.fetchTarball "https://nixos.org/channels/nixos-25.05/nixexprs.tar.xz",
+  import-tree ? import (builtins.fetchTarball "https://github.com/denful/import-tree/archive/main.tar.gz"),
+}:
+(import sven).lib.program.dryRun {
+  base = { imports = [ (import-tree ./modules) ]; _module.args = { lib = import "${nixpkgs}/lib"; }; };
+  prog = builtins.fromJSON (builtins.readFile (./. + "/${program}"));
+}

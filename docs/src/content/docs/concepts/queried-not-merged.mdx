@@ -1,0 +1,154 @@
+---
+{"description":"Each read is a query on the files that answer it. Two answers for one leaf are an error, not an override.","editUrl":"https://github.com/vic/sven/blob/main/docs/examples/queried-not-merged/page.nix","title":"Data is queried, not merged"}
+---
+
+import { Aside, Badge, Card, CardGrid, FileTree, LinkButton, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+The NixOS module system merges every definition into one value, then reads it.
+sven does not merge. A read of a path is one query on the files that answer that path.
+
+Here two feature files declare settings at two paths of one field. Neither file knows the other:
+
+
+<Tabs>
+<TabItem label="features/zfs.nix">
+
+```nix title="modules/features/zfs.nix"
+# Each feature declares its own setting, at its own path, in its own file.
+{ sven, lib, ... }:
+{
+  sven.kinds.host.fields.settings.zfs.arcMax = sven.lib.maybe lib.types.int;
+  sven.kinds.environment.fields.settings.zfs.arcMax = sven.lib.maybe lib.types.int;
+}
+```
+
+</TabItem>
+<TabItem label="features/k3s.nix">
+
+```nix title="modules/features/k3s.nix"
+{ sven, lib, ... }:
+{
+  sven.kinds.host.fields.settings.k3s.role = sven.lib.opt lib.types.str "agent";
+}
+```
+
+</TabItem>
+</Tabs>
+
+A read of `host.settings.k3s.role` looks at the instance, then at the type default. It never reads `zfs.nix`.
+`r.declaredIn` answers which files declare a path:
+
+
+```nix title="result"
+[
+  "k3s.nix"
+  "zfs.nix"
+]
+```
+
+## Cascades
+
+A cascade is a list in your order. `sven.lib.cascade path xs` gives the first non-null value along `xs`.
+`nas` sets its own `arcMax`; `node` falls back to its environment:
+
+
+```nix title="modules/hosts.nix"
+{ sven, ... }:
+{
+  sven.kinds.host.fields.environment = sven.kinds.environment;
+  sven.environment.prod.settings.zfs.arcMax = 8;
+
+  sven.host.nas = { environment = sven.environment.prod; settings.zfs.arcMax = 32; };
+  sven.host.node = { environment = sven.environment.prod; settings.k3s.role = "server"; };
+}
+```
+
+```nix title="modules/report.nix" {8}
+# `cascade path xs`: the first non-null value along a list, in your order.
+{ sven, ... }:
+{
+  sven.aspects.report = {
+    at = sven.kinds.host;
+    report = { host, ... }: {
+      ${host.name} = {
+        arcMax = sven.lib.cascade [ "settings" "zfs" "arcMax" ] [ host host.environment ];
+        k3s = host.settings.k3s.role;
+      };
+    };
+  };
+}
+```
+
+```nix title="result"
+{
+  nas = {
+    arcMax = 32;
+    k3s = "agent";
+  };
+  node = {
+    arcMax = 8;
+    k3s = "server";
+  };
+}
+```
+
+## Two answers are an error
+
+One leaf with two different values is not an override. It is an error record, and you keep one answer:
+
+
+```nix title="variants/override.nix"
+# A second, different answer for one leaf. Data never overrides data.
+{ sven, ... }:
+{
+  sven.host.nas.settings.zfs.arcMax = 16;
+}
+```
+
+```nix title="result"
+[
+  {
+    class = "fixable";
+    code = "two-answers";
+    error = "two answers for host.nas.settings.zfs.arcMax";
+    fix = "keep one answer for host.nas.settings.zfs.arcMax: data never overrides data";
+    from = "declarations";
+    got = 2;
+    path = [
+      "host"
+      "nas"
+      "settings"
+      "zfs"
+      "arcMax"
+    ];
+  }
+]
+```
+
+:::note[Same value, no error]
+Two files that give the same value for one leaf are fine. Only a conflict is an error.
+Lists and attrsets for aspect keys are elements, not leaves: see [Aspects](/concepts/aspects/).
+:::
+
+:::tip[Run this example]
+Every block on this page is a file of the template `queried-not-merged`. Copy it and run it:
+
+```sh frame="terminal"
+nix flake init -t 'github:vic/sven?dir=docs#queried-not-merged'
+```
+
+<FileTree>
+
+- flake.nix
+- modules/
+  - features/
+    - k3s.nix
+    - zfs.nix
+  - fleet.nix
+  - hosts.nix
+  - report.nix
+- variants/
+  - override.nix
+
+</FileTree>
+:::

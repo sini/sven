@@ -63,7 +63,7 @@ let
       else v;
     agent = r: r.agent;
     # valid time: an instance with validFrom / validTo (ISO dates) holds at a date the caller passes; no clock in pure eval
-    validAt = date: s: (s.validFrom or "0000-00-00") <= date && date <= (s.validTo or "9999-12-31");
+    validAt = date: s: let bound = k: d: if (s.${k} or null) == null then d else s.${k}; in bound "validFrom" "0000-00-00" <= date && date <= bound "validTo" "9999-12-31";   # absent or null: open
     krn = import ./lib/krn.nix;           # µKanren: logic variables, unification, run, fresh, conde, appendo, facto
   };
 
@@ -292,8 +292,8 @@ let
           okOf = x: x ? ok && (!(d ? of) || checkOf d.of x.ok);
           red = (d.reduce or reduce.list) (map (x: { from = x.e.from; value = x.ok; }) (filter okOf filled));
           bad = map (x: if x ? error then err x.from "${x.e.origin}: ${x.error}" else err r.id "sink ${k}: element of ${x.e.origin} from ${x.e.from.id} fails `of`") (filter (x: !okOf x) filled);
-        in { value = red.value; errors = bad ++ red.errors; };
-      emitted = concatMap (e: let x = fill e.from e.value; in if x ? ok then map (m: err e.from.id m) (toList x.ok) else [ (err x.from "${e.origin}: ${x.error}") ])
+        in { value = red.value; errors = bad ++ map (e: e // { from = r.id; sink = k; }) red.errors; };   # a strategy cannot know its receiver: the engine names it
+      emitted = concatMap (e: let x = fill e.from e.value; in if x ? ok then map (m: if isAttrs m then errWith e.from.id (m.error or "error") (removeAttrs m [ "from" ]) else err e.from.id m) (toList x.ok) else [ (err x.from "${e.origin}: ${x.error}") ])   # a record or a message; `from` is always the giver
         (filter (e: e.key == "errors") given);
 
       # ── run: sinks feed drivers, drivers feed sources, Nix laziness closes the loop. Every output is a query ──
