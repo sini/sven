@@ -398,12 +398,25 @@ let
       };
       errorsAll = loadErrors ++ declErrors [ ] ++ concatMap (k: concatMap (n: instErrors k n [ ]) (instNames k)) kindNames
         ++ treeErrors ++ atErrors ++ orderErrors ++ requestErrors ++ reduceErrors ++ emitted;
+      self = {
+        inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent;
+        errors = errorsAll;
+        flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
+        # stored queries: `sven.queries.<name> = { host, r, ... }: …`. `r` is this result; the other formals are the
+        # query's parameters, required unless they have a default. `ask name args` never throws: a missing or unknown
+        # parameter, or an unknown query, is an error record.
+        queries = mapAttrs (n: f: let fa = functionArgs f; ps = filter (a: a != "r") (attrNames fa); in {
+          required = filter (a: !fa.${a}) ps; optional = filter (a: fa.${a}) ps;
+        }) (top.queries or { });
+        ask = n: args:
+          if !((top.queries or { }) ? ${n}) then errWith "ask" "no query ${n}" { code = "unknown-query"; near = near n (attrNames (top.queries or { })); }
+          else let q = self.queries.${n}; missing = filter (a: !(args ? ${a})) q.required; extra = filter (a: !elem a (q.required ++ q.optional)) (attrNames args); in
+            if missing != [ ] then errWith "ask" "query ${n}: missing ${head missing}" { code = "missing-param"; want = q.required; got = attrNames args; }
+            else if extra != [ ] then errWith "ask" "query ${n}: unknown parameter ${head extra}" { code = "unknown-param"; near = near (head extra) (q.required ++ q.optional); }
+            else static.jsonSafe (top.queries.${n} (args // { r = self; }));
+      };
     in
-    {
-      inherit scopes active reduced graph undefined declaredIn check facts schema explain context agent;
-      errors = errorsAll;
-      flake = if top ? flake && scopes != [ ] then (fill (head scopes) top.flake).ok or null else null;
-    };
+    self;
 in
 let
   # grants that only narrow: a grant names scope id prefixes and sinks (null: every sink). Two grants meet: a scope

@@ -203,6 +203,11 @@ let
       c.received.truncated == { shown = 1; of = 3; } && b.length c.received.items == 1 && c.aspects.items == [ "firewall" "more" ] && c.parent == "top:t"
       && (r.context "top:t/host:q" { }).code == "unknown-scope" && b.length (r.context "top:t/host:q" { }).near == 2
       && b.fromJSON (b.toJSON c) == c;
+    stored-queries = let r = ports { sven.queries = { portOf = { host, r, ... }: (b.head (b.filter (s: s.name == host) r.scopes)).port; count = { kind ? "host", r }: b.length (b.filter (s: s.kind == kind) r.scopes); }; }; in
+      r.queries == { count = { required = [ ]; optional = [ "kind" ]; }; portOf = { required = [ "host" ]; optional = [ ]; }; }
+      && r.ask "portOf" { host = "b"; } == 80 && r.ask "count" { } == 2 && r.ask "count" { kind = "top"; } == 1
+      && (r.ask "portOf" { }).code == "missing-param" && (r.ask "portOf" { host = "a"; hots = 1; }).code == "unknown-param"
+      && (r.ask "portof" { }).near == [ "portOf" ];
     invariants-why =(b.head ((ports { }).check.why "bad:no-firewall:top:t/host:b")).neg == [ "has:firewall:top:t/host:b" ];
     graphs-reach = G.reach dag "app" == [ "cache" "db" "net" ] && G.reach dag "net" == [ ] && G.reachers dag "net" == [ "app" "cache" "db" ];
     graphs-topo = G.topo dag == { ok = true; order = [ "net" "cache" "db" "app" ]; stuck = [ ]; }
