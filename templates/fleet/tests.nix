@@ -5,6 +5,7 @@ let
   inputs = (builtins.getFlake "path:${toString ../..}?dir=templates/fleet").inputs;
   inherit (inputs.nixpkgs) lib;
   sven = (import inputs.sven).lib;
+  b = builtins;
   fleet = extra: {
     imports = [ (inputs.import-tree ./modules) ] ++ extra;
     _module.args = { inherit inputs lib; };
@@ -265,6 +266,15 @@ let
       && hasMsg (with' (guest "big" [ 9 12 ])) ".*the guests of stage do not fit in 16 GiB with 6 reserved.*";
     krn-placement = out.dbPlacement == { lb = [ "lb" ]; stage = [ "stage" ]; web-1 = [ "lb" ]; web-2 = [ "lb" ]; }
       && lib.sort (a: b: a < b) out.takes8081 == [ "grafana" "loki" "prometheus" ];
+    agent-check = r.check.ok && r.check.invariants == [ "attic" "base" "ssh" ] && r.check.violations == [ ];
+    agent-stage = let s = sven.stage { base = fleet [ ]; change = { sven.aspects.attic.at = [ { kind = "mac"; name = "studio"; } ]; }; }; in
+      !s.ok && s.violations == [ "bad:attic-on-mac:${studio}" ] && s.diff.active.added == [ "attic@${studio}" ] && b.isString s.render;
+    agent-grant = let g = sven.grant { scopes = [ S ]; }; st = to: sven.stage { base = fleet [ ]; change = { sven.aspects.attic.at = [ to ]; }; grant = g; invariants = false; }; in
+      (st { kind = "host"; name = "stage"; }).refused == [ ] && lib.unique (map (e: e.code) (st { kind = "host"; name = "web-1"; }).refused) == [ "outside-grant" ];
+    agent-explain = let e = r.explain "attic" lb 2; in e.active && lib.any (f: lib.hasSuffix "modules/sini/secrets.nix" f) e.files && e.gives != [ ];
+    agent-context = let c = r.context lb { maxEdges = 5; }; in c.received.truncated.shown == 5 && c.received.truncated.of > 5 && b.fromJSON (b.toJSON c) == c;
+    agent-schema = r.schema.kinds.host.sinks.deploy.reduce == "one" && r.schema.kinds.environment.sinks.k3s-nodes.reduce == "entries"
+      && b.elem "sshd" (lib.attrNames r.schema.aspects) == false && r.schema.aspects.clan-sshd.activeAt > 0 && b.fromJSON (b.toJSON r.agent) == r.agent;
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };
