@@ -175,8 +175,8 @@ let
   };
   invView = {
     nodes = map (n: { id = "i:${n}"; label = n; kind = "aspect"; }) (lib.attrNames sven.invariants)
-      ++ map (f: { id = "f:${f}"; label = baseNameOf f; kind = "output"; }) (lib.unique (lib.concatMap (n: sven.lib.declaredIn [ "invariants" n ]) (lib.attrNames sven.invariants)));
-    edges = lib.concatMap (n: map (f: { from = "f:${f}"; to = "i:${n}"; }) (sven.lib.declaredIn [ "invariants" n ])) (lib.attrNames sven.invariants);
+      ++ map (f: { id = "f:${f}"; label = f; kind = "output"; }) (lib.unique (lib.concatMap (n: map baseNameOf (sven.lib.declaredIn [ "invariants" n ])) (lib.attrNames sven.invariants)));   # base names: the same in the working tree and the store
+    edges = lib.concatMap (n: map (f: { from = "f:${baseNameOf f}"; to = "i:${n}"; }) (sven.lib.declaredIn [ "invariants" n ])) (lib.attrNames sven.invariants);
   };
   mcpTools = sorted (lib.filter lib.isString (lib.flatten (map (l: builtins.match ".*\"name\":\"(sven_[a-z_]+)\".*" l)
     (lib.splitString "\n" (builtins.replaceStrings [ "{" ] [ "\n{" ] (builtins.readFile ../../mcp/sven-mcp.sh))))));

@@ -1318,13 +1318,13 @@ flowchart LR
   nc8da1a487b["ssh"]
   ne10dd2e08e["trust-order"]
   n411692d32a["unique-addr"]
-  nd03003cddb[("invariants.nix")]
-  nd03003cddb --> n8dd0fe8499
-  nd03003cddb --> ncd1535385b
-  nd03003cddb --> n0b92436946
-  nd03003cddb --> nc8da1a487b
-  nd03003cddb --> ne10dd2e08e
-  nd03003cddb --> n411692d32a
+  necbadde1b9[("invariants.nix")]
+  necbadde1b9 --> n8dd0fe8499
+  necbadde1b9 --> ncd1535385b
+  necbadde1b9 --> n0b92436946
+  necbadde1b9 --> nc8da1a487b
+  necbadde1b9 --> ne10dd2e08e
+  necbadde1b9 --> n411692d32a
 ```
 
 **MCP tools** (14): `sven_ask`, `sven_check`, `sven_context`, `sven_declared_in`, `sven_errors`, `sven_explain`, `sven_export`, `sven_impact`, `sven_labels`, `sven_program`, `sven_queries`, `sven_schema`, `sven_stage`, `sven_why_not`.
