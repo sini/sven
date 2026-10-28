@@ -216,10 +216,10 @@ let
     clan-multi-instance = lib.sort (a: b: a < b) (lib.concatMap lib.attrNames (nixosAt lb [ "users" "users" ])) == [ "svc-a" "svc-b" ];
     clan-per-machine = lib.length (osAt lb [ "services" "openssh" "enable" ]) == 1 && (let es = lib.filter (e: e.origin == "aspect clan-sshd") r.graph.edges; in es != [ ] && lib.all (e: e.from == e.to) es) && lib.length (lib.filter (s: s.kind == "member" && s.parent.id == lb && s.service == "sshd") r.scopes) == 2;
     clan-exports = nixosAt web1 [ "services" "borgbackup" "jobs" "backup" "repo" ] == [ "borg@10.0.1.1:/srv/web-1" ]
-      && map (e: "${e.service}:${e.instance}:${e.role}:${e.machine}") (red "exports" "fleet:main") == [ "borg:backup:server:lb" ];
-    clan-exports-owned = map (e: e.service) (red "exports" "fleet:main" ++ [ ]) == [ "borg" ]
+      && map (e: "${e.service}:${e.instance}:${e.role}:${e.machine}") (red "exports" "fleet:main") == [ "borg:backup:server:lb" "site:docs:default:web-1" ];
+    clan-exports-owned = map (e: e.service) (red "exports" "fleet:main" ++ [ ]) == [ "borg" "site" ]
       && lib.sort (a: b: a < b) (map (e: e.service) ((with' ({ sven, ... }: { sven.aspects.forge = { at = sven.lib.all [ sven.kinds.member (s: s.service == "sshd") ]; exports = { service = "borg"; }; }; })).reduced.exports."fleet:main"))
-        == [ "borg" "sshd" ];
+        == [ "borg" "site" "sshd" ];
     clan-exports-per-instance = let x = with' ({ ... }: { sven.instance.offsite = { module = "borg"; roles = { client.machines.web-1 = { }; server.machines.web-2 = { }; }; }; });
         job = n: map (v: v.services.borgbackup.jobs.${n}.repo or null) (list (x.reduced.nixos.${web1} or null)); in
       lib.elem "borg@10.0.1.11:/srv/web-1" (job "offsite") && lib.elem "borg@10.0.1.1:/srv/web-1" (job "backup");
@@ -245,6 +245,9 @@ let
       && (let x = with' ({ ... }: { sven.instance.ghost = { module = "banner"; roles.default.tags = [ "nobody" ]; }; }); in
         lib.flatten (x.reduced.warnings."fleet:main") == [ "clan: instance ghost role default: tag nobody matches no machine" ]
         && !lib.any (e: lib.hasInfix "nobody" e.error) x.errors);
+    clan-cross-service-exports = out.cnames == [ { name = "docs.example.org"; target = "web-1"; } ];
+    clan-vars-deploy-false = !lib.any (f: f.file == "ca-key") out.varsPlan.stage.files && lib.any (f: f.file == "password") out.varsPlan.stage.files;
+    clan-recipients = out.varsPlan.lb.recipients == [ "age1lb" "age1admin" ] && out.varsPlan.web-1.recipients == [ "age1admin" ];
     clan-extra-modules = lib.elem { imports = [ { environment.etc."extra".text = "svc-a"; } ]; } (list (red "os" lb));
     clan-contract = let e = with' ({ sven, ... }: { sven.instance = {
         bad-role.roles.nope.machines.lb = { }; empty = { module = "sshd"; roles = { }; };

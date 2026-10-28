@@ -28,13 +28,16 @@ in
       varsPlan = lib.genAttrs machineNames (m:
         let mine = lib.filterAttrs (_: g: lib.elem m g.machines) generators; in {
           files = lib.concatLists (lib.mapAttrsToList (_: g: lib.mapAttrsToList (f: d: { generator = g.name; file = f; path = pathOf g.name f d; neededForUsers = d.neededFor or null == "users"; })
-            (lib.filterAttrs (_: d: d.secret or true) (g.files or { }))) mine);
+            (lib.filterAttrs (_: d: (d.secret or true) && (d.deploy or true)) (g.files or { }))) mine);   # deploy = false: never on the machine (a root CA key)
+          recipients = let r = sven.fleet.main.recipients; in r.hosts.${m} or r.default;   # a host list replaces the default, never adds to it
           order = (lib.toposort (a: b: lib.elem a.name (b.dependencies or [ ])) (lib.attrValues mine)).result or [ ];
         });
     };
   };
   sven.kinds.fleet.sinks.public-reads.reduce = sven.lib.reduce.entries;
   sven.kinds.fleet.fields.secretStore = opt (sven.helpers.enum [ "sops" "age" "password-store" ]) "sops";
+  sven.kinds.fleet.fields.recipients = opt (sven.lib.is lib.isAttrs) { default = [ ]; hosts = { }; };
+  sven.fleet.main.recipients = { default = [ "age1admin" ]; hosts.lb = [ "age1lb" "age1admin" ]; };
   sven.kinds.machine.fields.secretStore = maybe (sven.helpers.enum [ "sops" "age" "password-store" ]);
   sven.aspects.vars-guard = {
     at = sven.kinds.fleet;
@@ -53,7 +56,7 @@ in
     public-reads = { scope, ... }: { machine = scope.name; generator = "openssh"; file = "ssh.id_ed25519.pub"; };
     os = { scope, ... }: { environment.etc."ssh/host-key.pub".text = publicValue scope.name "openssh" "ssh.id_ed25519.pub" "absent"; };
   };
-  sven.aspects.vars-wifi = { at = all [ sven.kinds.member (s: s.service == "wifi") ]; generators = { name = "wifi.home"; share = true; files.password.secret = true; }; };
+  sven.aspects.vars-wifi = { at = all [ sven.kinds.member (s: s.service == "wifi") ]; generators = { name = "wifi.home"; share = true; files = { password.secret = true; ca-key = { secret = true; deploy = false; }; }; }; };
   sven.aspects.vars-borg = {
     at = all [ sven.kinds.member (s: s.service == "borg" && s.role == "client") ];
     generators = { member, ... }: { name = "borg-${member.instance}"; dependencies = [ "openssh" ]; files.passphrase = { secret = true; neededFor = "users"; restartUnits = [ "borgbackup-job-${member.instance}.service" ]; }; };
