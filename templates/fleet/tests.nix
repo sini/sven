@@ -1668,8 +1668,9 @@ let
       in
       lib.hasInfix "sh:targetClass <https://sven.dev/fleet/kind/host>" t
       && lib.hasInfix "<https://sven.dev/fleet/field/environment> ; sh:maxCount 1 ; sh:class <https://sven.dev/fleet/kind/environment>" t
-      && lib.hasInfix "<https://sven.dev/fleet/instance/environment/lab> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://sven.dev/fleet/kind/environment>" (
-        sven.rdf.ntriples r
+      # a line of the pack, not a regex over 700 KB: `.*` regexes recurse per character and overflow the stack (nix 2.35)
+      && lib.elem "<https://sven.dev/fleet/instance/environment/lab> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://sven.dev/fleet/kind/environment> ." (
+        lib.splitString "\n" (sven.rdf.ntriples r)
       );
     # an agent's change between machines is refused BEFORE deploy, with the reason
     safety-db-cross-env =

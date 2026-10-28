@@ -120,11 +120,15 @@ A change to the engine also needs a test in `tests/default.nix`. Keep the engine
 | `fleet-e2e` | fleet | the reference fleet's real evaluations |
 | `fleet-cost` | fleet | the trimmed-module-list cost oracle |
 | `fleet-mcp` | fleet | the MCP server tests |
-| `fleet-check` | fleet | nix flake check of the fleet (the VM test needs KVM) |
+| `fleet-check` | fleet | nix flake check of the fleet (VM tests are vmTests, not checks) |
+| `fleet-eval` | fleet | fleet-eval SYSTEM: every ci.json target of SYSTEM evaluates to a derivation |
 | `fleet-write` | fleet | regenerate the fleet's README.md and ci.json |
 | `fleet-flake` | fleet | regenerate the fleet's flake.nix |
 | `fmt-check` | fmt | every tracked nix file is formatted (nixfmt), as CI checks |
+| `lint` | fmt | the workflows are valid (actionlint, with shellcheck) |
 | `fmt` | fmt | format every tracked nix file (nixfmt) |
+| `issue-eval` | issue | issue-eval BODY DIR: an issue's nix blocks as one fleet, restricted; writes DIR/comment.md |
+| `issue-comment` | issue | issue-comment NUMBER FILE: post FILE on issue NUMBER, replacing sven's last comment (needs GH_TOKEN) |
 
 ## Generated files
 

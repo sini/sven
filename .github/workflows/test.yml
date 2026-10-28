@@ -3,8 +3,6 @@
 "concurrency":
   "cancel-in-progress": true
   "group": "${{ github.workflow }}-${{ github.ref }}"
-"env":
-  "FLEET": "path:${{ github.workspace }}?dir=templates/fleet"
 "jobs":
   "docs":
     "needs":
@@ -21,18 +19,13 @@
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
         "name": "docs examples"
-        "run": |
-          out=$(nix eval --impure --file tests.nix failed)
-          echo "failed = $out"
-          test "$out" = "[ ]"
-        "working-directory": "docs"
+        "run": "nix develop ./docs -c docs-test"
       -
-        "name": "docs flake check: pages and this workflow current, examples, e2e"
-        "run": "nix flake check -L \"git+file://${{ github.workspace }}?dir=docs\""
+        "name": "docs flake check: pages and workflows current, examples, e2e"
+        "run": "nix develop ./docs -c docs-check"
       -
         "name": "site build"
-        "run": "nix shell nixpkgs#nodejs nixpkgs#pnpm -c sh -c 'CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false && pnpm build'"
-        "working-directory": "docs"
+        "run": "nix develop ./docs -c docs-build"
     "timeout-minutes": 60
   "engine":
     "needs":
@@ -49,13 +42,10 @@
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
         "name": "engine and library oracles"
-        "run": |
-          out=$(nix-instantiate --eval --strict tests -A failed)
-          echo "failed = $out"
-          test "$out" = "[ ]"
+        "run": "nix develop ./docs -c engine-test"
       -
         "name": "cost oracles (memos)"
-        "run": "bash tests/cost.sh"
+        "run": "nix develop ./docs -c engine-cost"
     "timeout-minutes": 20
   "eval-aarch64-darwin":
     "needs":
@@ -71,21 +61,8 @@
         "with":
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
-        "env":
-          "ATTR": "devShells.aarch64-darwin.default"
-        "name": "evaluate devshell-aarch64-darwin"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "darwinConfigurations.studio.config.system.build.toplevel"
-        "name": "evaluate studio"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
+        "name": "every aarch64-darwin target of ci.json evaluates"
+        "run": "nix develop ./docs -c fleet-eval aarch64-darwin"
     "timeout-minutes": 30
   "eval-aarch64-linux":
     "needs":
@@ -101,13 +78,8 @@
         "with":
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
-        "env":
-          "ATTR": "devShells.aarch64-linux.default"
-        "name": "evaluate devshell-aarch64-linux"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
+        "name": "every aarch64-linux target of ci.json evaluates"
+        "run": "nix develop ./docs -c fleet-eval aarch64-linux"
     "timeout-minutes": 30
   "eval-x86_64-linux":
     "needs":
@@ -123,93 +95,8 @@
         "with":
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
-        "env":
-          "ATTR": "homeConfigurations.\"alice-laptop\".activationPackage"
-        "name": "evaluate alice-laptop"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "homeConfigurations.\"alice@stage\".activationPackage"
-        "name": "evaluate alice@stage"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.app-1.config.system.build.toplevel"
-        "name": "evaluate app-1"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.app-2.config.system.build.toplevel"
-        "name": "evaluate app-2"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.app-3.config.system.build.toplevel"
-        "name": "evaluate app-3"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.app-4.config.system.build.toplevel"
-        "name": "evaluate app-4"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "devShells.x86_64-linux.default"
-        "name": "evaluate devshell-x86_64-linux"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.lb.config.system.build.toplevel"
-        "name": "evaluate lb"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.stage.config.system.build.toplevel"
-        "name": "evaluate stage"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.web-1.config.system.build.toplevel"
-        "name": "evaluate web-1"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
-      -
-        "env":
-          "ATTR": "nixosConfigurations.web-2.config.system.build.toplevel"
-        "name": "evaluate web-2"
-        "run": |
-          drv=$(nix eval --raw "$FLEET#$ATTR.drvPath")
-          echo "$drv"
-          case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
+        "name": "every x86_64-linux target of ci.json evaluates"
+        "run": "nix develop ./docs -c fleet-eval x86_64-linux"
     "timeout-minutes": 30
   "flake-check":
     "needs":
@@ -225,8 +112,8 @@
         "with":
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
-        "name": "nix flake check"
-        "run": "nix flake check -L \"$FLEET\""
+        "name": "nix flake check of the fleet"
+        "run": "nix develop ./docs -c fleet-check"
     "timeout-minutes": 120
   "fleet":
     "needs":
@@ -243,26 +130,16 @@
           "github_access_token": "${{ secrets.GITHUB_TOKEN }}"
       -
         "name": "fleet checks"
-        "run": |
-          out=$(nix eval --impure --file tests.nix failed)
-          echo "failed = $out"
-          test "$out" = "[ ]"
-        "working-directory": "templates/fleet"
+        "run": "nix develop ./docs -c fleet-test"
       -
         "name": "real evaluations (e2e)"
-        "run": |
-          out=$(nix eval --impure --file tests.nix e2e.failed)
-          echo "e2e.failed = $out"
-          test "$out" = "[ ]"
-        "working-directory": "templates/fleet"
+        "run": "nix develop ./docs -c fleet-e2e"
       -
         "name": "trimmed module lists cost oracle"
-        "run": "bash cost.sh"
-        "working-directory": "templates/fleet"
+        "run": "nix develop ./docs -c fleet-cost"
       -
         "name": "MCP server and flake app"
-        "run": "bash mcp/test.sh"
-        "working-directory": "templates/fleet"
+        "run": "nix develop ./docs -c fleet-mcp"
     "timeout-minutes": 120
   "fmt":
     "runs-on": "ubuntu-latest"
@@ -279,8 +156,8 @@
         "name": "every nix file is formatted (nixfmt)"
         "run": "nix develop ./docs -c fmt-check"
       -
-        "name": "the generated workflows are valid (actionlint)"
-        "run": "nix run nixpkgs#actionlint -- .github/workflows/*.yml"
+        "name": "the workflows are valid (actionlint)"
+        "run": "nix develop ./docs -c lint"
     "timeout-minutes": 30
 "name": "test"
 "on":

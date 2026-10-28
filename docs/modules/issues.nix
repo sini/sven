@@ -79,30 +79,9 @@ let
         }
         { uses = "cachix/install-nix-action@v31"; }
         {
-          name = "extract the nix blocks";
-          env.BODY = "\${{ github.event.issue.body }}";
-          run = ''
-            printf '%s' "$BODY" > "$RUNNER_TEMP/body.md"
-            bash docs/issue/extract.sh "$RUNNER_TEMP/body.md" "$RUNNER_TEMP/blocks"
-          '';
-        }
-        {
-          name = "evaluate them as one fleet (pure, restricted, no token)";
-          run = ''
-            np=$(nix flake prefetch --json "$(jq -r .nodes.nixpkgs.locked.url docs/flake.lock)" | jq -r .storePath)
-            set +e
-            timeout 120 nix-instantiate --eval --strict --json --restrict-eval \
-              -I sven="$PWD" -I nixpkgs="$np" -I blocks="$RUNNER_TEMP/blocks" \
-              --expr 'import ./docs/issue/eval.nix { sven = <sven>; nixpkgs = <nixpkgs>; blocks = <blocks>; }' \
-              > "$RUNNER_TEMP/out.json" 2> "$RUNNER_TEMP/err.txt"
-            rc=$?
-            {
-              echo "sven evaluated the \`nix\` blocks of this issue as one fleet ([docs/issue/eval.nix](https://github.com/vic/sven/blob/main/docs/issue/eval.nix), sven at $GITHUB_SHA)."
-              echo
-              if [ "$rc" = 0 ]; then echo '```json'; jq . "$RUNNER_TEMP/out.json"; else echo "Evaluation failed (exit $rc):"; echo; echo '```text'; grep -v '^warning' "$RUNNER_TEMP/err.txt" | tail -40; fi
-              echo '```'
-            } > "$RUNNER_TEMP/comment.md"
-          '';
+          name = "evaluate the nix blocks as one fleet (pure, restricted, no token)";
+          env.ISSUE_BODY = "\${{ github.event.issue.body }}";
+          run = "nix develop ./docs -c issue-eval - \"$RUNNER_TEMP/issue\"";
         }
         {
           name = "comment";
@@ -111,9 +90,7 @@ let
             GH_REPO = "\${{ github.repository }}";
             NUMBER = "\${{ github.event.issue.number }}";
           };
-          run = ''
-            gh issue comment "$NUMBER" --edit-last --body-file "$RUNNER_TEMP/comment.md" || gh issue comment "$NUMBER" --body-file "$RUNNER_TEMP/comment.md"
-          '';
+          run = "nix develop ./docs -c issue-comment \"$NUMBER\" \"$RUNNER_TEMP/issue/comment.md\"";
         }
       ];
     };

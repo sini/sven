@@ -1,5 +1,6 @@
 # `nix develop` in docs/: a numtide/devshell. Its commands are a sink: each aspect gives the commands of its part.
 # Every command runs from the repo root, whatever the directory: `nix develop ./docs` from the root, or `nix develop` in docs/.
+# CI runs these commands and nothing else (modules/ci.nix), so every CI step runs the same way locally.
 {
   sven,
   lib,
@@ -7,28 +8,45 @@
   ...
 }:
 let
-  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-  nixfmt = lib.getExe pkgs.nixfmt-rfc-style; # pinned: the same nixfmt as the fleet's flake-file
+  systems = [
+    "x86_64-linux"
+    "aarch64-linux"
+    "aarch64-darwin"
+  ];
+  # tools are called by name, so a command's text is the same on every system
   cmd = category: name: help: command: {
     inherit category name help;
     command = "set -eu; cd \"$(git rev-parse --show-toplevel)\"; ${command}";
   }; # from any directory of the repo
   empty = what: expr: ''out=$(${expr}); echo "${what} = $out"; test "$out" = "[ ]"'';
+  fleet = "path:$PWD?dir=templates/fleet";
 in
 {
   sven.kinds.site.sinks.commands.out =
     { commands, ... }:
     {
-      devShells.x86_64-linux.default = inputs.devshell.legacyPackages.x86_64-linux.mkShell {
-        name = "sven-docs";
-        packages = [
-          pkgs.nodejs
-          pkgs.pnpm
-          pkgs.jq
-          pkgs.git
-        ];
-        commands = lib.concatLists commands; # each aspect gives a list
-      };
+      devShells = lib.genAttrs systems (
+        system:
+        let
+          pkgs = inputs.nixpkgs.legacyPackages.${system};
+        in
+        {
+          default = inputs.devshell.legacyPackages.${system}.mkShell {
+            name = "sven-docs";
+            packages = [
+              pkgs.nodejs
+              pkgs.pnpm
+              pkgs.jq
+              pkgs.git
+              pkgs.nixfmt-rfc-style # the same nixfmt as the fleet's flake-file
+              pkgs.actionlint
+              pkgs.shellcheck
+              pkgs.gh
+            ];
+            commands = lib.concatLists commands; # each aspect gives a list
+          };
+        }
+      );
     };
 
   sven.aspects.docs-commands = {
@@ -58,10 +76,21 @@ in
     at = sven.kinds.site;
     commands = [
       (cmd "fmt" "fmt-check" "every tracked nix file is formatted (nixfmt), as CI checks"
-        "git ls-files -z '*.nix' | timeout 60 xargs -0 ${nixfmt} --check"
+        "git ls-files -z '*.nix' | timeout 60 xargs -0 nixfmt --check"
+      )
+      (cmd "issue" "issue-eval"
+        "issue-eval BODY DIR: an issue's nix blocks as one fleet, restricted; writes DIR/comment.md"
+        "bash docs/issue/run.sh \"$@\""
+      )
+      (cmd "issue" "issue-comment"
+        "issue-comment NUMBER FILE: post FILE on issue NUMBER, replacing sven's last comment (needs GH_TOKEN)"
+        "gh issue comment \"$1\" --edit-last --body-file \"$2\" || gh issue comment \"$1\" --body-file \"$2\""
+      )
+      (cmd "fmt" "lint" "the workflows are valid (actionlint, with shellcheck)"
+        "actionlint .github/workflows/*.yml"
       )
       (cmd "fmt" "fmt" "format every tracked nix file (nixfmt)"
-        "git ls-files -z '*.nix' | xargs -0 ${nixfmt}"
+        "git ls-files -z '*.nix' | xargs -0 nixfmt"
       )
     ];
   };
@@ -87,8 +116,19 @@ in
         "cd templates/fleet && bash cost.sh"
       )
       (cmd "fleet" "fleet-mcp" "the MCP server tests" "bash templates/fleet/mcp/test.sh")
-      (cmd "fleet" "fleet-check" "nix flake check of the fleet (the VM test needs KVM)"
-        "nix flake check -L \"path:$PWD?dir=templates/fleet\""
+      (cmd "fleet" "fleet-check" "nix flake check of the fleet (VM tests are vmTests, not checks)"
+        "nix flake check -L \"${fleet}\""
+      )
+      (cmd "fleet" "fleet-eval"
+        "fleet-eval SYSTEM: every ci.json target of SYSTEM evaluates to a derivation"
+        ''
+          system=''${1:?usage: fleet-eval SYSTEM}
+          jq -r --arg s "$system" '.[] | select(.system == $s) | .attr' templates/fleet/ci.json | while read -r attr; do
+            drv=$(nix eval --raw "${fleet}#$attr.drvPath")
+            echo "$attr $drv"
+            case "$drv" in /nix/store/*.drv) ;; *) exit 1 ;; esac
+          done
+        ''
       )
       (cmd "fleet" "fleet-write" "regenerate the fleet's README.md and ci.json"
         "cd templates/fleet && nix run .#write-files"
