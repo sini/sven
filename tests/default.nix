@@ -1857,7 +1857,11 @@ let
       ]
       && !(has gaps "two answers for aspects.multi.nixos");
     sink-arg-element-per-receiver =
-      sinkArgs.reduced.seen."fleet:main" == [ "prod" "staging" ] && msgs sinkArgs == [ ]; # a and c read one tag: once
+      sinkArgs.reduced.seen."fleet:main" == [
+        "prod"
+        "staging"
+      ]
+      && msgs sinkArgs == [ ]; # a and c read one tag: once
     gap-static-once-per-receiver =
       b.length (b.filter (v: v == "marker") gaps.reduced.nixos."fleet:main/host:h1") == 1;
     gap-bad-at = has gaps "`at` holds a string, not a predicate";
